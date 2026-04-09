@@ -102,18 +102,19 @@ export async function downloadFile(filePath: string): Promise<ArrayBuffer | null
 }
 
 /**
- * Transcribe un archivo de audio usando Claude de Anthropic.
- * Claude puede procesar audio directamente como contenido multimodal.
+ * Transcribe un archivo de audio usando OpenAI Whisper.
+ * Whisper soporta bien el formato OGG/Opus de Telegram.
  */
 export async function transcribeAudioWithClaude(audioBuffer: ArrayBuffer, filename: string): Promise<string | null> {
-  const Anthropic = (await import('@anthropic-ai/sdk')).default
-  const anthropic = new Anthropic()
+  const OpenAI = (await import('openai')).default
+  const openai = new OpenAI()
 
   // Determinar el tipo MIME según la extensión
   const ext = filename.split('.').pop()?.toLowerCase() || 'ogg'
   const mimeTypes: Record<string, string> = {
     'ogg': 'audio/ogg',
     'oga': 'audio/ogg',
+    'opus': 'audio/ogg',
     'mp3': 'audio/mpeg',
     'wav': 'audio/wav',
     'webm': 'audio/webm',
@@ -123,37 +124,25 @@ export async function transcribeAudioWithClaude(audioBuffer: ArrayBuffer, filena
   }
   const mediaType = mimeTypes[ext] || 'audio/ogg'
 
-  // Convertir a base64
-  const base64Audio = Buffer.from(audioBuffer).toString('base64')
+  console.log(`Audio transcription: file=${filename}, ext=${ext}, mime=${mediaType}, size=${audioBuffer.byteLength} bytes`)
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: 'Transcribí este audio palabra por palabra. Solo devolvé la transcripción, sin explicaciones ni comentarios adicionales.'
-          },
-          {
-            type: 'input_audio',
-            source: {
-              type: 'base64',
-              media_type: mediaType,
-              data: base64Audio,
-            },
-          },
-        ] as any, // Type assertion: SDK types may not include input_audio yet
-      }],
+    // Crear un File object para la API de Whisper
+    const audioFile = new File([audioBuffer], filename, { type: mediaType })
+
+    const response = await openai.audio.transcriptions.create({
+      file: audioFile,
+      model: 'whisper-1',
+      language: 'es',
     })
 
-    const textContent = response.content.find(c => c.type === 'text')
-    return textContent?.type === 'text' ? textContent.text : null
+    console.log(`Audio transcription result: ${response.text?.slice(0, 100) || 'empty'}`)
+    return response.text || null
   } catch (err) {
-    console.error('Claude audio transcription failed:', err)
+    console.error('Whisper audio transcription failed:', err)
+    if (err instanceof Error) {
+      console.error('Error details:', err.message)
+    }
     return null
   }
 }
