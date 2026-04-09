@@ -102,66 +102,27 @@ export async function downloadFile(filePath: string): Promise<ArrayBuffer | null
 }
 
 /**
- * Transcribe un archivo de audio usando Claude de Anthropic.
- * Usa el tipo 'document' que soporta archivos de audio.
+ * Transcribe un archivo de audio usando OpenAI Whisper.
  */
 export async function transcribeAudioWithClaude(audioBuffer: ArrayBuffer, filename: string): Promise<string | null> {
-  const Anthropic = (await import('@anthropic-ai/sdk')).default
-  const anthropic = new Anthropic()
+  const OpenAI = (await import('openai')).default
+  const openai = new OpenAI()
 
-  // Determinar el tipo MIME según la extensión
-  const ext = filename.split('.').pop()?.toLowerCase() || 'ogg'
-  const mimeTypes: Record<string, string> = {
-    'ogg': 'audio/ogg',
-    'oga': 'audio/ogg',
-    'opus': 'audio/ogg',
-    'mp3': 'audio/mpeg',
-    'wav': 'audio/wav',
-    'webm': 'audio/webm',
-    'm4a': 'audio/mp4',
-    'mp4': 'audio/mp4',
-    'mpeg': 'audio/mpeg',
-  }
-  const mediaType = mimeTypes[ext] || 'audio/ogg'
-
-  // Convertir a base64
-  const base64Audio = Buffer.from(audioBuffer).toString('base64')
-
-  console.log(`Audio transcription: file=${filename}, ext=${ext}, mime=${mediaType}, size=${audioBuffer.byteLength} bytes`)
+  console.log(`Audio transcription: file=${filename}, size=${audioBuffer.byteLength} bytes`)
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1024,
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: 'Transcribí este audio palabra por palabra en español. Solo devolvé la transcripción, sin explicaciones ni comentarios adicionales.'
-          },
-          {
-            type: 'document',
-            source: {
-              type: 'base64',
-              media_type: mediaType,
-              data: base64Audio,
-            },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          } as any,
-        ],
-      }],
+    const audioFile = new File([audioBuffer], filename, { type: 'audio/ogg' })
+
+    const response = await openai.audio.transcriptions.create({
+      file: audioFile,
+      model: 'whisper-1',
+      language: 'es',
     })
 
-    const textContent = response.content.find(c => c.type === 'text')
-    const result = textContent?.type === 'text' ? textContent.text : null
-    console.log(`Audio transcription result: ${result?.slice(0, 100) || 'null'}`)
-    return result
+    console.log(`Whisper result: ${response.text?.slice(0, 100) || 'empty'}`)
+    return response.text || null
   } catch (err) {
-    console.error('Claude audio transcription failed:', err)
-    if (err instanceof Error) {
-      console.error('Error details:', err.message)
-    }
+    console.error('Whisper transcription failed:', err)
     return null
   }
 }
