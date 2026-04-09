@@ -22,7 +22,8 @@ Para tipo "venta":
     "pesoKg": number | null,
     "producto": "string normalizado del catálogo",
     "tamañoBolsaKg": number,
-    "precio": number,
+    "precio": number | null,
+    "usarPrecioBD": boolean,
     "cantidad": number,
     "pagado": boolean,
     "gramosPorComida": number | null,
@@ -31,7 +32,14 @@ Para tipo "venta":
     "clienteDireccion": "string" | null,
     "clienteTelefono": "string" | null
   },
-  "faltantes": ["campos que faltan"]
+  "faltantes": ["campos que faltan"],
+  "faltanteProducto": {
+    "faltaMarca": boolean,
+    "faltaTamaño": boolean,
+    "marcaMencionada": "string" | null,
+    "tipoProductoMencionado": "string" | null,
+    "tamañoMencionado": number | null
+  }
 }
 
 Para tipo "compra_stock":
@@ -46,11 +54,23 @@ Para tipo "compra_stock":
 }
 
 Reglas para ventas:
-- Campos requeridos: clienteNombre, mascotaNombre, especie, producto, tamañoBolsaKg, precio
+- Campos requeridos: clienteNombre, mascotaNombre, especie, producto, tamañoBolsaKg
+- El precio puede ser null si el usuario dice "usa el precio de la base de datos" / "precio de la BD" / "utiliza el precio de la base" / "busca el precio"
+- usarPrecioBD: true si el usuario pide usar el precio de la base de datos, false en caso contrario
+- Si el usuario da un precio explícito, usarPrecioBD: false y precio: el número
 - Campos requeridos para perros: gramosPorComida, vecesAlDia
 - cantidad: número de bolsas vendidas (default 1 si no se menciona)
 - pagado: true si dice "pagó" / "pagó transferencia" / "pagó efectivo" / "pagó con..."; false si dice "no pagó" / "debe" / "fiado" / no se menciona
-- precio: precio unitario por bolsa (no total)
+- precio: precio unitario por bolsa (no total), o null si usarPrecioBD=true
+
+Información parcial del producto (faltanteProducto):
+- Si el usuario menciona un producto pero falta información (marca o tamaño), incluí faltanteProducto
+- faltaMarca: true si no se puede determinar la marca (Lager, Maxine, Connie, Wits, Toky)
+- faltaTamaño: true si no se menciona el tamaño de la bolsa
+- marcaMencionada: la marca si se mencionó, null si no
+- tipoProductoMencionado: "Adulto" | "Senior" | "Razas Pequeñas" | "Cachorro" | "Gato adulto" | "Gato castrado" | null
+- tamañoMencionado: el tamaño en kg si se mencionó, null si no
+- IMPORTANTE: Si dice "Laguer", "Lager" (con o sin r), "lager" debe normalizarse a "Lager"
 
 Normalización del nombre de producto — usar estos formatos exactos:
 - Marca: Lager | Maxine | Connie | Wits | Toky
@@ -69,7 +89,8 @@ export interface VentaData {
   pesoKg: number | null
   producto: string
   tamañoBolsaKg: number
-  precio: number
+  precio: number | null
+  usarPrecioBD: boolean
   cantidad: number
   pagado: boolean
   gramosPorComida: number | null
@@ -77,6 +98,14 @@ export interface VentaData {
   intervaloDiasGato: number | null
   clienteDireccion: string | null
   clienteTelefono: string | null
+}
+
+export interface FaltanteProducto {
+  faltaMarca: boolean
+  faltaTamaño: boolean
+  marcaMencionada: string | null
+  tipoProductoMencionado: string | null
+  tamañoMencionado: number | null
 }
 
 export interface CompraStockData {
@@ -90,6 +119,7 @@ export interface ParseResult {
   ok: boolean
   data?: VentaData | CompraStockData
   faltantes?: string[]
+  faltanteProducto?: FaltanteProducto
   mensajeRespuesta?: string
 }
 

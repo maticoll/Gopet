@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { parsearMensaje, type VentaData, type CompraStockData } from '@/lib/claude-parser'
+import { parsearMensaje, type VentaData, type CompraStockData, type FaltanteProducto, type ParseResult } from '@/lib/claude-parser'
 import { sendMessage, sendMessageWithButtons, answerCallbackQuery, deleteMessage, getFile, downloadFile, transcribeAudioWithClaude, getAuthorizedChatIds } from '@/lib/telegram'
 import { appendVentaToSheet } from '@/lib/google-sheets'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
@@ -54,6 +54,102 @@ async function obtenerGramosDiariosDeTabla(
   const promedio = Math.round((data.gramos_min + data.gramos_max) / 2)
   console.log(`tabla_gramos: tipo=${tipoNormalizado}, peso=${pesoKg} -> ${promedio}g/día (min=${data.gramos_min}, max=${data.gramos_max})`)
   return promedio
+}
+
+/**
+ * Busca un producto en la tabla productos y devuelve su precio_venta.
+ * Intenta match exacto primero, luego búsqueda parcial.
+ * @returns { producto, precio_venta, stock_actual } o null si no encuentra
+ */
+interface ProductoEncontrado {
+  id: string
+  nombre: string
+  marca: string
+  precio_venta: number
+  stock_actual: number
+}
+
+async function buscarProductoEnBD(
+  supabase: SupabaseClient,
+  nombreProducto: string
+): Promise<{ encontrados: ProductoEncontrado[], exacto: boolean }> {
+  // Primero intenta match exacto (case insensitive)
+  const { data: exacto } = await supabase
+    .from('productos')
+    .select('id, nombre, marca, precio_venta, stock_actual')
+    .ilike('nombre', nombreProducto)
+  
+  if (exacto && exacto.length === 1) {
+    return { encontrados: exacto as ProductoEncontrado[], exacto: true }
+  }
+
+  // Si no hay exacto o hay varios, buscar por partes del nombre
+  // Extraer marca, tipo y tamaño del nombre
+  const partes = nombreProducto.toLowerCase().split(/\s+/)
+  const marcas = ['lager', 'maxine', 'connie', 'wits', 'toky']
+  const tipos = ['adulto', 'senior', 'cachorro', 'razas pequeñas', 'gato adulto', 'gato castrado']
+  
+  let queryMarca: string | null = null
+  let queryTipo: string | null = null
+  let queryTamaño: string | null = null
+
+  for (const parte of partes) {
+    if (marcas.includes(parte)) queryMarca = parte
+    if (/^\d+[\+]?\d*\s*kg?$/i.test(parte)) queryTamaño = parte
+  }
+  
+  // Buscar tipo (puede ser dos palabras: "razas pequeñas", "gato adulto")
+  for (const tipo of tipos) {
+    if (nombreProducto.toLowerCase().includes(tipo)) {
+      queryTipo = tipo
+      break
+    }
+  }
+
+  // Construir búsqueda parcial
+  let query = supabase.from('productos').select('id, nombre, marca, precio_venta, stock_actual')
+  
+  if (queryMarca) {
+    query = query.ilike('marca', `%${queryMarca}%`)
+  }
+  
+  if (queryTipo || queryTamaño) {
+    const pattern = `%${queryTipo || ''}%${queryTamaño || ''}%`
+    query = query.ilike('nombre', pattern)
+  }
+
+  const { data: parciales } = await query.limit(10)
+  
+  return { encontrados: (parciales || []) as ProductoEncontrado[], exacto: false }
+}
+
+/**
+ * Busca productos que coincidan parcialmente con marca, tipo o tamaño
+ */
+async function buscarProductosPorCriterios(
+  supabase: SupabaseClient,
+  marca: string | null,
+  tipoProducto: string | null,
+  tamañoKg: number | null
+): Promise<ProductoEncontrado[]> {
+  let query = supabase.from('productos').select('id, nombre, marca, precio_venta, stock_actual')
+  
+  if (marca) {
+    query = query.ilike('marca', `%${marca}%`)
+  }
+  
+  if (tipoProducto) {
+    query = query.ilike('nombre', `%${tipoProducto}%`)
+  }
+  
+  if (tamañoKg) {
+    // Buscar por tamaño en el nombre (ej: "10 kg", "10kg")
+    query = query.or(`nombre.ilike.%${tamañoKg} kg%,nombre.ilike.%${tamañoKg}kg%`)
+  }
+
+  const { data } = await query.order('marca').order('nombre').limit(20)
+  
+  return (data || []) as ProductoEncontrado[]
 }
 
 export async function POST(req: NextRequest) {
@@ -420,6 +516,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
+  // ── "esperando_seleccion_producto" state (user selecting product from list) ──
+  if (estadoActual?.estado === 'esperando_seleccion_producto') {
+    const seleccion = parseInt(texto.trim(), 10)
+    const payload = estadoActual.payload as any
+    const opcionesProducto = payload?.opcionesProducto as ProductoEncontrado[] | undefined
+    
+    if (!opcionesProducto || isNaN(seleccion) || seleccion < 1 || seleccion > opcionesProducto.length) {
+      await sendMessage(chatId, `Por favor respondé con un número del 1 al ${opcionesProducto?.length || '?'}.`)
+      return NextResponse.json({ ok: true })
+    }
+
+    const productoSeleccionado = opcionesProducto[seleccion - 1]
+    
+    // Extraer tamaño del nombre del producto (ej: "Lager Razas Pequeñas 10 kg" -> 10)
+    const matchTamaño = productoSeleccionado.nombre.match(/(\d+(?:[,\.]\d+)?)\s*kg/i)
+    const tamañoBolsaKg = matchTamaño ? parseFloat(matchTamaño[1].replace(',', '.')) : payload.tamañoBolsaKg || 10
+
+    // Actualizar el payload con el producto seleccionado y continuar el flujo
+    const ventaDataParcial = payload.ventaDataParcial as VentaData
+    ventaDataParcial.producto = productoSeleccionado.nombre
+    ventaDataParcial.precio = productoSeleccionado.precio_venta
+    ventaDataParcial.tamañoBolsaKg = tamañoBolsaKg
+
+    // Limpiar estado y continuar con el flujo de venta
+    await supabase.from('telegram_estados').delete().eq('chat_id', chatId)
+    
+    // Re-procesar la venta con el producto seleccionado
+    await procesarVentaConProducto(supabase, chatId, ventaDataParcial)
+    return NextResponse.json({ ok: true })
+  }
+
   // ── Parse message with Claude ─────────────────────────────────────────────
   try {
     const resultado = await parsearMensaje(texto)
@@ -455,139 +582,96 @@ export async function POST(req: NextRequest) {
 
     // ── VENTA ─────────────────────────────────────────────────────────────
     const d = resultado.data as VentaData
+    const faltanteProducto = resultado.faltanteProducto
 
-    // Find or create client
-    const { data: existente } = await supabase
-      .from('clientes')
-      .select('id, activo')
-      .ilike('nombre', d.clienteNombre)
-      .maybeSingle()
-
-    let clienteId: string
-    if (existente) {
-      clienteId = existente.id
-      // Actualizar dirección y teléfono si se proporcionaron, y reactivar si estaba dado de baja
-      const updates: { activo?: boolean; direccion?: string; telefono?: string } = {}
-      if (!existente.activo) updates.activo = true
-      if (d.clienteDireccion) updates.direccion = d.clienteDireccion
-      if (d.clienteTelefono) updates.telefono = d.clienteTelefono
-      if (Object.keys(updates).length > 0) {
-        await supabase.from('clientes').update(updates).eq('id', clienteId)
-      }
-    } else {
-      const { data: nuevo, error } = await supabase
-        .from('clientes')
-        .insert({ nombre: d.clienteNombre, telefono: d.clienteTelefono, direccion: d.clienteDireccion, activo: true })
-        .select('id')
-        .single()
-      if (error) throw error
-      clienteId = nuevo.id
-    }
-
-    // Find or create pet
-    const { data: mascotaExistente } = await supabase
-      .from('perros')
-      .select('id')
-      .eq('cliente_id', clienteId)
-      .ilike('nombre', d.mascotaNombre)
-      .maybeSingle()
-
-    let perroId: string
-    if (mascotaExistente) {
-      perroId = mascotaExistente.id
-    } else {
-      const { data: nuevaMascota, error } = await supabase
-        .from('perros')
-        .insert({ cliente_id: clienteId, nombre: d.mascotaNombre, especie: d.especie, tipo: d.tipoPerro, peso_kg: d.pesoKg })
-        .select('id')
-        .single()
-      if (error) throw error
-      perroId = nuevaMascota.id
-    }
-
-    // Calculate end date
-    let fechaFin: string | null = null
-    let gramosDiariosUsados: number | null = null
+    // Si no hay precio o falta info del producto, buscar automáticamente en BD
+    const necesitaBuscarEnBD = d.precio === null || d.usarPrecioBD || (faltanteProducto && (faltanteProducto.faltaMarca || faltanteProducto.faltaTamaño))
     
-    if (d.especie === 'perro') {
-      // Primero intentar obtener gramos de la tabla de referencia según peso y tipo
-      const gramosDeTabla = await obtenerGramosDiariosDeTabla(supabase, d.tipoPerro, d.pesoKg)
+    if (necesitaBuscarEnBD) {
+      // Buscar producto en la base de datos
+      let productosEncontrados: ProductoEncontrado[] = []
       
-      if (gramosDeTabla) {
-        // Usar los gramos de la tabla de referencia (más precisos)
-        gramosDiariosUsados = gramosDeTabla
-        fechaFin = calcularFechaFinPorGramosDia(fechaHoyUruguay(), d.tamañoBolsaKg, gramosDeTabla)
-          .toISOString().split('T')[0]
-      } else if (d.gramosPorComida && d.vecesAlDia) {
-        // Fallback: usar los gramos que dijo el usuario en el mensaje
-        gramosDiariosUsados = d.gramosPorComida * d.vecesAlDia
-        fechaFin = calcularFechaFinPerro(fechaHoyUruguay(), d.tamañoBolsaKg, d.gramosPorComida, d.vecesAlDia)
-          .toISOString().split('T')[0]
+      if (faltanteProducto && (faltanteProducto.faltaMarca || faltanteProducto.faltaTamaño)) {
+        // Buscar con la información parcial que tenemos
+        productosEncontrados = await buscarProductosPorCriterios(
+          supabase,
+          faltanteProducto.marcaMencionada,
+          faltanteProducto.tipoProductoMencionado,
+          faltanteProducto.tamañoMencionado
+        )
+      } else {
+        // Buscar por nombre del producto
+        const busqueda = await buscarProductoEnBD(supabase, d.producto)
+        productosEncontrados = busqueda.encontrados
+        
+        // Si encontramos exactamente uno, usar ese precio
+        if (busqueda.exacto && productosEncontrados.length === 1) {
+          d.precio = productosEncontrados[0].precio_venta
+          // Continuar con el flujo normal
+          await procesarVentaConProducto(supabase, chatId, d)
+          return NextResponse.json({ ok: true })
+        }
       }
-    } else if (d.especie === 'gato' && d.intervaloDiasGato) {
-      fechaFin = calcularFechaFinGato(fechaHoyUruguay(), d.intervaloDiasGato)
-        .toISOString().split('T')[0]
+
+      // Si no encontramos productos, informar al usuario
+      if (productosEncontrados.length === 0) {
+        let mensajeFaltante = '❌ No encontré el producto en la base de datos.\n\n'
+        if (faltanteProducto?.faltaMarca) {
+          mensajeFaltante += '¿Cuál es la marca? (Lager, Maxine, Connie, Wits, Toky)\n'
+        }
+        if (faltanteProducto?.faltaTamaño) {
+          mensajeFaltante += '¿De qué tamaño es la bolsa? (ej: 10 kg, 21 kg, 25 kg)\n'
+        }
+        mensajeFaltante += '\nReenviá el mensaje con la información completa.'
+        await sendMessage(chatId, mensajeFaltante)
+        return NextResponse.json({ ok: true })
+      }
+
+      // Si hay múltiples opciones, preguntar al usuario
+      if (productosEncontrados.length > 1) {
+        let mensaje = '🔍 Encontré varios productos. ¿Cuál es?\n\n'
+        productosEncontrados.forEach((p, i) => {
+          mensaje += `<b>${i + 1}.</b> ${p.nombre} — $${p.precio_venta}\n`
+        })
+        mensaje += '\nRespondé con el número del producto.'
+
+        // Guardar estado para esperar la selección
+        await supabase.from('telegram_estados').upsert({
+          chat_id: chatId,
+          estado: 'esperando_seleccion_producto',
+          venta_id: null,
+          payload: {
+            opcionesProducto: productosEncontrados,
+            ventaDataParcial: d,
+          },
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'chat_id' })
+
+        await sendMessage(chatId, mensaje)
+        return NextResponse.json({ ok: true })
+      }
+
+      // Solo una opción encontrada, usar ese producto
+      const productoUnico = productosEncontrados[0]
+      d.producto = productoUnico.nombre
+      d.precio = productoUnico.precio_venta
+      
+      // Extraer tamaño del nombre si no lo tenemos
+      if (!d.tamañoBolsaKg) {
+        const matchTamaño = productoUnico.nombre.match(/(\d+(?:[,\.]\d+)?)\s*kg/i)
+        if (matchTamaño) {
+          d.tamañoBolsaKg = parseFloat(matchTamaño[1].replace(',', '.'))
+        }
+      }
     }
 
-    // Check stock before showing confirmation card
-    const { data: productoEnCatalogo } = await supabase
-      .from('productos')
-      .select('stock_actual')
-      .ilike('nombre', d.producto)
-      .maybeSingle()
-
-    const stockWarning = (productoEnCatalogo && productoEnCatalogo.stock_actual < d.cantidad)
-      ? `\n⚠️ Solo hay ${productoEnCatalogo.stock_actual} bolsa${productoEnCatalogo.stock_actual !== 1 ? 's' : ''} en stock`
-      : ''
-
-    // Save to telegram_estados for confirmation
-    const { error: upsertError } = await supabase.from('telegram_estados').upsert({
-      chat_id:    chatId,
-      estado:     'confirmando_venta',
-      venta_id:   null,
-      payload: {
-        clienteId,
-        perroId,
-        producto:         d.producto,
-        tamañoBolsaKg:    d.tamañoBolsaKg,
-        precio:           d.precio,
-        cantidad:         d.cantidad,
-        pagado:           d.pagado,
-        gramosPorComida:  d.gramosPorComida,
-        vecesAlDia:       d.vecesAlDia,
-        gramosDiarios:    gramosDiariosUsados,  // Gramos/día de la tabla o calculados
-        fechaFin,
-        clienteNombre:    d.clienteNombre,
-        clienteTelefono:  d.clienteTelefono,
-        clienteDireccion: d.clienteDireccion,
-        mascotaNombre:    d.mascotaNombre,
-        especie:          d.especie,
-        tipoPerro:        d.tipoPerro,
-        pesoKg:           d.pesoKg,
-      },
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'chat_id' })
-
-    if (upsertError) {
-      console.error('Error saving telegram_estados:', upsertError)
-      await sendMessage(chatId, `❌ Error al guardar estado: ${upsertError.message}`)
+    // Verificar que tenemos precio
+    if (d.precio === null || d.precio === undefined) {
+      await sendMessage(chatId, '❌ No encontré el producto en la base de datos. Indicá el precio o verificá el nombre del producto.')
       return NextResponse.json({ ok: true })
     }
 
-    const pagoTexto = d.pagado ? '✅ Pagado' : '⏳ Pendiente'
-    const cantidadTexto = d.cantidad > 1 ? ` × ${d.cantidad}` : ''
-    const totalTexto = d.cantidad > 1 ? ` (total: $${d.precio * d.cantidad})` : ''
-    const pesoTexto = d.pesoKg ? `, ${d.pesoKg}kg` : ''
-    const direccionTexto = d.clienteDireccion ? `\n📍 Dirección: ${d.clienteDireccion}` : ''
-
-    await sendMessageWithButtons(
-      chatId,
-      `📦 <b>Nueva venta</b>\n\n👤 Cliente: ${d.clienteNombre}${direccionTexto}\n🐾 Mascota: ${d.mascotaNombre} (${d.especie}${pesoTexto})\n🛍 Producto: ${d.producto}${cantidadTexto}\n💰 Precio: $${d.precio}${totalTexto}\n💳 Pago: ${pagoTexto}${stockWarning}\n\n¿Confirmar?`,
-      [
-        { text: '✅ Confirmar', callback_data: 'confirmar_venta' },
-        { text: '❌ Cancelar',  callback_data: 'cancelar_venta' },
-      ]
-    )
+    await procesarVentaConProducto(supabase, chatId, d)
 
   } catch (err) {
     console.error('Webhook error:', err)
@@ -595,4 +679,142 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true })
+}
+
+/**
+ * Procesa una venta después de tener todos los datos completos (incluido el precio)
+ */
+async function procesarVentaConProducto(supabase: SupabaseClient, chatId: string, d: VentaData) {
+  // Find or create client
+  const { data: existente } = await supabase
+    .from('clientes')
+    .select('id, activo')
+    .ilike('nombre', d.clienteNombre)
+    .maybeSingle()
+
+  let clienteId: string
+  if (existente) {
+    clienteId = existente.id
+    // Actualizar dirección y teléfono si se proporcionaron, y reactivar si estaba dado de baja
+    const updates: { activo?: boolean; direccion?: string; telefono?: string } = {}
+    if (!existente.activo) updates.activo = true
+    if (d.clienteDireccion) updates.direccion = d.clienteDireccion
+    if (d.clienteTelefono) updates.telefono = d.clienteTelefono
+    if (Object.keys(updates).length > 0) {
+      await supabase.from('clientes').update(updates).eq('id', clienteId)
+    }
+  } else {
+    const { data: nuevo, error } = await supabase
+      .from('clientes')
+      .insert({ nombre: d.clienteNombre, telefono: d.clienteTelefono, direccion: d.clienteDireccion, activo: true })
+      .select('id')
+      .single()
+    if (error) throw error
+    clienteId = nuevo.id
+  }
+
+  // Find or create pet
+  const { data: mascotaExistente } = await supabase
+    .from('perros')
+    .select('id')
+    .eq('cliente_id', clienteId)
+    .ilike('nombre', d.mascotaNombre)
+    .maybeSingle()
+
+  let perroId: string
+  if (mascotaExistente) {
+    perroId = mascotaExistente.id
+  } else {
+    const { data: nuevaMascota, error } = await supabase
+      .from('perros')
+      .insert({ cliente_id: clienteId, nombre: d.mascotaNombre, especie: d.especie, tipo: d.tipoPerro, peso_kg: d.pesoKg })
+      .select('id')
+      .single()
+    if (error) throw error
+    perroId = nuevaMascota.id
+  }
+
+  // Calculate end date
+  let fechaFin: string | null = null
+  let gramosDiariosUsados: number | null = null
+  
+  if (d.especie === 'perro') {
+    // Primero intentar obtener gramos de la tabla de referencia según peso y tipo
+    const gramosDeTabla = await obtenerGramosDiariosDeTabla(supabase, d.tipoPerro, d.pesoKg)
+    
+    if (gramosDeTabla) {
+      // Usar los gramos de la tabla de referencia (más precisos)
+      gramosDiariosUsados = gramosDeTabla
+      fechaFin = calcularFechaFinPorGramosDia(fechaHoyUruguay(), d.tamañoBolsaKg, gramosDeTabla)
+        .toISOString().split('T')[0]
+    } else if (d.gramosPorComida && d.vecesAlDia) {
+      // Fallback: usar los gramos que dijo el usuario en el mensaje
+      gramosDiariosUsados = d.gramosPorComida * d.vecesAlDia
+      fechaFin = calcularFechaFinPerro(fechaHoyUruguay(), d.tamañoBolsaKg, d.gramosPorComida, d.vecesAlDia)
+        .toISOString().split('T')[0]
+    }
+  } else if (d.especie === 'gato' && d.intervaloDiasGato) {
+    fechaFin = calcularFechaFinGato(fechaHoyUruguay(), d.intervaloDiasGato)
+      .toISOString().split('T')[0]
+  }
+
+  // Check stock before showing confirmation card
+  const { data: productoEnCatalogo } = await supabase
+    .from('productos')
+    .select('stock_actual')
+    .ilike('nombre', d.producto)
+    .maybeSingle()
+
+  const stockWarning = (productoEnCatalogo && productoEnCatalogo.stock_actual < d.cantidad)
+    ? `\n⚠️ Solo hay ${productoEnCatalogo.stock_actual} bolsa${productoEnCatalogo.stock_actual !== 1 ? 's' : ''} en stock`
+    : ''
+
+  // Save to telegram_estados for confirmation
+  const { error: upsertError } = await supabase.from('telegram_estados').upsert({
+    chat_id:    chatId,
+    estado:     'confirmando_venta',
+    venta_id:   null,
+    payload: {
+      clienteId,
+      perroId,
+      producto:         d.producto,
+      tamañoBolsaKg:    d.tamañoBolsaKg,
+      precio:           d.precio,
+      cantidad:         d.cantidad,
+      pagado:           d.pagado,
+      gramosPorComida:  d.gramosPorComida,
+      vecesAlDia:       d.vecesAlDia,
+      gramosDiarios:    gramosDiariosUsados,
+      fechaFin,
+      clienteNombre:    d.clienteNombre,
+      clienteTelefono:  d.clienteTelefono,
+      clienteDireccion: d.clienteDireccion,
+      mascotaNombre:    d.mascotaNombre,
+      especie:          d.especie,
+      tipoPerro:        d.tipoPerro,
+      pesoKg:           d.pesoKg,
+    },
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'chat_id' })
+
+  if (upsertError) {
+    console.error('Error saving telegram_estados:', upsertError)
+    await sendMessage(chatId, `❌ Error al guardar estado: ${upsertError.message}`)
+    return
+  }
+
+  const pagoTexto = d.pagado ? '✅ Pagado' : '⏳ Pendiente'
+  const cantidadTexto = d.cantidad > 1 ? ` × ${d.cantidad}` : ''
+  const totalTexto = d.cantidad > 1 ? ` (total: $${d.precio! * d.cantidad})` : ''
+  const pesoTexto = d.pesoKg ? `, ${d.pesoKg}kg` : ''
+  const direccionTexto = d.clienteDireccion ? `\n📍 Dirección: ${d.clienteDireccion}` : ''
+
+  await sendMessageWithButtons(
+    chatId,
+    `📦 <b>Nueva venta</b>\n\n👤 Cliente: ${d.clienteNombre}${direccionTexto}\n🐾 Mascota: ${d.mascotaNombre} (${d.especie}${pesoTexto})\n🛍 Producto: ${d.producto}${cantidadTexto}\n💰 Precio: $${d.precio}${totalTexto}\n💳 Pago: ${pagoTexto}${stockWarning}\n\n¿Confirmar?`,
+    [
+      { text: '✅ Confirmar', callback_data: 'confirmar_venta' },
+      { text: '❌ Cancelar',  callback_data: 'cancelar_venta' },
+    ]
+  )
 }
