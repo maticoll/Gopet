@@ -7,6 +7,7 @@ const SYSTEM_PROMPT = `Sos un asistente que procesa mensajes sobre ventas y stoc
 Primero determiná el tipo de mensaje:
 - "venta": se vendió comida a un cliente (menciona cliente y mascota)
 - "compra_stock": llegó mercadería / se compró stock para revender (sin cliente específico)
+- "actualizar_cliente": actualizar datos de un cliente existente (teléfono, dirección)
 
 Devolvé SOLO JSON válido, sin texto extra.
 
@@ -30,7 +31,8 @@ Para tipo "venta":
     "vecesAlDia": number | null,
     "intervaloDiasGato": number | null,
     "clienteDireccion": "string" | null,
-    "clienteTelefono": "string" | null
+    "clienteTelefono": "string" | null,
+    "registrarSinPreguntar": boolean
   },
   "faltantes": ["campos que faltan"],
   "faltanteProducto": {
@@ -53,6 +55,17 @@ Para tipo "compra_stock":
   }
 }
 
+Para tipo "actualizar_cliente":
+{
+  "tipo": "actualizar_cliente",
+  "ok": true,
+  "data": {
+    "clienteNombre": "string",
+    "telefono": "string" | null,
+    "direccion": "string" | null
+  }
+}
+
 Reglas para ventas:
 - Campos requeridos: clienteNombre, mascotaNombre, especie, producto, tamañoBolsaKg
 - El precio puede ser null si el usuario dice "usa el precio de la base de datos" / "precio de la BD" / "utiliza el precio de la base" / "busca el precio"
@@ -62,6 +75,11 @@ Reglas para ventas:
 - cantidad: número de bolsas vendidas (default 1 si no se menciona)
 - pagado: true si dice "pagó" / "pagó transferencia" / "pagó efectivo" / "pagó con..."; false si dice "no pagó" / "debe" / "fiado" / no se menciona
 - precio: precio unitario por bolsa (no total), o null si usarPrecioBD=true
+- registrarSinPreguntar: true si el usuario dice "anotalo así" / "dejalo así" / "registralo así" / "guardalo así" / "así está bien" / "sin más datos" / "solo eso". False en caso contrario.
+
+Reglas para actualizar_cliente:
+- Detectar mensajes como "el teléfono de [cliente] es [número]" o "la dirección de [cliente] es [dirección]"
+- También "agregale a [cliente] el teléfono [número]"
 
 Información parcial del producto (faltanteProducto):
 - Si el usuario menciona un producto pero falta información (marca o tamaño), incluí faltanteProducto
@@ -98,6 +116,7 @@ export interface VentaData {
   intervaloDiasGato: number | null
   clienteDireccion: string | null
   clienteTelefono: string | null
+  registrarSinPreguntar: boolean
 }
 
 export interface FaltanteProducto {
@@ -114,10 +133,16 @@ export interface CompraStockData {
   precio: number | null
 }
 
+export interface ActualizarClienteData {
+  clienteNombre: string
+  telefono: string | null
+  direccion: string | null
+}
+
 export interface ParseResult {
-  tipo: 'venta' | 'compra_stock'
+  tipo: 'venta' | 'compra_stock' | 'actualizar_cliente'
   ok: boolean
-  data?: VentaData | CompraStockData
+  data?: VentaData | CompraStockData | ActualizarClienteData
   faltantes?: string[]
   faltanteProducto?: FaltanteProducto
   mensajeRespuesta?: string

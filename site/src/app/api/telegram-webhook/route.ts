@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { parsearMensaje, type VentaData, type CompraStockData, type FaltanteProducto, type ParseResult } from '@/lib/claude-parser'
+import { parsearMensaje, type VentaData, type CompraStockData, type ActualizarClienteData, type FaltanteProducto, type ParseResult } from '@/lib/claude-parser'
 import { sendMessage, sendMessageWithButtons, answerCallbackQuery, deleteMessage, getFile, downloadFile, transcribeAudioWithClaude, getAuthorizedChatIds } from '@/lib/telegram'
 import { appendVentaToSheet } from '@/lib/google-sheets'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
@@ -178,6 +178,23 @@ async function buscarProductosPorCriterios(
   }
   
   return filtrados
+}
+
+/**
+ * Determina el siguiente campo opcional que falta para una venta.
+ * Retorna null si no faltan más campos.
+ */
+function obtenerSiguienteCampoFaltante(d: VentaData, campoActual: string | null): string | null {
+  const campos = ['telefono', 'direccion']
+  const startIndex = campoActual ? campos.indexOf(campoActual) + 1 : 0
+  
+  for (let i = startIndex; i < campos.length; i++) {
+    const campo = campos[i]
+    if (campo === 'telefono' && !d.clienteTelefono) return 'telefono'
+    if (campo === 'direccion' && !d.clienteDireccion) return 'direccion'
+  }
+  
+  return null
 }
 
 export async function POST(req: NextRequest) {
@@ -575,6 +592,47 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true })
   }
 
+  // ── "esperando_datos_faltantes" state (user providing missing optional data) ──
+  if (estadoActual?.estado === 'esperando_datos_faltantes') {
+    const payload = estadoActual.payload as any
+    const ventaDataParcial = payload.ventaDataParcial as VentaData
+    const campoEsperado = payload.campoEsperado as string
+    const respuesta = texto.trim()
+
+    // Si dice "no", "sin datos", "dejalo así", etc., continuar sin el dato
+    const saltarDato = /^(no|sin|nada|dejalo|dejalo asi|dejalo así|anotalo asi|anotalo así|skip|saltar|siguiente)$/i.test(respuesta)
+
+    if (!saltarDato) {
+      if (campoEsperado === 'telefono') {
+        ventaDataParcial.clienteTelefono = respuesta
+      } else if (campoEsperado === 'direccion') {
+        ventaDataParcial.clienteDireccion = respuesta
+      }
+    }
+
+    // Verificar si falta el siguiente campo
+    const siguienteCampo = obtenerSiguienteCampoFaltante(ventaDataParcial, campoEsperado)
+    
+    if (siguienteCampo) {
+      // Pedir el siguiente dato faltante
+      await supabase.from('telegram_estados').update({
+        payload: { ...payload, ventaDataParcial, campoEsperado: siguienteCampo },
+        updated_at: new Date().toISOString(),
+      }).eq('chat_id', chatId)
+
+      const pregunta = siguienteCampo === 'telefono' 
+        ? '📱 ¿Cuál es el teléfono del cliente? (o respondé "no" para saltar)'
+        : '📍 ¿Cuál es la dirección del cliente? (o respondé "no" para saltar)'
+      await sendMessage(chatId, pregunta)
+      return NextResponse.json({ ok: true })
+    }
+
+    // Todos los datos completados, continuar con la venta
+    await supabase.from('telegram_estados').delete().eq('chat_id', chatId)
+    await procesarVentaConProducto(supabase, chatId, ventaDataParcial)
+    return NextResponse.json({ ok: true })
+  }
+
   // ── Parse message with Claude ─────────────────────────────────────────────
   try {
     const resultado = await parsearMensaje(texto)
@@ -605,6 +663,42 @@ export async function POST(req: NextRequest) {
           { text: '❌ Cancelar',  callback_data: 'cancelar_compra_stock' },
         ]
       )
+      return NextResponse.json({ ok: true })
+    }
+
+    // ── ACTUALIZAR CLIENTE ────────────────────────────────────────────────
+    if (resultado.tipo === 'actualizar_cliente') {
+      const d = resultado.data as ActualizarClienteData
+
+      // Buscar el cliente
+      const { data: cliente } = await supabase
+        .from('clientes')
+        .select('id, nombre, telefono, direccion')
+        .ilike('nombre', `%${d.clienteNombre}%`)
+        .maybeSingle()
+
+      if (!cliente) {
+        await sendMessage(chatId, `❌ No encontré un cliente con el nombre "${d.clienteNombre}".`)
+        return NextResponse.json({ ok: true })
+      }
+
+      // Actualizar los datos
+      const updates: { telefono?: string; direccion?: string } = {}
+      if (d.telefono) updates.telefono = d.telefono
+      if (d.direccion) updates.direccion = d.direccion
+
+      if (Object.keys(updates).length === 0) {
+        await sendMessage(chatId, '⚠️ No detecté qué dato actualizar. Decime el teléfono o la dirección.')
+        return NextResponse.json({ ok: true })
+      }
+
+      await supabase.from('clientes').update(updates).eq('id', cliente.id)
+
+      let mensaje = `✅ Cliente <b>${cliente.nombre}</b> actualizado:\n`
+      if (d.telefono) mensaje += `📱 Teléfono: ${d.telefono}\n`
+      if (d.direccion) mensaje += `📍 Dirección: ${d.direccion}\n`
+      
+      await sendMessage(chatId, mensaje)
       return NextResponse.json({ ok: true })
     }
 
@@ -697,6 +791,31 @@ export async function POST(req: NextRequest) {
     if (d.precio === null || d.precio === undefined) {
       await sendMessage(chatId, '❌ No encontré el producto en la base de datos. Indicá el precio o verificá el nombre del producto.')
       return NextResponse.json({ ok: true })
+    }
+
+    // Si no dijo "anotalo así" y faltan datos opcionales, preguntar
+    if (!d.registrarSinPreguntar) {
+      const primerCampoFaltante = obtenerSiguienteCampoFaltante(d, null)
+      
+      if (primerCampoFaltante) {
+        // Guardar estado para preguntar datos faltantes
+        await supabase.from('telegram_estados').upsert({
+          chat_id: chatId,
+          estado: 'esperando_datos_faltantes',
+          venta_id: null,
+          payload: {
+            ventaDataParcial: d,
+            campoEsperado: primerCampoFaltante,
+          },
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'chat_id' })
+
+        const pregunta = primerCampoFaltante === 'telefono'
+          ? '📱 ¿Cuál es el teléfono del cliente? (o respondé "no" para saltar)'
+          : '📍 ¿Cuál es la dirección del cliente? (o respondé "no" para saltar)'
+        await sendMessage(chatId, pregunta)
+        return NextResponse.json({ ok: true })
+      }
     }
 
     await procesarVentaConProducto(supabase, chatId, d)
