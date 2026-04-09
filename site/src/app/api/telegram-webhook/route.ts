@@ -85,17 +85,27 @@ async function buscarProductoEnBD(
 
   // Si no hay exacto o hay varios, buscar por partes del nombre
   // Extraer marca, tipo y tamaño del nombre
-  const partes = nombreProducto.toLowerCase().split(/\s+/)
   const marcas = ['lager', 'maxine', 'connie', 'wits', 'toky']
   const tipos = ['adulto', 'senior', 'cachorro', 'razas pequeñas', 'gato adulto', 'gato castrado']
   
   let queryMarca: string | null = null
   let queryTipo: string | null = null
-  let queryTamaño: string | null = null
+  let tamañoKg: number | null = null
 
-  for (const parte of partes) {
-    if (marcas.includes(parte)) queryMarca = parte
-    if (/^\d+[\+]?\d*\s*kg?$/i.test(parte)) queryTamaño = parte
+  // Extraer tamaño (ej: "10 kg", "10kg", "22+3 kg")
+  const matchTamaño = nombreProducto.match(/(\d+(?:\+\d+)?)\s*kg/i)
+  if (matchTamaño) {
+    // Para tamaños como "22+3", tomar el número principal
+    const tamañoStr = matchTamaño[1].split('+')[0]
+    tamañoKg = parseInt(tamañoStr, 10)
+  }
+
+  // Extraer marca
+  for (const marca of marcas) {
+    if (nombreProducto.toLowerCase().includes(marca)) {
+      queryMarca = marca
+      break
+    }
   }
   
   // Buscar tipo (puede ser dos palabras: "razas pequeñas", "gato adulto")
@@ -106,21 +116,32 @@ async function buscarProductoEnBD(
     }
   }
 
-  // Construir búsqueda parcial
+  // Construir búsqueda
   let query = supabase.from('productos').select('id, nombre, marca, precio_venta, stock_actual')
   
   if (queryMarca) {
     query = query.ilike('marca', `%${queryMarca}%`)
   }
   
-  if (queryTipo || queryTamaño) {
-    const pattern = `%${queryTipo || ''}%${queryTamaño || ''}%`
-    query = query.ilike('nombre', pattern)
+  if (queryTipo) {
+    query = query.ilike('nombre', `%${queryTipo}%`)
   }
 
-  const { data: parciales } = await query.limit(10)
+  const { data: parciales } = await query.limit(20)
   
-  return { encontrados: (parciales || []) as ProductoEncontrado[], exacto: false }
+  // Filtrar por tamaño en JavaScript para mayor precisión
+  let filtrados = (parciales || []) as ProductoEncontrado[]
+  if (tamañoKg && filtrados.length > 0) {
+    filtrados = filtrados.filter(p => {
+      const matchProd = p.nombre.match(/(\d+(?:\+\d+)?)\s*kg/i)
+      if (!matchProd) return false
+      // Extraer el número principal del tamaño del producto
+      const tamañoProd = parseInt(matchProd[1].split('+')[0], 10)
+      return tamañoProd === tamañoKg
+    })
+  }
+  
+  return { encontrados: filtrados, exacto: filtrados.length === 1 }
 }
 
 /**
@@ -141,15 +162,22 @@ async function buscarProductosPorCriterios(
   if (tipoProducto) {
     query = query.ilike('nombre', `%${tipoProducto}%`)
   }
-  
-  if (tamañoKg) {
-    // Buscar por tamaño en el nombre (ej: "10 kg", "10kg")
-    query = query.or(`nombre.ilike.%${tamañoKg} kg%,nombre.ilike.%${tamañoKg}kg%`)
-  }
 
-  const { data } = await query.order('marca').order('nombre').limit(20)
+  const { data } = await query.order('marca').order('nombre').limit(50)
   
-  return (data || []) as ProductoEncontrado[]
+  // Filtrar por tamaño exacto en JavaScript para mayor precisión
+  let filtrados = (data || []) as ProductoEncontrado[]
+  if (tamañoKg && filtrados.length > 0) {
+    filtrados = filtrados.filter(p => {
+      const matchProd = p.nombre.match(/(\d+(?:\+\d+)?)\s*kg/i)
+      if (!matchProd) return false
+      // Extraer el número principal del tamaño del producto
+      const tamañoProd = parseInt(matchProd[1].split('+')[0], 10)
+      return tamañoProd === tamañoKg
+    })
+  }
+  
+  return filtrados
 }
 
 export async function POST(req: NextRequest) {
