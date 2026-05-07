@@ -1,31 +1,24 @@
-import { createClient } from '@/lib/supabase/server'
+import { sql } from '@/lib/db'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { EditClienteForm } from './edit-form'
 
 export default async function EditClientePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const supabase = await createClient()
 
-  const { data: clienteRaw } = await supabase
-    .from('clientes')
-    .select('*, perros(*)')
-    .eq('id', id)
-    .single()
-
-  if (!clienteRaw) notFound()
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const cliente = clienteRaw as any
+  const clientes = await sql`SELECT *, (SELECT json_agg(p) FROM perros p WHERE p.cliente_id = clientes.id) AS perros FROM clientes WHERE id = ${id}`
+  if (!clientes.length) notFound()
+  const cliente = clientes[0]
 
   async function guardarCliente(formData: FormData) {
     'use server'
-    const supabase = await createClient()
-    await supabase.from('clientes').update({
-      nombre: formData.get('nombre') as string,
-      telefono: (formData.get('telefono') as string) || null,
-      direccion: (formData.get('direccion') as string) || null,
-    }).eq('id', id)
+    await sql`
+      UPDATE clientes SET
+        nombre    = ${formData.get('nombre') as string},
+        telefono  = ${(formData.get('telefono') as string) || null},
+        direccion = ${(formData.get('direccion') as string) || null}
+      WHERE id = ${id}
+    `
     redirect(`/dashboard/clientes/${id}`)
   }
 

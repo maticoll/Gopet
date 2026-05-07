@@ -1,43 +1,21 @@
-import { createServerClient } from '@supabase/ssr'
-import { NextResponse, type NextRequest } from 'next/server'
+import { auth } from '@/lib/auth'
+import { NextResponse } from 'next/server'
 
-export default async function proxy(request: NextRequest) {
-  // Skip auth check if Supabase is not configured
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    return NextResponse.next()
+export default auth((req) => {
+  const isLoggedIn = !!req.auth
+  const isDashboard = req.nextUrl.pathname.startsWith('/dashboard')
+  const isLogin = req.nextUrl.pathname === '/login'
+
+  if (!isLoggedIn && isDashboard) {
+    return NextResponse.redirect(new URL('/login', req.url))
   }
 
-  let supabaseResponse = NextResponse.next({ request })
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll() { return request.cookies.getAll() },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
-
-  const { data: { user } } = await supabase.auth.getUser()
-
-  if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
-    return NextResponse.redirect(new URL('/login', request.url))
+  if (isLoggedIn && isLogin) {
+    return NextResponse.redirect(new URL('/dashboard', req.url))
   }
 
-  if (user && request.nextUrl.pathname === '/login') {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
-  }
-
-  return supabaseResponse
-}
+  return NextResponse.next()
+})
 
 export const config = {
   matcher: ['/dashboard/:path*', '/login'],

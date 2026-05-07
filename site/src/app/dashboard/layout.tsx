@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { auth } from '@/lib/auth'
+import { sql } from '@/lib/db'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Sidebar } from '@/components/dashboard/sidebar'
@@ -6,41 +7,38 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { diasHastaFin, fechaHoyUruguay, fechaHoyUruguayISO } from '@/lib/calculations'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const session = await auth()
+  if (!session?.user) redirect('/login')
 
   // Total ventas (todas las históricas)
-  const { data: ventasData } = await supabase
-    .from('ventas')
-    .select('precio')
-  const totalVentas = ventasData?.reduce((sum, v) => sum + v.precio, 0) ?? 0
+  const ventasData = await sql`SELECT precio FROM ventas`
+  const totalVentas = ventasData.reduce((sum, v) => sum + (v.precio as number), 0)
 
-  // Alertas: ventas con fecha_estimada_fin próxima (próximos 14 días para mostrar en sidebar)
+  // Alertas: ventas con fecha_estimada_fin próxima (próximos 14 días)
   const hoy = fechaHoyUruguayISO()
   const en14dias = fechaHoyUruguay()
   en14dias.setDate(en14dias.getDate() + 14)
+  const en14diasISO = en14dias.toISOString().split('T')[0]
 
-  const { data: alertasData } = await supabase
-    .from('ventas')
-    .select(`
-      id,
-      producto,
-      fecha_estimada_fin,
-      clientes(nombre),
-      perros(nombre)
-    `)
-    .not('fecha_estimada_fin', 'is', null)
-    .lte('fecha_estimada_fin', en14dias.toISOString().split('T')[0])
-    .gte('fecha_estimada_fin', hoy)
-    .order('fecha_estimada_fin', { ascending: true })
+  const alertasData = await sql`
+    SELECT v.id, v.producto, v.fecha_estimada_fin,
+           c.nombre AS cliente_nombre,
+           p.nombre AS mascota_nombre
+    FROM ventas v
+    JOIN clientes c ON c.id = v.cliente_id
+    JOIN perros  p ON p.id = v.perro_id
+    WHERE v.fecha_estimada_fin IS NOT NULL
+      AND v.fecha_estimada_fin >= ${hoy}
+      AND v.fecha_estimada_fin <= ${en14diasISO}
+    ORDER BY v.fecha_estimada_fin ASC
+  `
 
-  const alertas = (alertasData ?? []).map(v => ({
-    id: v.id,
-    clienteNombre: (v.clientes as any)?.nombre ?? '',
-    mascotaNombre: (v.perros as any)?.nombre ?? '',
-    producto: v.producto,
-    diasRestantes: diasHastaFin(new Date(v.fecha_estimada_fin!)) ?? 0,
+  const alertas = alertasData.map(v => ({
+    id: v.id as string,
+    clienteNombre: v.cliente_nombre as string,
+    mascotaNombre: v.mascota_nombre as string,
+    producto: v.producto as string,
+    diasRestantes: diasHastaFin(new Date(v.fecha_estimada_fin as string)) ?? 0,
   }))
 
   return (

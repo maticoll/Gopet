@@ -2,11 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { calcularFechaFinPerro, calcularFechaFinGato } from '@/lib/calculations'
 import { Button } from '@/components/ui/button'
-
-const supabase = createClient()
+import { registrarVentaAction } from './nueva-venta-actions'
 
 export function NuevaVentaForm() {
   const router = useRouter()
@@ -28,17 +26,11 @@ export function NuevaVentaForm() {
   function calcularFechaEstimada(): string | null {
     if (especie === 'perro') {
       if (!form.tamañoBolsaKg || !form.gramosPorComida || !form.vecesAlDia) return null
-      const fecha = calcularFechaFinPerro(
-        new Date(),
-        parseFloat(form.tamañoBolsaKg),
-        parseInt(form.gramosPorComida),
-        parseInt(form.vecesAlDia)
-      )
+      const fecha = calcularFechaFinPerro(new Date(), parseFloat(form.tamañoBolsaKg), parseInt(form.gramosPorComida), parseInt(form.vecesAlDia))
       return fecha.toISOString().split('T')[0]
     } else {
       if (form.intervaloDias) {
-        const fecha = calcularFechaFinGato(new Date(), parseInt(form.intervaloDias))
-        return fecha.toISOString().split('T')[0]
+        return calcularFechaFinGato(new Date(), parseInt(form.intervaloDias)).toISOString().split('T')[0]
       }
       if (form.fechaManual) return form.fechaManual
       return null
@@ -51,95 +43,27 @@ export function NuevaVentaForm() {
     setLoading(true)
 
     try {
-      // 1. Buscar o crear cliente
-      const { data: clienteExistente } = await supabase
-        .from('clientes')
-        .select('id')
-        .ilike('nombre', form.clienteNombre)
-        .single()
-
-      let clienteId: string
-      if (clienteExistente) {
-        clienteId = clienteExistente.id
-      } else {
-        const { data: nuevoCliente, error } = await supabase
-          .from('clientes')
-          .insert({ nombre: form.clienteNombre, telefono: form.clienteTelefono, direccion: form.clienteDireccion })
-          .select('id')
-          .single()
-        if (error) throw error
-        clienteId = nuevoCliente.id
-      }
-
-      // 2. Buscar o crear mascota
-      const { data: mascotaExistente } = await supabase
-        .from('perros')
-        .select('id, intervalo_compra_dias')
-        .eq('cliente_id', clienteId)
-        .ilike('nombre', form.mascotaNombre)
-        .single()
-
-      let perroId: string
-      if (mascotaExistente) {
-        perroId = mascotaExistente.id
-        if (especie === 'gato' && form.intervaloDias) {
-          await supabase
-            .from('perros')
-            .update({ intervalo_compra_dias: parseInt(form.intervaloDias), peso_kg: parseFloat(form.mascotaPeso) || null })
-            .eq('id', perroId)
-        }
-      } else {
-        const { data: nuevaMascota, error } = await supabase
-          .from('perros')
-          .insert({
-            cliente_id: clienteId,
-            nombre: form.mascotaNombre,
-            especie,
-            tipo: especie === 'perro' ? form.tipoPerro : null,
-            peso_kg: parseFloat(form.mascotaPeso) || null,
-          })
-          .select('id')
-          .single()
-        if (error) throw error
-        perroId = nuevaMascota.id
-      }
-
-      // 3. Registrar venta
       const fechaEstimada = calcularFechaEstimada()
-      const { error: ventaError } = await supabase.from('ventas').insert({
-        cliente_id: clienteId,
-        perro_id: perroId,
-        producto: form.producto,
-        tamaño_bolsa_kg: parseFloat(form.tamañoBolsaKg),
-        precio: parseInt(form.precio),
-        gramos_por_comida: especie === 'perro' ? parseInt(form.gramosPorComida) : null,
-        veces_al_dia: especie === 'perro' ? parseInt(form.vecesAlDia) : null,
-        fecha_estimada_fin: fechaEstimada,
+      const result = await registrarVentaAction({
+        clienteNombre:    form.clienteNombre,
+        clienteTelefono:  form.clienteTelefono || null,
+        clienteDireccion: form.clienteDireccion || null,
+        mascotaNombre:    form.mascotaNombre,
+        mascotaPeso:      parseFloat(form.mascotaPeso) || null,
+        especie,
+        tipoPerro:        especie === 'perro' ? form.tipoPerro : null,
+        producto:         form.producto,
+        tamañoBolsaKg:    parseFloat(form.tamañoBolsaKg),
+        precio:           parseInt(form.precio),
+        gramosPorComida:  especie === 'perro' ? (parseInt(form.gramosPorComida) || null) : null,
+        vecesAlDia:       especie === 'perro' ? parseInt(form.vecesAlDia) : null,
+        intervaloDias:    especie === 'gato' ? (parseInt(form.intervaloDias) || null) : null,
+        fechaEstimadaFin: fechaEstimada,
       })
-      if (ventaError) throw ventaError
 
-      // 4. Update Google Sheets
-      const sheetsRes = await fetch('/api/ventas/sheets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ventaData: {
-            clienteNombre: form.clienteNombre,
-            clienteTelefono: form.clienteTelefono || null,
-            clienteDireccion: form.clienteDireccion || null,
-            mascotaNombre: form.mascotaNombre,
-            especie,
-            mascotaPeso: parseFloat(form.mascotaPeso) || null,
-            producto: form.producto,
-            tamañoBolsaKg: parseFloat(form.tamañoBolsaKg),
-            precio: parseInt(form.precio),
-            fechaVenta: new Date().toISOString().split('T')[0],
-            fechaEstimadaFin: fechaEstimada,
-          }
-        }),
-      })
-      if (!sheetsRes.ok) {
-        console.error('Sheets sync failed:', await sheetsRes.text())
+      if (!result.success) {
+        setError(result.error ?? 'Error al guardar la venta.')
+        return
       }
 
       router.push('/dashboard')
@@ -168,22 +92,15 @@ export function NuevaVentaForm() {
           ).map(({ label, field, required }) => (
             <div key={field}>
               <label className="block text-xs text-slate-400 mb-1">{label}</label>
-              <input
-                value={form[field]}
-                onChange={e => set(field, e.target.value)}
-                required={required}
-                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500"
-              />
+              <input value={form[field]} onChange={e => set(field, e.target.value)} required={required}
+                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500" />
             </div>
           ))}
         </div>
         <div>
           <label className="block text-xs text-slate-400 mb-1">Dirección</label>
-          <input
-            value={form.clienteDireccion}
-            onChange={e => set('clienteDireccion', e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500"
-          />
+          <input value={form.clienteDireccion} onChange={e => set('clienteDireccion', e.target.value)}
+            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500" />
         </div>
       </section>
 
@@ -192,16 +109,10 @@ export function NuevaVentaForm() {
         <h3 className="text-white font-semibold">Datos de la mascota</h3>
         <div className="flex gap-3 mb-2">
           {(['perro', 'gato'] as const).map(e => (
-            <button
-              key={e}
-              type="button"
-              onClick={() => setEspecie(e)}
+            <button key={e} type="button" onClick={() => setEspecie(e)}
               className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
-                especie === e
-                  ? 'bg-amber-500 text-slate-950'
-                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-              }`}
-            >
+                especie === e ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+              }`}>
               {e === 'perro' ? '🐶 Perro' : '🐱 Gato'}
             </button>
           ))}
@@ -297,16 +208,10 @@ export function NuevaVentaForm() {
       </section>
 
       {error && (
-        <div className="bg-red-950 border border-red-800 rounded p-3 text-red-300 text-sm">
-          {error}
-        </div>
+        <div className="bg-red-950 border border-red-800 rounded p-3 text-red-300 text-sm">{error}</div>
       )}
 
-      <Button
-        type="submit"
-        disabled={loading}
-        className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold"
-      >
+      <Button type="submit" disabled={loading} className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold">
         {loading ? 'Guardando...' : 'Registrar venta'}
       </Button>
     </form>

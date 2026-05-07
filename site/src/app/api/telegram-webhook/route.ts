@@ -2,65 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { parsearMensaje, type VentaData, type CompraStockData, type ActualizarClienteData, type FaltanteProducto, type ParseResult } from '@/lib/claude-parser'
 import { sendMessage, sendMessageWithButtons, answerCallbackQuery, deleteMessage, getFile, downloadFile, transcribeAudioWithClaude, getAuthorizedChatIds } from '@/lib/telegram'
 import { appendVentaToSheet } from '@/lib/google-sheets'
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { sql } from '@/lib/db'
 import { calcularFechaFinPerro, calcularFechaFinGato, calcularFechaFinPorGramosDia, fechaHoyUruguay, fechaHoyUruguayISO } from '@/lib/calculations'
 
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
-
-/**
- * Consulta la tabla_gramos para obtener los gramos diarios recomendados
- * según el tipo y peso del perro.
- * @returns promedio de gramos_min y gramos_max, o null si no encuentra
- */
-async function obtenerGramosDiariosDeTabla(
-  supabase: SupabaseClient,
-  tipoPerro: string | null,
-  pesoKg: number | null
-): Promise<number | null> {
-  if (!tipoPerro || !pesoKg) return null
-
-  // Normalizar tipo para que coincida con la tabla
-  // La tabla usa: adulto, senior, raza_pequeña, cachorro
-  const tipoNormalizado = tipoPerro.toLowerCase()
-    .replace('razas pequeñas', 'raza_pequeña')
-    .replace('raza pequeña', 'raza_pequeña')
-    .replace(/\s+/g, '_')
-
-  const { data, error } = await supabase
-    .from('tabla_gramos')
-    .select('gramos_min, gramos_max')
-    .eq('tipo_perro', tipoNormalizado)
-    .lte('peso_min_kg', pesoKg)
-    .gte('peso_max_kg', pesoKg)
-    .limit(1)
-    .maybeSingle()
-
-  if (error) {
-    console.error('Error consultando tabla_gramos:', error)
-    return null
-  }
-
-  if (!data) {
-    console.log(`No se encontró entrada en tabla_gramos para tipo=${tipoNormalizado}, peso=${pesoKg}`)
-    return null
-  }
-
-  // Usar promedio de min y max
-  const promedio = Math.round((data.gramos_min + data.gramos_max) / 2)
-  console.log(`tabla_gramos: tipo=${tipoNormalizado}, peso=${pesoKg} -> ${promedio}g/día (min=${data.gramos_min}, max=${data.gramos_max})`)
-  return promedio
-}
-
-/**
- * Busca un producto en la tabla productos y devuelve su precio_venta.
- * Intenta match exacto primero, luego búsqueda parcial.
- * @returns { producto, precio_venta, stock_actual } o null si no encuentra
- */
+// ── Types ──────────────────────────────────────────────────────────────────
 interface ProductoEncontrado {
   id: string
   nombre: string
@@ -69,232 +14,175 @@ interface ProductoEncontrado {
   stock_actual: number
 }
 
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+async function obtenerGramosDiariosDeTabla(
+  tipoPerro: string | null,
+  pesoKg: number | null
+): Promise<number | null> {
+  if (!tipoPerro || !pesoKg) return null
+
+  const tipoNormalizado = tipoPerro.toLowerCase()
+    .replace('razas pequeñas', 'raza_pequeña')
+    .replace('raza pequeña', 'raza_pequeña')
+    .replace(/\s+/g, '_')
+
+  const rows = await sql`
+    SELECT gramos_min, gramos_max FROM tabla_gramos
+    WHERE tipo_perro = ${tipoNormalizado}
+      AND peso_min_kg <= ${pesoKg}
+      AND peso_max_kg >= ${pesoKg}
+    LIMIT 1
+  `
+  if (!rows.length) return null
+  return Math.round(((rows[0].gramos_min as number) + (rows[0].gramos_max as number)) / 2)
+}
+
 async function buscarProductoEnBD(
-  supabase: SupabaseClient,
   nombreProducto: string
 ): Promise<{ encontrados: ProductoEncontrado[], exacto: boolean }> {
-  // Primero intenta match exacto (case insensitive)
-  const { data: exacto } = await supabase
-    .from('productos')
-    .select('id, nombre, marca, precio_venta, stock_actual')
-    .ilike('nombre', nombreProducto)
-  
-  if (exacto && exacto.length === 1) {
-    return { encontrados: exacto as ProductoEncontrado[], exacto: true }
+  const exactoRows = await sql`
+    SELECT id, nombre, marca, precio_venta, stock_actual
+    FROM productos WHERE lower(nombre) = lower(${nombreProducto})
+  `
+  if (exactoRows.length === 1) {
+    return { encontrados: exactoRows as unknown as ProductoEncontrado[], exacto: true }
   }
 
-  // Si no hay exacto o hay varios, buscar por partes del nombre
-  // Extraer marca, tipo y tamaño del nombre
   const marcas = ['lager', 'maxine', 'connie', 'wits', 'toky']
-  const tipos = ['adulto', 'senior', 'cachorro', 'razas pequeñas', 'gato adulto', 'gato castrado']
-  
+  const tipos  = ['adulto', 'senior', 'cachorro', 'razas pequeñas', 'gato adulto', 'gato castrado']
+
   let queryMarca: string | null = null
-  let queryTipo: string | null = null
-  let tamañoKg: number | null = null
+  let queryTipo:  string | null = null
+  let tamañoKg:   number | null = null
 
-  // Extraer tamaño (ej: "10 kg", "10kg", "22+3 kg")
   const matchTamaño = nombreProducto.match(/(\d+(?:\+\d+)?)\s*kg/i)
-  if (matchTamaño) {
-    // Para tamaños como "22+3", tomar el número principal
-    const tamañoStr = matchTamaño[1].split('+')[0]
-    tamañoKg = parseInt(tamañoStr, 10)
+  if (matchTamaño) tamañoKg = parseInt(matchTamaño[1].split('+')[0], 10)
+  for (const m of marcas) if (nombreProducto.toLowerCase().includes(m)) { queryMarca = m; break }
+  for (const t of tipos)  if (nombreProducto.toLowerCase().includes(t)) { queryTipo  = t; break }
+
+  let parciales: ProductoEncontrado[] = []
+  if (queryMarca && queryTipo) {
+    const r = await sql`SELECT id, nombre, marca, precio_venta, stock_actual FROM productos WHERE lower(marca) LIKE lower(${'%' + queryMarca + '%'}) AND lower(nombre) LIKE lower(${'%' + queryTipo + '%'}) LIMIT 20`
+    parciales = r as unknown as ProductoEncontrado[]
+  } else if (queryMarca) {
+    const r = await sql`SELECT id, nombre, marca, precio_venta, stock_actual FROM productos WHERE lower(marca) LIKE lower(${'%' + queryMarca + '%'}) LIMIT 20`
+    parciales = r as unknown as ProductoEncontrado[]
+  } else if (queryTipo) {
+    const r = await sql`SELECT id, nombre, marca, precio_venta, stock_actual FROM productos WHERE lower(nombre) LIKE lower(${'%' + queryTipo + '%'}) LIMIT 20`
+    parciales = r as unknown as ProductoEncontrado[]
   }
 
-  // Extraer marca
-  for (const marca of marcas) {
-    if (nombreProducto.toLowerCase().includes(marca)) {
-      queryMarca = marca
-      break
-    }
-  }
-  
-  // Buscar tipo (puede ser dos palabras: "razas pequeñas", "gato adulto")
-  for (const tipo of tipos) {
-    if (nombreProducto.toLowerCase().includes(tipo)) {
-      queryTipo = tipo
-      break
-    }
-  }
-
-  // Construir búsqueda
-  let query = supabase.from('productos').select('id, nombre, marca, precio_venta, stock_actual')
-  
-  if (queryMarca) {
-    query = query.ilike('marca', `%${queryMarca}%`)
-  }
-  
-  if (queryTipo) {
-    query = query.ilike('nombre', `%${queryTipo}%`)
-  }
-
-  const { data: parciales } = await query.limit(20)
-  
-  // Filtrar por tamaño en JavaScript para mayor precisión
-  let filtrados = (parciales || []) as ProductoEncontrado[]
+  let filtrados = parciales
   if (tamañoKg && filtrados.length > 0) {
     filtrados = filtrados.filter(p => {
-      const matchProd = p.nombre.match(/(\d+(?:\+\d+)?)\s*kg/i)
-      if (!matchProd) return false
-      // Extraer el número principal del tamaño del producto
-      const tamañoProd = parseInt(matchProd[1].split('+')[0], 10)
-      return tamañoProd === tamañoKg
+      const m = p.nombre.match(/(\d+(?:\+\d+)?)\s*kg/i)
+      if (!m) return false
+      return parseInt(m[1].split('+')[0], 10) === tamañoKg
     })
   }
-  
   return { encontrados: filtrados, exacto: filtrados.length === 1 }
 }
 
-/**
- * Busca productos que coincidan parcialmente con marca, tipo o tamaño
- */
 async function buscarProductosPorCriterios(
-  supabase: SupabaseClient,
   marca: string | null,
   tipoProducto: string | null,
   tamañoKg: number | null
 ): Promise<ProductoEncontrado[]> {
-  let query = supabase.from('productos').select('id, nombre, marca, precio_venta, stock_actual')
-  
-  if (marca) {
-    query = query.ilike('marca', `%${marca}%`)
-  }
-  
-  if (tipoProducto) {
-    query = query.ilike('nombre', `%${tipoProducto}%`)
+  let rows: ProductoEncontrado[] = []
+  if (marca && tipoProducto) {
+    const r = await sql`SELECT id, nombre, marca, precio_venta, stock_actual FROM productos WHERE lower(marca) LIKE lower(${'%' + marca + '%'}) AND lower(nombre) LIKE lower(${'%' + tipoProducto + '%'}) ORDER BY marca, nombre LIMIT 50`
+    rows = r as unknown as ProductoEncontrado[]
+  } else if (marca) {
+    const r = await sql`SELECT id, nombre, marca, precio_venta, stock_actual FROM productos WHERE lower(marca) LIKE lower(${'%' + marca + '%'}) ORDER BY marca, nombre LIMIT 50`
+    rows = r as unknown as ProductoEncontrado[]
+  } else if (tipoProducto) {
+    const r = await sql`SELECT id, nombre, marca, precio_venta, stock_actual FROM productos WHERE lower(nombre) LIKE lower(${'%' + tipoProducto + '%'}) ORDER BY marca, nombre LIMIT 50`
+    rows = r as unknown as ProductoEncontrado[]
   }
 
-  const { data } = await query.order('marca').order('nombre').limit(50)
-  
-  // Filtrar por tamaño exacto en JavaScript para mayor precisión
-  let filtrados = (data || []) as ProductoEncontrado[]
-  if (tamañoKg && filtrados.length > 0) {
-    filtrados = filtrados.filter(p => {
-      const matchProd = p.nombre.match(/(\d+(?:\+\d+)?)\s*kg/i)
-      if (!matchProd) return false
-      // Extraer el número principal del tamaño del producto
-      const tamañoProd = parseInt(matchProd[1].split('+')[0], 10)
-      return tamañoProd === tamañoKg
+  if (tamañoKg && rows.length > 0) {
+    rows = rows.filter(p => {
+      const m = p.nombre.match(/(\d+(?:\+\d+)?)\s*kg/i)
+      if (!m) return false
+      return parseInt(m[1].split('+')[0], 10) === tamañoKg
     })
   }
-  
-  return filtrados
+  return rows
 }
 
-/**
- * Determina el siguiente campo opcional que falta para una venta.
- * Retorna null si no faltan más campos.
- */
 function obtenerSiguienteCampoFaltante(d: VentaData, campoActual: string | null): string | null {
   const campos = ['telefono', 'direccion']
   const startIndex = campoActual ? campos.indexOf(campoActual) + 1 : 0
-  
   for (let i = startIndex; i < campos.length; i++) {
-    const campo = campos[i]
-    if (campo === 'telefono' && !d.clienteTelefono) return 'telefono'
-    if (campo === 'direccion' && !d.clienteDireccion) return 'direccion'
+    if (campos[i] === 'telefono' && !d.clienteTelefono) return 'telefono'
+    if (campos[i] === 'direccion' && !d.clienteDireccion) return 'direccion'
   }
-  
   return null
 }
 
+// ── POST handler ───────────────────────────────────────────────────────────
+
 export async function POST(req: NextRequest) {
   let body: unknown
-  try {
-    body = await req.json()
-  } catch {
-    return NextResponse.json({ ok: true })
-  }
+  try { body = await req.json() } catch { return NextResponse.json({ ok: true }) }
 
   const authorizedIds = getAuthorizedChatIds()
 
-  // ── Handle inline button presses ─────────────────────────────────────────
+  // ── Callback (button press) ────────────────────────────────────────────
   const callbackQuery = (body as any)?.callback_query
   if (callbackQuery) {
     const callbackQueryId = String(callbackQuery.id)
-    const chatId = String(callbackQuery.message?.chat?.id)
-    const messageId = callbackQuery.message?.message_id as number | undefined
+    const chatId          = String(callbackQuery.message?.chat?.id)
+    const messageId       = callbackQuery.message?.message_id as number | undefined
 
     if (authorizedIds.length > 0 && !authorizedIds.includes(chatId)) {
       return NextResponse.json({ ok: true })
     }
 
-    const data = String(callbackQuery.data ?? '')
+    const data    = String(callbackQuery.data ?? '')
     const [accion, ventaId] = data.split(':')
 
     await answerCallbackQuery(callbackQueryId)
 
-    const supabase = getSupabase()
-
-    // ── confirmar_venta ──────────────────────────────────────────────────
+    // ── confirmar_venta ──────────────────────────────────────────────
     if (accion === 'confirmar_venta') {
-      // Eliminar el mensaje de confirmación con los botones
-      if (messageId) {
-        await deleteMessage(chatId, messageId)
-      }
+      if (messageId) await deleteMessage(chatId, messageId)
 
-      const { data: estadoPendiente } = await supabase
-        .from('telegram_estados')
-        .select('payload')
-        .eq('chat_id', chatId)
-        .maybeSingle()
-
-      if (!estadoPendiente?.payload) {
+      const estados = await sql`SELECT payload FROM telegram_estados WHERE chat_id = ${chatId}`
+      if (!estados.length || !estados[0].payload) {
         await sendMessage(chatId, '⚠️ No hay venta pendiente de confirmación.')
         return NextResponse.json({ ok: true })
       }
+      const p = estados[0].payload as any
 
-      const p = estadoPendiente.payload as any
+      const ventaRows = await sql`SELECT registrar_venta(
+        ${p.clienteId}::uuid, ${p.perroId}::uuid, ${p.producto},
+        ${p.tamañoBolsaKg}, ${p.precio},
+        ${p.gramosPorComida ?? null}, ${p.vecesAlDia ?? null},
+        ${p.fechaFin ?? null}::date, ${p.cantidad}, ${p.pagado}
+      ) AS venta_id`
 
-      const { data: ventaIdResult, error: rpcError } = await supabase.rpc('registrar_venta', {
-        p_cliente_id:        p.clienteId,
-        p_perro_id:          p.perroId,
-        p_producto:          p.producto,
-        p_tamaño_bolsa_kg:   p.tamañoBolsaKg,
-        p_precio:            p.precio,
-        p_gramos_por_comida: p.gramosPorComida ?? null,
-        p_veces_al_dia:      p.vecesAlDia ?? null,
-        p_fecha_estimada_fin: p.fechaFin ?? null,
-        p_cantidad:          p.cantidad,
-        p_pagado:            p.pagado,
-      })
+      await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
 
-      await supabase.from('telegram_estados').delete().eq('chat_id', chatId)
-
-      if (rpcError) {
-        console.error('RPC registrar_venta error:', rpcError)
+      if (!ventaRows.length) {
         await sendMessage(chatId, '❌ Error al registrar la venta. Revisá los logs.')
         return NextResponse.json({ ok: true })
       }
 
-      // Google Sheets sync (non-blocking)
       try {
         await appendVentaToSheet({
-          clienteNombre:    p.clienteNombre,
-          clienteTelefono:  p.clienteTelefono,
-          clienteDireccion: p.clienteDireccion,
-          mascotaNombre:    p.mascotaNombre,
-          especie:          p.especie,
-          mascotaPeso:      p.pesoKg,
-          producto:         p.producto,
-          tamañoBolsaKg:    p.tamañoBolsaKg,
-          precio:           p.precio,
-          fechaVenta:       fechaHoyUruguayISO(),
-          fechaEstimadaFin: p.fechaFin,
+          clienteNombre: p.clienteNombre, clienteTelefono: p.clienteTelefono,
+          clienteDireccion: p.clienteDireccion, mascotaNombre: p.mascotaNombre,
+          especie: p.especie, mascotaPeso: p.pesoKg, producto: p.producto,
+          tamañoBolsaKg: p.tamañoBolsaKg, precio: p.precio,
+          fechaVenta: fechaHoyUruguayISO(), fechaEstimadaFin: p.fechaFin,
         })
-      } catch (sheetsErr) {
-        console.error('Sheets sync error (non-fatal):', sheetsErr)
-      }
+      } catch (e) { console.error('Sheets sync error (non-fatal):', e) }
 
-      // Check stock post-insert — warn if reached 0
-      const { data: productoActualizado } = await supabase
-        .from('productos')
-        .select('stock_actual')
-        .ilike('nombre', p.producto)
-        .maybeSingle()
-
-      if (productoActualizado && productoActualizado.stock_actual <= 0) {
-        const chatIds = getAuthorizedChatIds()
-        for (const id of chatIds) {
+      const stockRows = await sql`SELECT stock_actual FROM productos WHERE lower(nombre) = lower(${p.producto}) LIMIT 1`
+      if (stockRows.length && (stockRows[0].stock_actual as number) <= 0) {
+        for (const id of getAuthorizedChatIds()) {
           await sendMessage(id, `⚠️ Stock de <b>${p.producto}</b> llegó a 0.`)
         }
       }
@@ -304,245 +192,138 @@ export async function POST(req: NextRequest) {
         : `✅ Venta registrada\n(Sin fecha estimada)`
       await sendMessage(chatId, respuesta)
 
-      // Enviar segundo mensaje con el detalle del cálculo
       if (p.fechaFin && p.especie === 'perro' && p.gramosDiarios) {
-        const diasDuracion = Math.round((p.tamañoBolsaKg * 1000) / p.gramosDiarios)
-        const calculo = `📊 <b>Cálculo:</b>\n` +
-          `• Bolsa: ${p.tamañoBolsaKg} kg (${p.tamañoBolsaKg * 1000}g)\n` +
-          `• Consumo: ${p.gramosDiarios}g/día${p.pesoKg ? ` (según peso ${p.pesoKg}kg)` : ''}\n` +
-          `• Duración: ${diasDuracion} días`
-        await sendMessage(chatId, calculo)
+        const dias = Math.round((p.tamañoBolsaKg * 1000) / p.gramosDiarios)
+        await sendMessage(chatId, `📊 <b>Cálculo:</b>\n• Bolsa: ${p.tamañoBolsaKg} kg (${p.tamañoBolsaKg * 1000}g)\n• Consumo: ${p.gramosDiarios}g/día${p.pesoKg ? ` (según peso ${p.pesoKg}kg)` : ''}\n• Duración: ${dias} días`)
       } else if (p.fechaFin && p.especie === 'gato') {
-        const hoy = fechaHoyUruguay()
-        const fechaFinDate = new Date(p.fechaFin)
-        const diasDuracion = Math.round((fechaFinDate.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24))
-        const calculo = `📊 <b>Cálculo:</b>\n` +
-          `• Intervalo de compra: ${diasDuracion} días (basado en historial)`
-        await sendMessage(chatId, calculo)
+        const hoyDate = fechaHoyUruguay()
+        const dias = Math.round((new Date(p.fechaFin).getTime() - hoyDate.getTime()) / (1000 * 60 * 60 * 24))
+        await sendMessage(chatId, `📊 <b>Cálculo:</b>\n• Intervalo de compra: ${dias} días (basado en historial)`)
       }
 
-    // ── cancelar_venta ───────────────────────────────────────────────────
+    // ── cancelar_venta ───────────────────────────────────────────────
     } else if (accion === 'cancelar_venta') {
-      // Eliminar el mensaje de confirmación con los botones
-      if (messageId) {
-        await deleteMessage(chatId, messageId)
-      }
-      await supabase.from('telegram_estados').delete().eq('chat_id', chatId)
+      if (messageId) await deleteMessage(chatId, messageId)
+      await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
       await sendMessage(chatId, '❌ Venta cancelada.')
 
-    // ── confirmar_compra_stock ───────────────────────────────────────────
+    // ── confirmar_compra_stock ───────────────────────────────────────
     } else if (accion === 'confirmar_compra_stock') {
-      // Eliminar el mensaje de confirmación con los botones
-      if (messageId) {
-        await deleteMessage(chatId, messageId)
-      }
+      if (messageId) await deleteMessage(chatId, messageId)
 
-      const { data: estadoPendiente } = await supabase
-        .from('telegram_estados')
-        .select('payload')
-        .eq('chat_id', chatId)
-        .maybeSingle()
-
-      if (!estadoPendiente?.payload) {
+      const estados = await sql`SELECT payload FROM telegram_estados WHERE chat_id = ${chatId}`
+      if (!estados.length || !estados[0].payload) {
         await sendMessage(chatId, '⚠️ No hay compra pendiente de confirmación.')
         return NextResponse.json({ ok: true })
       }
+      const p = estados[0].payload as any
 
-      const p = estadoPendiente.payload as any
+      const productoRows = await sql`SELECT id, stock_actual FROM productos WHERE lower(nombre) = lower(${p.producto}) LIMIT 1`
+      await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
 
-      const { data: productoActual } = await supabase
-        .from('productos')
-        .select('id, stock_actual')
-        .ilike('nombre', p.producto)
-        .maybeSingle()
-
-      await supabase.from('telegram_estados').delete().eq('chat_id', chatId)
-
-      if (!productoActual) {
-        await sendMessage(chatId, `⚠️ Producto "<b>${p.producto}</b>" no encontrado en el catálogo. Verificá el nombre.`)
+      if (!productoRows.length) {
+        await sendMessage(chatId, `⚠️ Producto "<b>${p.producto}</b>" no encontrado en el catálogo.`)
         return NextResponse.json({ ok: true })
       }
 
-      const nuevoStock = productoActual.stock_actual + p.cantidad
-      await supabase
-        .from('productos')
-        .update({ stock_actual: nuevoStock })
-        .eq('id', productoActual.id)
-
+      const nuevoStock = (productoRows[0].stock_actual as number) + p.cantidad
+      await sql`UPDATE productos SET stock_actual = ${nuevoStock} WHERE id = ${productoRows[0].id as string}`
       await sendMessage(chatId, `✅ Stock actualizado.\n📦 <b>${p.producto}</b>: ${nuevoStock} bolsas en stock.`)
 
-    // ── cancelar_compra_stock ────────────────────────────────────────────
+    // ── cancelar_compra_stock ────────────────────────────────────────
     } else if (accion === 'cancelar_compra_stock') {
-      // Eliminar el mensaje de confirmación con los botones
-      if (messageId) {
-        await deleteMessage(chatId, messageId)
-      }
-      await supabase.from('telegram_estados').delete().eq('chat_id', chatId)
+      if (messageId) await deleteMessage(chatId, messageId)
+      await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
       await sendMessage(chatId, '❌ Compra cancelada.')
 
-    // ── recompro (from cron alert) ───────────────────────────────────────
+    // ── recompro ─────────────────────────────────────────────────────
     } else if (accion === 'recompro') {
-      const { data: ventaOriginal } = await supabase
-        .from('ventas')
-        .select('*')
-        .eq('id', ventaId)
-        .single()
-
-      if (!ventaOriginal) {
+      const ventaRows = await sql`SELECT * FROM ventas WHERE id = ${ventaId}`
+      if (!ventaRows.length) {
         await sendMessage(chatId, '⚠️ No encontré la venta original.')
         return NextResponse.json({ ok: true })
       }
-
-      // Obtener datos de la mascota para consultar tabla_gramos
-      const { data: mascota } = await supabase
-        .from('perros')
-        .select('tipo, peso_kg, intervalo_compra_dias, especie')
-        .eq('id', ventaOriginal.perro_id)
-        .single()
+      const v0 = ventaRows[0]
+      const mascotaRows = await sql`SELECT tipo, peso_kg, intervalo_compra_dias, especie FROM perros WHERE id = ${v0.perro_id as string}`
+      const mascota = mascotaRows[0]
 
       let nuevaFechaFin: string | null = null
-      
       if (mascota?.especie === 'perro' || (!mascota?.especie && !mascota?.intervalo_compra_dias)) {
-        // Es perro: consultar tabla_gramos
-        const gramosDeTabla = await obtenerGramosDiariosDeTabla(supabase, mascota?.tipo ?? null, mascota?.peso_kg ?? null)
-        
-        if (gramosDeTabla) {
-          nuevaFechaFin = calcularFechaFinPorGramosDia(
-            fechaHoyUruguay(),
-            ventaOriginal.tamaño_bolsa_kg,
-            gramosDeTabla
-          ).toISOString().split('T')[0]
-        } else if (ventaOriginal.gramos_por_comida && ventaOriginal.veces_al_dia) {
-          // Fallback: usar los gramos guardados de la venta original
-          nuevaFechaFin = calcularFechaFinPerro(
-            fechaHoyUruguay(),
-            ventaOriginal.tamaño_bolsa_kg,
-            ventaOriginal.gramos_por_comida,
-            ventaOriginal.veces_al_dia
-          ).toISOString().split('T')[0]
+        const g = await obtenerGramosDiariosDeTabla(mascota?.tipo as string ?? null, mascota?.peso_kg as number ?? null)
+        if (g) {
+          nuevaFechaFin = calcularFechaFinPorGramosDia(fechaHoyUruguay(), v0.tamaño_bolsa_kg as number, g).toISOString().split('T')[0]
+        } else if (v0.gramos_por_comida && v0.veces_al_dia) {
+          nuevaFechaFin = calcularFechaFinPerro(fechaHoyUruguay(), v0.tamaño_bolsa_kg as number, v0.gramos_por_comida as number, v0.veces_al_dia as number).toISOString().split('T')[0]
         }
       } else if (mascota?.intervalo_compra_dias) {
-        // Es gato: usar intervalo fijo
-        nuevaFechaFin = calcularFechaFinGato(fechaHoyUruguay(), mascota.intervalo_compra_dias)
-          .toISOString().split('T')[0]
+        nuevaFechaFin = calcularFechaFinGato(fechaHoyUruguay(), mascota.intervalo_compra_dias as number).toISOString().split('T')[0]
       }
 
-      await supabase.from('ventas').insert({
-        cliente_id:         ventaOriginal.cliente_id,
-        perro_id:           ventaOriginal.perro_id,
-        producto:           ventaOriginal.producto,
-        tamaño_bolsa_kg:    ventaOriginal.tamaño_bolsa_kg,
-        precio:             ventaOriginal.precio,
-        gramos_por_comida:  ventaOriginal.gramos_por_comida,
-        veces_al_dia:       ventaOriginal.veces_al_dia,
-        fecha_estimada_fin: nuevaFechaFin,
-        cantidad:           1,
-        pagado:             false,
-        alerta_enviada:     false,
-      })
-
-      const msg = nuevaFechaFin
+      await sql`
+        INSERT INTO ventas (cliente_id, perro_id, producto, tamaño_bolsa_kg, precio, gramos_por_comida, veces_al_dia, fecha_estimada_fin, cantidad, pagado, alerta_enviada)
+        VALUES (${v0.cliente_id as string}, ${v0.perro_id as string}, ${v0.producto as string}, ${v0.tamaño_bolsa_kg as number}, ${v0.precio as number}, ${v0.gramos_por_comida as number | null}, ${v0.veces_al_dia as number | null}, ${nuevaFechaFin}::date, 1, false, false)
+      `
+      await sendMessage(chatId, nuevaFechaFin
         ? `✅ Recompra registrada. Próxima alerta: ${new Date(nuevaFechaFin + 'T12:00:00').toLocaleDateString('es-UY')}`
-        : `✅ Recompra registrada (sin fecha estimada).`
-      await sendMessage(chatId, msg)
+        : `✅ Recompra registrada (sin fecha estimada).`)
 
-    // ── esperar (from cron alert) ────────────────────────────────────────
+    // ── esperar ──────────────────────────────────────────────────────
     } else if (accion === 'esperar') {
-      await supabase.from('telegram_estados').upsert({
-        chat_id:    chatId,
-        estado:     'esperando_dias',
-        venta_id:   ventaId,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'chat_id' })
+      await sql`
+        INSERT INTO telegram_estados (chat_id, estado, venta_id, updated_at)
+        VALUES (${chatId}, 'esperando_dias', ${ventaId}::uuid, now())
+        ON CONFLICT (chat_id) DO UPDATE SET estado = 'esperando_dias', venta_id = ${ventaId}::uuid, updated_at = now()
+      `
       await sendMessage(chatId, '¿Cuántos días querés que espere para volver a avisar? (respondé solo el número, ej: 7)')
 
-    // ── baja (from cron alert) ───────────────────────────────────────────
+    // ── baja ─────────────────────────────────────────────────────────
     } else if (accion === 'baja') {
-      const { data: venta } = await supabase
-        .from('ventas')
-        .select('cliente_id')
-        .eq('id', ventaId)
-        .single()
-      if (venta) {
-        await supabase.from('clientes').update({ activo: false }).eq('id', venta.cliente_id)
-      }
+      const vRows = await sql`SELECT cliente_id FROM ventas WHERE id = ${ventaId}`
+      if (vRows.length) await sql`UPDATE clientes SET activo = false WHERE id = ${vRows[0].cliente_id as string}`
       await sendMessage(chatId, '❌ Cliente dado de baja. No recibirá más alertas.')
     }
 
     return NextResponse.json({ ok: true })
   }
 
-  // ── Handle regular text messages ─────────────────────────────────────────
+  // ── Regular message ────────────────────────────────────────────────────
   const message = (body as any)?.message
   if (!message?.chat?.id) return NextResponse.json({ ok: true })
 
   const chatId = String(message.chat.id)
-
-  // Procesar mensaje de voz o audio
   let texto: string | null = null
+
   const voice = message.voice
   const audio = message.audio
-
   if (voice || audio) {
     const fileId = voice?.file_id || audio?.file_id
-    if (!fileId) {
-      await sendMessage(chatId, '❌ No se pudo procesar el audio.')
-      return NextResponse.json({ ok: true })
-    }
-
-    // Verificar autorización antes de procesar audio (costoso)
-    if (authorizedIds.length > 0 && !authorizedIds.includes(chatId)) {
-      return NextResponse.json({ ok: true })
-    }
-
+    if (!fileId) { await sendMessage(chatId, '❌ No se pudo procesar el audio.'); return NextResponse.json({ ok: true }) }
+    if (authorizedIds.length > 0 && !authorizedIds.includes(chatId)) return NextResponse.json({ ok: true })
     await sendMessage(chatId, '🎙️ Procesando audio...')
-
     const fileInfo = await getFile(fileId)
-    if (!fileInfo) {
-      await sendMessage(chatId, '❌ No se pudo obtener el archivo de audio.')
-      return NextResponse.json({ ok: true })
-    }
-
+    if (!fileInfo) { await sendMessage(chatId, '❌ No se pudo obtener el archivo de audio.'); return NextResponse.json({ ok: true }) }
     const audioBuffer = await downloadFile(fileInfo.file_path)
-    if (!audioBuffer) {
-      await sendMessage(chatId, '❌ No se pudo descargar el audio.')
-      return NextResponse.json({ ok: true })
-    }
-
+    if (!audioBuffer) { await sendMessage(chatId, '❌ No se pudo descargar el audio.'); return NextResponse.json({ ok: true }) }
     const transcripcion = await transcribeAudioWithClaude(audioBuffer, fileInfo.file_path.split('/').pop() || 'audio.ogg')
-    if (!transcripcion) {
-      await sendMessage(chatId, '❌ No se pudo transcribir el audio.')
-      return NextResponse.json({ ok: true })
-    }
-
+    if (!transcripcion) { await sendMessage(chatId, '❌ No se pudo transcribir el audio.'); return NextResponse.json({ ok: true }) }
     texto = transcripcion.slice(0, 2000)
-    // Mostrar la transcripción al usuario
     await sendMessage(chatId, `📝 <i>"${texto}"</i>`)
   } else if (message.text) {
     texto = String(message.text).slice(0, 2000)
   } else {
-    // No es texto ni audio
     return NextResponse.json({ ok: true })
   }
 
-  // /id command — available to anyone to get their chat ID
   if (texto.trim() === '/id') {
     await sendMessage(chatId, `Tu chat ID es: <code>${chatId}</code>`)
     return NextResponse.json({ ok: true })
   }
 
-  if (authorizedIds.length > 0 && !authorizedIds.includes(chatId)) {
-    return NextResponse.json({ ok: true })
-  }
+  if (authorizedIds.length > 0 && !authorizedIds.includes(chatId)) return NextResponse.json({ ok: true })
 
-  const supabase = getSupabase()
-
-  // ── "esperando_dias" state (user tapped Esperar) ─────────────────────────
-  const { data: estadoActual } = await supabase
-    .from('telegram_estados')
-    .select('*')
-    .eq('chat_id', chatId)
-    .maybeSingle()
+  // ── Estado conversacional ──────────────────────────────────────────────
+  const estadoRows = await sql`SELECT * FROM telegram_estados WHERE chat_id = ${chatId}`
+  const estadoActual = estadoRows[0]
 
   if (estadoActual?.estado === 'esperando_dias') {
     const dias = parseInt(texto.trim(), 10)
@@ -552,88 +333,59 @@ export async function POST(req: NextRequest) {
     }
     const nuevaFecha = fechaHoyUruguay()
     nuevaFecha.setDate(nuevaFecha.getDate() + dias)
-    await supabase
-      .from('ventas')
-      .update({ fecha_estimada_fin: nuevaFecha.toISOString().split('T')[0], alerta_enviada: false })
-      .eq('id', estadoActual.venta_id)
-    await supabase.from('telegram_estados').delete().eq('chat_id', chatId)
+    await sql`UPDATE ventas SET fecha_estimada_fin = ${nuevaFecha.toISOString().split('T')[0]}::date, alerta_enviada = false WHERE id = ${estadoActual.venta_id as string}`
+    await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
     await sendMessage(chatId, `⏰ Listo, vuelvo a avisar en ${dias} días (${nuevaFecha.toLocaleDateString('es-UY')})`)
     return NextResponse.json({ ok: true })
   }
 
-  // ── "esperando_seleccion_producto" state (user selecting product from list) ──
   if (estadoActual?.estado === 'esperando_seleccion_producto') {
     const seleccion = parseInt(texto.trim(), 10)
     const payload = estadoActual.payload as any
-    const opcionesProducto = payload?.opcionesProducto as ProductoEncontrado[] | undefined
-    
+    const opcionesProducto = payload?.opcionesProducto as ProductoEncontrado[]
     if (!opcionesProducto || isNaN(seleccion) || seleccion < 1 || seleccion > opcionesProducto.length) {
       await sendMessage(chatId, `Por favor respondé con un número del 1 al ${opcionesProducto?.length || '?'}.`)
       return NextResponse.json({ ok: true })
     }
-
-    const productoSeleccionado = opcionesProducto[seleccion - 1]
-    
-    // Extraer tamaño del nombre del producto (ej: "Lager Razas Pequeñas 10 kg" -> 10)
-    const matchTamaño = productoSeleccionado.nombre.match(/(\d+(?:[,\.]\d+)?)\s*kg/i)
+    const prod = opcionesProducto[seleccion - 1]
+    const matchTamaño = prod.nombre.match(/(\d+(?:[,\.]\d+)?)\s*kg/i)
     const tamañoBolsaKg = matchTamaño ? parseFloat(matchTamaño[1].replace(',', '.')) : payload.tamañoBolsaKg || 10
-
-    // Actualizar el payload con el producto seleccionado y continuar el flujo
     const ventaDataParcial = payload.ventaDataParcial as VentaData
-    ventaDataParcial.producto = productoSeleccionado.nombre
-    ventaDataParcial.precio = productoSeleccionado.precio_venta
+    ventaDataParcial.producto      = prod.nombre
+    ventaDataParcial.precio        = prod.precio_venta
     ventaDataParcial.tamañoBolsaKg = tamañoBolsaKg
-
-    // Limpiar estado y continuar con el flujo de venta
-    await supabase.from('telegram_estados').delete().eq('chat_id', chatId)
-    
-    // Re-procesar la venta con el producto seleccionado
-    await procesarVentaConProducto(supabase, chatId, ventaDataParcial)
+    await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
+    await procesarVentaConProducto(chatId, ventaDataParcial)
     return NextResponse.json({ ok: true })
   }
 
-  // ── "esperando_datos_faltantes" state (user providing missing optional data) ──
   if (estadoActual?.estado === 'esperando_datos_faltantes') {
-    const payload = estadoActual.payload as any
+    const payload          = estadoActual.payload as any
     const ventaDataParcial = payload.ventaDataParcial as VentaData
-    const campoEsperado = payload.campoEsperado as string
-    const respuesta = texto.trim()
-
-    // Si dice "no", "sin datos", "dejalo así", etc., continuar sin el dato
-    const saltarDato = /^(no|sin|nada|dejalo|dejalo asi|dejalo así|anotalo asi|anotalo así|skip|saltar|siguiente)$/i.test(respuesta)
+    const campoEsperado    = payload.campoEsperado as string
+    const respuesta        = texto.trim()
+    const saltarDato       = /^(no|sin|nada|dejalo|dejalo asi|dejalo así|anotalo asi|anotalo así|skip|saltar|siguiente)$/i.test(respuesta)
 
     if (!saltarDato) {
-      if (campoEsperado === 'telefono') {
-        ventaDataParcial.clienteTelefono = respuesta
-      } else if (campoEsperado === 'direccion') {
-        ventaDataParcial.clienteDireccion = respuesta
-      }
+      if (campoEsperado === 'telefono') ventaDataParcial.clienteTelefono = respuesta
+      if (campoEsperado === 'direccion') ventaDataParcial.clienteDireccion = respuesta
     }
 
-    // Verificar si falta el siguiente campo
     const siguienteCampo = obtenerSiguienteCampoFaltante(ventaDataParcial, campoEsperado)
-    
     if (siguienteCampo) {
-      // Pedir el siguiente dato faltante
-      await supabase.from('telegram_estados').update({
-        payload: { ...payload, ventaDataParcial, campoEsperado: siguienteCampo },
-        updated_at: new Date().toISOString(),
-      }).eq('chat_id', chatId)
-
-      const pregunta = siguienteCampo === 'telefono' 
+      await sql`UPDATE telegram_estados SET payload = ${JSON.stringify({ ...payload, ventaDataParcial, campoEsperado: siguienteCampo })}, updated_at = now() WHERE chat_id = ${chatId}`
+      await sendMessage(chatId, siguienteCampo === 'telefono'
         ? '📱 ¿Cuál es el teléfono del cliente? (o respondé "no" para saltar)'
-        : '📍 ¿Cuál es la dirección del cliente? (o respondé "no" para saltar)'
-      await sendMessage(chatId, pregunta)
+        : '📍 ¿Cuál es la dirección del cliente? (o respondé "no" para saltar)')
       return NextResponse.json({ ok: true })
     }
 
-    // Todos los datos completados, continuar con la venta
-    await supabase.from('telegram_estados').delete().eq('chat_id', chatId)
-    await procesarVentaConProducto(supabase, chatId, ventaDataParcial)
+    await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
+    await procesarVentaConProducto(chatId, ventaDataParcial)
     return NextResponse.json({ ok: true })
   }
 
-  // ── Parse message with Claude ─────────────────────────────────────────────
+  // ── Parse message ──────────────────────────────────────────────────────
   try {
     const resultado = await parsearMensaje(texto)
 
@@ -642,184 +394,114 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
-    // ── COMPRA DE STOCK ───────────────────────────────────────────────────
     if (resultado.tipo === 'compra_stock') {
       const d = resultado.data as CompraStockData
-
-      await supabase.from('telegram_estados').upsert({
-        chat_id:    chatId,
-        estado:     'confirmando_compra_stock',
-        venta_id:   null,
-        payload:    { producto: d.producto, cantidad: d.cantidad, precio: d.precio },
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'chat_id' })
-
+      const payloadStr = JSON.stringify({ producto: d.producto, cantidad: d.cantidad, precio: d.precio })
+      await sql`
+        INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
+        VALUES (${chatId}, 'confirmando_compra_stock', null, ${payloadStr}, now())
+        ON CONFLICT (chat_id) DO UPDATE SET estado = 'confirmando_compra_stock', venta_id = null, payload = ${payloadStr}, updated_at = now()
+      `
       const precioLinea = d.precio ? `\n💵 Precio compra: $${d.precio}/bolsa` : ''
-      await sendMessageWithButtons(
-        chatId,
+      await sendMessageWithButtons(chatId,
         `📥 <b>Compra de stock</b>\n\n🛍 Producto: ${d.producto}\n📦 Cantidad: ${d.cantidad} bolsa${d.cantidad > 1 ? 's' : ''}${precioLinea}\n\n¿Confirmar?`,
-        [
-          { text: '✅ Confirmar', callback_data: 'confirmar_compra_stock' },
-          { text: '❌ Cancelar',  callback_data: 'cancelar_compra_stock' },
-        ]
+        [{ text: '✅ Confirmar', callback_data: 'confirmar_compra_stock' }, { text: '❌ Cancelar', callback_data: 'cancelar_compra_stock' }]
       )
       return NextResponse.json({ ok: true })
     }
 
-    // ── ACTUALIZAR CLIENTE ────────────────────────────────────────────────
     if (resultado.tipo === 'actualizar_cliente') {
       const d = resultado.data as ActualizarClienteData
-
-      // Buscar el cliente
-      const { data: cliente } = await supabase
-        .from('clientes')
-        .select('id, nombre, telefono, direccion')
-        .ilike('nombre', `%${d.clienteNombre}%`)
-        .maybeSingle()
-
-      if (!cliente) {
+      const clienteRows = await sql`SELECT id FROM clientes WHERE lower(nombre) LIKE lower(${'%' + d.clienteNombre + '%'}) LIMIT 1`
+      if (!clienteRows.length) {
         await sendMessage(chatId, `❌ No encontré un cliente con el nombre "${d.clienteNombre}".`)
         return NextResponse.json({ ok: true })
       }
-
-      // Actualizar los datos
-      const updates: { telefono?: string; direccion?: string } = {}
-      if (d.telefono) updates.telefono = d.telefono
-      if (d.direccion) updates.direccion = d.direccion
-
-      if (Object.keys(updates).length === 0) {
-        await sendMessage(chatId, '⚠️ No detecté qué dato actualizar. Decime el teléfono o la dirección.')
-        return NextResponse.json({ ok: true })
-      }
-
-      await supabase.from('clientes').update(updates).eq('id', cliente.id)
-
-      let mensaje = `✅ Cliente <b>${cliente.nombre}</b> actualizado:\n`
-      if (d.telefono) mensaje += `📱 Teléfono: ${d.telefono}\n`
+      const cId = clienteRows[0].id as string
+      if (d.telefono)  await sql`UPDATE clientes SET telefono  = ${d.telefono}  WHERE id = ${cId}`
+      if (d.direccion) await sql`UPDATE clientes SET direccion = ${d.direccion} WHERE id = ${cId}`
+      let mensaje = `✅ Cliente <b>${d.clienteNombre}</b> actualizado:\n`
+      if (d.telefono)  mensaje += `📱 Teléfono: ${d.telefono}\n`
       if (d.direccion) mensaje += `📍 Dirección: ${d.direccion}\n`
-      
       await sendMessage(chatId, mensaje)
       return NextResponse.json({ ok: true })
     }
 
-    // ── VENTA ─────────────────────────────────────────────────────────────
     const d = resultado.data as VentaData
     const faltanteProducto = resultado.faltanteProducto
-
-    // Si no hay precio o falta info del producto, buscar automáticamente en BD
     const necesitaBuscarEnBD = d.precio === null || d.usarPrecioBD || (faltanteProducto && (faltanteProducto.faltaMarca || faltanteProducto.faltaTamaño))
-    
+
     if (necesitaBuscarEnBD) {
-      // Buscar producto en la base de datos
       let productosEncontrados: ProductoEncontrado[] = []
-      
+
       if (faltanteProducto && (faltanteProducto.faltaMarca || faltanteProducto.faltaTamaño)) {
-        // Buscar con la información parcial que tenemos
         productosEncontrados = await buscarProductosPorCriterios(
-          supabase,
-          faltanteProducto.marcaMencionada,
-          faltanteProducto.tipoProductoMencionado,
-          faltanteProducto.tamañoMencionado
+          faltanteProducto.marcaMencionada, faltanteProducto.tipoProductoMencionado, faltanteProducto.tamañoMencionado
         )
       } else {
-        // Buscar por nombre del producto
-        const busqueda = await buscarProductoEnBD(supabase, d.producto)
+        const busqueda = await buscarProductoEnBD(d.producto)
         productosEncontrados = busqueda.encontrados
-        
-        // Si encontramos exactamente uno, usar ese precio
         if (busqueda.exacto && productosEncontrados.length === 1) {
           d.precio = productosEncontrados[0].precio_venta
-          // Continuar con el flujo normal
-          await procesarVentaConProducto(supabase, chatId, d)
+          await procesarVentaConProducto(chatId, d)
           return NextResponse.json({ ok: true })
         }
       }
 
-      // Si no encontramos productos, informar al usuario
       if (productosEncontrados.length === 0) {
-        let mensajeFaltante = '❌ No encontré el producto en la base de datos.\n\n'
-        if (faltanteProducto?.faltaMarca) {
-          mensajeFaltante += '¿Cuál es la marca? (Lager, Maxine, Connie, Wits, Toky)\n'
-        }
-        if (faltanteProducto?.faltaTamaño) {
-          mensajeFaltante += '¿De qué tamaño es la bolsa? (ej: 10 kg, 21 kg, 25 kg)\n'
-        }
-        mensajeFaltante += '\nReenviá el mensaje con la información completa.'
-        await sendMessage(chatId, mensajeFaltante)
+        let msg = '❌ No encontré el producto en la base de datos.\n\n'
+        if (faltanteProducto?.faltaMarca)  msg += '¿Cuál es la marca? (Lager, Maxine, Connie, Wits, Toky)\n'
+        if (faltanteProducto?.faltaTamaño) msg += '¿De qué tamaño es la bolsa? (ej: 10 kg, 21 kg, 25 kg)\n'
+        msg += '\nReenviá el mensaje con la información completa.'
+        await sendMessage(chatId, msg)
         return NextResponse.json({ ok: true })
       }
 
-      // Si hay múltiples opciones, preguntar al usuario
       if (productosEncontrados.length > 1) {
-        let mensaje = '🔍 Encontré varios productos. ¿Cuál es?\n\n'
-        productosEncontrados.forEach((p, i) => {
-          mensaje += `<b>${i + 1}.</b> ${p.nombre} — $${p.precio_venta}\n`
-        })
-        mensaje += '\nRespondé con el número del producto.'
-
-        // Guardar estado para esperar la selección
-        await supabase.from('telegram_estados').upsert({
-          chat_id: chatId,
-          estado: 'esperando_seleccion_producto',
-          venta_id: null,
-          payload: {
-            opcionesProducto: productosEncontrados,
-            ventaDataParcial: d,
-          },
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'chat_id' })
-
-        await sendMessage(chatId, mensaje)
+        let msg = '🔍 Encontré varios productos. ¿Cuál es?\n\n'
+        productosEncontrados.forEach((p, i) => { msg += `<b>${i + 1}.</b> ${p.nombre} — $${p.precio_venta}\n` })
+        msg += '\nRespondé con el número del producto.'
+        const pStr = JSON.stringify({ opcionesProducto: productosEncontrados, ventaDataParcial: d })
+        await sql`
+          INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
+          VALUES (${chatId}, 'esperando_seleccion_producto', null, ${pStr}, now())
+          ON CONFLICT (chat_id) DO UPDATE SET estado = 'esperando_seleccion_producto', venta_id = null, payload = ${pStr}, updated_at = now()
+        `
+        await sendMessage(chatId, msg)
         return NextResponse.json({ ok: true })
       }
 
-      // Solo una opción encontrada, usar ese producto
       const productoUnico = productosEncontrados[0]
       d.producto = productoUnico.nombre
-      d.precio = productoUnico.precio_venta
-      
-      // Extraer tamaño del nombre si no lo tenemos
+      d.precio   = productoUnico.precio_venta
       if (!d.tamañoBolsaKg) {
-        const matchTamaño = productoUnico.nombre.match(/(\d+(?:[,\.]\d+)?)\s*kg/i)
-        if (matchTamaño) {
-          d.tamañoBolsaKg = parseFloat(matchTamaño[1].replace(',', '.'))
-        }
+        const m = productoUnico.nombre.match(/(\d+(?:[,\.]\d+)?)\s*kg/i)
+        if (m) d.tamañoBolsaKg = parseFloat(m[1].replace(',', '.'))
       }
     }
 
-    // Verificar que tenemos precio
     if (d.precio === null || d.precio === undefined) {
       await sendMessage(chatId, '❌ No encontré el producto en la base de datos. Indicá el precio o verificá el nombre del producto.')
       return NextResponse.json({ ok: true })
     }
 
-    // Si no dijo "anotalo así" y faltan datos opcionales, preguntar
     if (!d.registrarSinPreguntar) {
       const primerCampoFaltante = obtenerSiguienteCampoFaltante(d, null)
-      
       if (primerCampoFaltante) {
-        // Guardar estado para preguntar datos faltantes
-        await supabase.from('telegram_estados').upsert({
-          chat_id: chatId,
-          estado: 'esperando_datos_faltantes',
-          venta_id: null,
-          payload: {
-            ventaDataParcial: d,
-            campoEsperado: primerCampoFaltante,
-          },
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'chat_id' })
-
-        const pregunta = primerCampoFaltante === 'telefono'
+        const pStr = JSON.stringify({ ventaDataParcial: d, campoEsperado: primerCampoFaltante })
+        await sql`
+          INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
+          VALUES (${chatId}, 'esperando_datos_faltantes', null, ${pStr}, now())
+          ON CONFLICT (chat_id) DO UPDATE SET estado = 'esperando_datos_faltantes', venta_id = null, payload = ${pStr}, updated_at = now()
+        `
+        await sendMessage(chatId, primerCampoFaltante === 'telefono'
           ? '📱 ¿Cuál es el teléfono del cliente? (o respondé "no" para saltar)'
-          : '📍 ¿Cuál es la dirección del cliente? (o respondé "no" para saltar)'
-        await sendMessage(chatId, pregunta)
+          : '📍 ¿Cuál es la dirección del cliente? (o respondé "no" para saltar)')
         return NextResponse.json({ ok: true })
       }
     }
 
-    await procesarVentaConProducto(supabase, chatId, d)
-
+    await procesarVentaConProducto(chatId, d)
   } catch (err) {
     console.error('Webhook error:', err)
     await sendMessage(chatId, '❌ Ocurrió un error al procesar el mensaje. Revisá los logs.')
@@ -828,140 +510,78 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true })
 }
 
-/**
- * Procesa una venta después de tener todos los datos completos (incluido el precio)
- */
-async function procesarVentaConProducto(supabase: SupabaseClient, chatId: string, d: VentaData) {
-  // Find or create client
-  const { data: existente } = await supabase
-    .from('clientes')
-    .select('id, activo')
-    .ilike('nombre', d.clienteNombre)
-    .maybeSingle()
+// ── procesarVentaConProducto ───────────────────────────────────────────────
 
+async function procesarVentaConProducto(chatId: string, d: VentaData) {
+  const clienteRows = await sql`SELECT id, activo FROM clientes WHERE lower(nombre) = lower(${d.clienteNombre}) LIMIT 1`
   let clienteId: string
-  if (existente) {
-    clienteId = existente.id
-    // Actualizar dirección y teléfono si se proporcionaron, y reactivar si estaba dado de baja
-    const updates: { activo?: boolean; direccion?: string; telefono?: string } = {}
-    if (!existente.activo) updates.activo = true
-    if (d.clienteDireccion) updates.direccion = d.clienteDireccion
-    if (d.clienteTelefono) updates.telefono = d.clienteTelefono
-    if (Object.keys(updates).length > 0) {
-      await supabase.from('clientes').update(updates).eq('id', clienteId)
-    }
+
+  if (clienteRows.length) {
+    clienteId = clienteRows[0].id as string
+    if (!clienteRows[0].activo) await sql`UPDATE clientes SET activo = true WHERE id = ${clienteId}`
+    if (d.clienteDireccion) await sql`UPDATE clientes SET direccion = ${d.clienteDireccion} WHERE id = ${clienteId}`
+    if (d.clienteTelefono)  await sql`UPDATE clientes SET telefono  = ${d.clienteTelefono}  WHERE id = ${clienteId}`
   } else {
-    const { data: nuevo, error } = await supabase
-      .from('clientes')
-      .insert({ nombre: d.clienteNombre, telefono: d.clienteTelefono, direccion: d.clienteDireccion, activo: true })
-      .select('id')
-      .single()
-    if (error) throw error
-    clienteId = nuevo.id
+    const nuevo = await sql`INSERT INTO clientes (nombre, telefono, direccion, activo) VALUES (${d.clienteNombre}, ${d.clienteTelefono ?? null}, ${d.clienteDireccion ?? null}, true) RETURNING id`
+    clienteId = nuevo[0].id as string
   }
 
-  // Find or create pet
-  const { data: mascotaExistente } = await supabase
-    .from('perros')
-    .select('id')
-    .eq('cliente_id', clienteId)
-    .ilike('nombre', d.mascotaNombre)
-    .maybeSingle()
-
+  const mascotaRows = await sql`SELECT id FROM perros WHERE cliente_id = ${clienteId} AND lower(nombre) = lower(${d.mascotaNombre}) LIMIT 1`
   let perroId: string
-  if (mascotaExistente) {
-    perroId = mascotaExistente.id
+
+  if (mascotaRows.length) {
+    perroId = mascotaRows[0].id as string
   } else {
-    const { data: nuevaMascota, error } = await supabase
-      .from('perros')
-      .insert({ cliente_id: clienteId, nombre: d.mascotaNombre, especie: d.especie, tipo: d.tipoPerro, peso_kg: d.pesoKg })
-      .select('id')
-      .single()
-    if (error) throw error
-    perroId = nuevaMascota.id
+    const nueva = await sql`INSERT INTO perros (cliente_id, nombre, especie, tipo, peso_kg) VALUES (${clienteId}, ${d.mascotaNombre}, ${d.especie}, ${d.tipoPerro ?? null}, ${d.pesoKg ?? null}) RETURNING id`
+    perroId = nueva[0].id as string
   }
 
-  // Calculate end date
   let fechaFin: string | null = null
   let gramosDiariosUsados: number | null = null
-  
+
   if (d.especie === 'perro') {
-    // Primero intentar obtener gramos de la tabla de referencia según peso y tipo
-    const gramosDeTabla = await obtenerGramosDiariosDeTabla(supabase, d.tipoPerro, d.pesoKg)
-    
+    const gramosDeTabla = await obtenerGramosDiariosDeTabla(d.tipoPerro, d.pesoKg)
     if (gramosDeTabla) {
-      // Usar los gramos de la tabla de referencia (más precisos)
       gramosDiariosUsados = gramosDeTabla
-      fechaFin = calcularFechaFinPorGramosDia(fechaHoyUruguay(), d.tamañoBolsaKg, gramosDeTabla)
-        .toISOString().split('T')[0]
+      fechaFin = calcularFechaFinPorGramosDia(fechaHoyUruguay(), d.tamañoBolsaKg, gramosDeTabla).toISOString().split('T')[0]
     } else if (d.gramosPorComida && d.vecesAlDia) {
-      // Fallback: usar los gramos que dijo el usuario en el mensaje
       gramosDiariosUsados = d.gramosPorComida * d.vecesAlDia
-      fechaFin = calcularFechaFinPerro(fechaHoyUruguay(), d.tamañoBolsaKg, d.gramosPorComida, d.vecesAlDia)
-        .toISOString().split('T')[0]
+      fechaFin = calcularFechaFinPerro(fechaHoyUruguay(), d.tamañoBolsaKg, d.gramosPorComida, d.vecesAlDia).toISOString().split('T')[0]
     }
   } else if (d.especie === 'gato' && d.intervaloDiasGato) {
-    fechaFin = calcularFechaFinGato(fechaHoyUruguay(), d.intervaloDiasGato)
-      .toISOString().split('T')[0]
+    fechaFin = calcularFechaFinGato(fechaHoyUruguay(), d.intervaloDiasGato).toISOString().split('T')[0]
   }
 
-  // Check stock before showing confirmation card
-  const { data: productoEnCatalogo } = await supabase
-    .from('productos')
-    .select('stock_actual')
-    .ilike('nombre', d.producto)
-    .maybeSingle()
-
-  const stockWarning = (productoEnCatalogo && productoEnCatalogo.stock_actual < d.cantidad)
-    ? `\n⚠️ Solo hay ${productoEnCatalogo.stock_actual} bolsa${productoEnCatalogo.stock_actual !== 1 ? 's' : ''} en stock`
+  const stockRows = await sql`SELECT stock_actual FROM productos WHERE lower(nombre) = lower(${d.producto}) LIMIT 1`
+  const stockWarning = (stockRows.length && (stockRows[0].stock_actual as number) < d.cantidad)
+    ? `\n⚠️ Solo hay ${stockRows[0].stock_actual} bolsa${stockRows[0].stock_actual !== 1 ? 's' : ''} en stock`
     : ''
 
-  // Save to telegram_estados for confirmation
-  const { error: upsertError } = await supabase.from('telegram_estados').upsert({
-    chat_id:    chatId,
-    estado:     'confirmando_venta',
-    venta_id:   null,
-    payload: {
-      clienteId,
-      perroId,
-      producto:         d.producto,
-      tamañoBolsaKg:    d.tamañoBolsaKg,
-      precio:           d.precio,
-      cantidad:         d.cantidad,
-      pagado:           d.pagado,
-      gramosPorComida:  d.gramosPorComida,
-      vecesAlDia:       d.vecesAlDia,
-      gramosDiarios:    gramosDiariosUsados,
-      fechaFin,
-      clienteNombre:    d.clienteNombre,
-      clienteTelefono:  d.clienteTelefono,
-      clienteDireccion: d.clienteDireccion,
-      mascotaNombre:    d.mascotaNombre,
-      especie:          d.especie,
-      tipoPerro:        d.tipoPerro,
-      pesoKg:           d.pesoKg,
-    },
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'chat_id' })
-
-  if (upsertError) {
-    console.error('Error saving telegram_estados:', upsertError)
-    await sendMessage(chatId, `❌ Error al guardar estado: ${upsertError.message}`)
-    return
+  const payload = {
+    clienteId, perroId, producto: d.producto, tamañoBolsaKg: d.tamañoBolsaKg,
+    precio: d.precio, cantidad: d.cantidad, pagado: d.pagado,
+    gramosPorComida: d.gramosPorComida, vecesAlDia: d.vecesAlDia,
+    gramosDiarios: gramosDiariosUsados, fechaFin,
+    clienteNombre: d.clienteNombre, clienteTelefono: d.clienteTelefono,
+    clienteDireccion: d.clienteDireccion, mascotaNombre: d.mascotaNombre,
+    especie: d.especie, tipoPerro: d.tipoPerro, pesoKg: d.pesoKg,
   }
 
-  const pagoTexto = d.pagado ? '✅ Pagado' : '⏳ Pendiente'
+  const pStr = JSON.stringify(payload)
+  await sql`
+    INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
+    VALUES (${chatId}, 'confirmando_venta', null, ${pStr}, now())
+    ON CONFLICT (chat_id) DO UPDATE SET estado = 'confirmando_venta', venta_id = null, payload = ${pStr}, updated_at = now()
+  `
+
+  const pagoTexto     = d.pagado ? '✅ Pagado' : '⏳ Pendiente'
   const cantidadTexto = d.cantidad > 1 ? ` × ${d.cantidad}` : ''
-  const totalTexto = d.cantidad > 1 ? ` (total: $${d.precio! * d.cantidad})` : ''
-  const pesoTexto = d.pesoKg ? `, ${d.pesoKg}kg` : ''
+  const totalTexto    = d.cantidad > 1 ? ` (total: $${d.precio! * d.cantidad})` : ''
+  const pesoTexto     = d.pesoKg ? `, ${d.pesoKg}kg` : ''
   const direccionTexto = d.clienteDireccion ? `\n📍 Dirección: ${d.clienteDireccion}` : ''
 
-  await sendMessageWithButtons(
-    chatId,
+  await sendMessageWithButtons(chatId,
     `📦 <b>Nueva venta</b>\n\n👤 Cliente: ${d.clienteNombre}${direccionTexto}\n🐾 Mascota: ${d.mascotaNombre} (${d.especie}${pesoTexto})\n🛍 Producto: ${d.producto}${cantidadTexto}\n💰 Precio: $${d.precio}${totalTexto}\n💳 Pago: ${pagoTexto}${stockWarning}\n\n¿Confirmar?`,
-    [
-      { text: '✅ Confirmar', callback_data: 'confirmar_venta' },
-      { text: '❌ Cancelar',  callback_data: 'cancelar_venta' },
-    ]
+    [{ text: '✅ Confirmar', callback_data: 'confirmar_venta' }, { text: '❌ Cancelar', callback_data: 'cancelar_venta' }]
   )
 }
