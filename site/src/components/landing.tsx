@@ -244,7 +244,7 @@ export default function Landing() {
                 </a>
                 <a
                   href="#productos"
-                  className="inline-flex items-center justify-center gap-2 px-7 py-4 rounded-full border border-white/20 text-white font-heading font-bold text-lg hover:bg-white/5 transition-colors cursor-pointer"
+                  className="inline-flex items-center justify-center gap-2 px-7 py-4 rounded-full border border-[#60a5fa]/40 text-[#60a5fa] font-heading font-bold text-lg hover:bg-[#60a5fa]/10 transition-colors cursor-pointer"
                 >
                   Ver productos
                   <ChevronRight className="w-5 h-5" />
