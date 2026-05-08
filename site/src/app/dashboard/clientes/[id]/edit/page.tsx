@@ -8,7 +8,7 @@ export default async function EditClientePage({ params }: { params: Promise<{ id
 
   const clientes = await sql`SELECT *, (SELECT json_agg(p) FROM perros p WHERE p.cliente_id = clientes.id) AS perros FROM clientes WHERE id = ${id}`
   if (!clientes.length) notFound()
-  const cliente = clientes[0]
+  const cliente = clientes[0] as { id: string; nombre: string; telefono: string | null; direccion: string | null }
 
   async function guardarCliente(formData: FormData) {
     'use server'

@@ -1,42 +1,37 @@
-import { createClient } from '@/lib/supabase/server'
+import { sql } from '@/lib/db'
 import { marcarPagado } from './actions'
 
 export const metadata = { title: 'Caja — PetStock' }
 
 export default async function CajaPage() {
-  const supabase = await createClient()
-
   // Ventas recientes (últimas 50)
-  const { data: ventas } = await supabase
-    .from('ventas')
-    .select(`
-      id, producto, cantidad, precio, pagado, fecha_venta,
-      clientes(nombre, telefono)
-    `)
-    .order('fecha_venta', { ascending: false })
-    .limit(50)
+  const ventas = await sql`
+    SELECT
+      v.id, v.producto, v.cantidad, v.precio, v.pagado, v.fecha_venta,
+      c.nombre AS cliente_nombre,
+      c.telefono AS cliente_telefono
+    FROM ventas v
+    LEFT JOIN clientes c ON c.id = v.cliente_id
+    ORDER BY v.fecha_venta DESC
+    LIMIT 50
+  `
 
   // Stock actual
-  const { data: productos } = await supabase
-    .from('productos')
-    .select('nombre, marca, stock_actual')
-    .order('marca')
-    .order('nombre')
+  const productos = await sql`
+    SELECT nombre, marca, stock_actual FROM productos
+    ORDER BY marca, nombre
+  `
 
-  const ventasList = ventas ?? []
-  const productosList = productos ?? []
-
-  // Group unpaid sales by client
-  const ventasNoPagas = ventasList.filter(v => !v.pagado)
-  const deudoreMap = new Map<string, { nombre: string; telefono: string | null; total: number; ventas: typeof ventasList }>()
+  // Pendiente de cobro agrupado por cliente
+  const ventasNoPagas = ventas.filter(v => !v.pagado)
+  const deudoreMap = new Map<string, { nombre: string; telefono: string | null; total: number; ventas: typeof ventas }>()
   for (const v of ventasNoPagas) {
-    const cliente = (v.clientes as any)
-    const key = cliente?.nombre ?? 'Desconocido'
+    const key = (v.cliente_nombre as string) ?? 'Desconocido'
     if (!deudoreMap.has(key)) {
-      deudoreMap.set(key, { nombre: key, telefono: cliente?.telefono ?? null, total: 0, ventas: [] })
+      deudoreMap.set(key, { nombre: key, telefono: v.cliente_telefono as string | null, total: 0, ventas: [] })
     }
     const entry = deudoreMap.get(key)!
-    entry.total += v.precio * (v.cantidad ?? 1)
+    entry.total += (v.precio as number) * ((v.cantidad as number) ?? 1)
     entry.ventas.push(v)
   }
   const deudores = Array.from(deudoreMap.values())
@@ -64,9 +59,9 @@ export default async function CajaPage() {
                     <p className="text-slate-400 text-sm">{d.telefono ?? '—'}</p>
                     <div className="mt-1 space-y-1">
                       {d.ventas.map(v => (
-                        <div key={v.id} className="flex items-center gap-3 text-sm text-slate-300">
-                          <span>{v.producto} ×{v.cantidad ?? 1} — ${(v.precio * (v.cantidad ?? 1)).toLocaleString('es-UY')}</span>
-                          <form action={marcarPagado.bind(null, v.id)}>
+                        <div key={v.id as string} className="flex items-center gap-3 text-sm text-slate-300">
+                          <span>{v.producto} ×{(v.cantidad as number) ?? 1} — ${((v.precio as number) * ((v.cantidad as number) ?? 1)).toLocaleString('es-UY')}</span>
+                          <form action={marcarPagado.bind(null, v.id as string)}>
                             <button type="submit" className="text-xs text-green-400 hover:text-green-300 border border-green-900 hover:border-green-700 px-2 py-0.5 rounded transition-colors">
                               Marcar pagado
                             </button>
@@ -99,25 +94,22 @@ export default async function CajaPage() {
               </tr>
             </thead>
             <tbody>
-              {ventasList.map(v => {
-                const total = v.precio * (v.cantidad ?? 1)
+              {ventas.map(v => {
+                const total = (v.precio as number) * ((v.cantidad as number) ?? 1)
                 return (
-                  <tr
-                    key={v.id}
-                    className={`border-b border-slate-800/50 ${!v.pagado ? 'bg-red-950/30' : ''}`}
-                  >
+                  <tr key={v.id as string} className={`border-b border-slate-800/50 ${!v.pagado ? 'bg-red-950/30' : ''}`}>
                     <td className="py-2 pr-4 text-slate-400">
-                      {new Date((v as any).fecha_venta + 'T12:00:00').toLocaleDateString('es-UY')}
+                      {new Date((v.fecha_venta as string) + 'T12:00:00').toLocaleDateString('es-UY')}
                     </td>
-                    <td className="py-2 pr-4 text-white">{(v.clientes as any)?.nombre ?? '—'}</td>
-                    <td className="py-2 pr-4 text-slate-300">{v.producto}</td>
-                    <td className="py-2 pr-4 text-right text-slate-300">{v.cantidad ?? 1}</td>
+                    <td className="py-2 pr-4 text-white">{(v.cliente_nombre as string) ?? '—'}</td>
+                    <td className="py-2 pr-4 text-slate-300">{v.producto as string}</td>
+                    <td className="py-2 pr-4 text-right text-slate-300">{(v.cantidad as number) ?? 1}</td>
                     <td className="py-2 pr-4 text-right text-white">${total.toLocaleString('es-UY')}</td>
                     <td className="py-2">
                       {v.pagado ? (
                         <span className="text-green-400 text-xs">✅ Pagado</span>
                       ) : (
-                        <form action={marcarPagado.bind(null, v.id)} className="inline">
+                        <form action={marcarPagado.bind(null, v.id as string)} className="inline">
                           <button type="submit" className="text-xs text-yellow-400 hover:text-yellow-300 border border-yellow-900 hover:border-yellow-700 px-2 py-0.5 rounded transition-colors">
                             Marcar pagado
                           </button>
@@ -145,20 +137,20 @@ export default async function CajaPage() {
               </tr>
             </thead>
             <tbody>
-              {productosList.map(p => {
-                const bajo = p.stock_actual <= 2
-                const sinStock = p.stock_actual <= 0
+              {productos.map(p => {
+                const bajo     = (p.stock_actual as number) <= 2
+                const sinStock = (p.stock_actual as number) <= 0
                 return (
-                  <tr key={p.nombre} className="border-b border-slate-800/50">
-                    <td className="py-2 pr-4 text-slate-400">{p.marca}</td>
-                    <td className="py-2 pr-4 text-white">{p.nombre}</td>
+                  <tr key={p.nombre as string} className="border-b border-slate-800/50">
+                    <td className="py-2 pr-4 text-slate-400">{p.marca as string}</td>
+                    <td className="py-2 pr-4 text-white">{p.nombre as string}</td>
                     <td className="py-2 text-right">
                       {sinStock ? (
                         <span className="text-red-400 font-medium">Sin stock</span>
                       ) : bajo ? (
-                        <span className="text-orange-400 font-medium">⚠️ {p.stock_actual}</span>
+                        <span className="text-orange-400 font-medium">⚠️ {p.stock_actual as number}</span>
                       ) : (
-                        <span className="text-slate-300">{p.stock_actual}</span>
+                        <span className="text-slate-300">{p.stock_actual as number}</span>
                       )}
                     </td>
                   </tr>

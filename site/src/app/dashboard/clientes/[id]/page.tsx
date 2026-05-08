@@ -18,7 +18,7 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
         SELECT * FROM ventas WHERE perro_id = ${mascota.id as string}
         ORDER BY fecha_venta DESC
       `
-      return { ...mascota, ventas }
+      return { ...(mascota as Record<string, unknown>), ventas } as Record<string, unknown> & { ventas: Record<string, unknown>[] }
     })
   )
 
@@ -64,7 +64,8 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
             </span>
           </h3>
           <div className="space-y-2">
-            {mascota.ventas.map((venta) => {
+            {mascota.ventas.map((v) => {
+              const venta = v as Record<string, string | number | boolean | null>
               const dias = venta.fecha_estimada_fin
                 ? diasHastaFin(new Date(venta.fecha_estimada_fin as string))
                 : null
