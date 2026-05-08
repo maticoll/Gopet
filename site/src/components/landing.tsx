@@ -128,7 +128,7 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           {/* Logo */}
           <a href="/" className="flex items-center gap-1.5 font-heading font-black text-xl tracking-tight">
-            <span className="text-white">Go</span>
+            <span className="text-[#60a5fa]">Go</span>
             <span className="text-primary">Pet</span>
             <PawPrint className="w-4 h-4 text-primary" />
           </a>
@@ -222,7 +222,7 @@ export default function Landing() {
               </div>
 
               <h1 className="font-heading font-black leading-[0.88] tracking-tighter mb-6 text-[clamp(3.5rem,12vw,8.5rem)]">
-                Tu Ración
+                <span className="text-[#60a5fa]">Tu Ración</span>
                 <br />
                 <span className="text-primary">Al Instante.</span>
               </h1>
@@ -267,7 +267,7 @@ export default function Landing() {
         <section id="como-funciona" className="py-24 px-6 bg-muted/50">
           <div className="max-w-6xl mx-auto">
             <div className="mb-14">
-              <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter">
+              <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter text-[#60a5fa]">
                 Cómo funciona
               </h2>
               <p className="text-muted-foreground mt-2">Tres pasos, sin complicaciones.</p>
@@ -302,7 +302,7 @@ export default function Landing() {
                   <span className="font-heading font-black text-6xl text-primary/20 leading-none select-none">
                     {step.n}
                   </span>
-                  <h3 className="font-heading font-bold text-xl">{step.title}</h3>
+                  <h3 className="font-heading font-bold text-xl text-[#60a5fa]">{step.title}</h3>
                   <p className="text-muted-foreground leading-relaxed">{step.desc}</p>
                 </motion.div>
               ))}
@@ -314,7 +314,7 @@ export default function Landing() {
         <section id="productos" className="py-24 px-6">
           <div className="max-w-6xl mx-auto">
             <div className="mb-10">
-              <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter">
+              <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter text-[#60a5fa]">
                 Productos
               </h2>
               <p className="text-muted-foreground mt-2">
@@ -360,7 +360,7 @@ export default function Landing() {
         <section id="beneficios" className="py-24 px-6 bg-muted/50">
           <div className="max-w-6xl mx-auto">
             <div className="mb-14">
-              <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter">
+              <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter text-[#60a5fa]">
                 ¿Por qué GoPet?
               </h2>
             </div>
@@ -399,7 +399,7 @@ export default function Landing() {
                   <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
                     {b.icon}
                   </div>
-                  <h3 className="font-heading font-bold text-base">{b.title}</h3>
+                  <h3 className="font-heading font-bold text-base text-[#60a5fa]">{b.title}</h3>
                   <p className="text-sm text-muted-foreground leading-relaxed">{b.desc}</p>
                 </motion.div>
               ))}
@@ -418,7 +418,7 @@ export default function Landing() {
               className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-10"
             >
               <div>
-                <h2 className="font-heading font-black text-[clamp(2rem,6vw,4rem)] tracking-tighter leading-[0.9] mb-4">
+                <h2 className="font-heading font-black text-[clamp(2rem,6vw,4rem)] tracking-tighter leading-[0.9] mb-4 text-white">
                   ¿Listo para
                   <br />
                   hacer tu pedido?
@@ -456,7 +456,7 @@ export default function Landing() {
         <footer className="py-8 px-6 bg-[#111111] text-white/50">
           <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-1.5 font-heading font-black text-white">
-              <span>Go</span>
+              <span className="text-[#60a5fa]">Go</span>
               <span className="text-primary">Pet</span>
               <PawPrint className="w-3.5 h-3.5 text-primary" />
             </div>
