@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { MobileNav } from '@/components/dashboard/mobile-nav'
 import { diasHastaFin, fechaHoyUruguay, fechaHoyUruguayISO } from '@/lib/calculations'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -46,7 +47,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
       {/* Navbar */}
       <nav className="bg-slate-900 border-b border-slate-800 px-4 py-3 flex justify-between items-center">
         <span className="text-white font-bold">🐾 PetStock</span>
-        <div className="flex gap-3 sm:gap-6 items-center flex-wrap justify-end">
+        <div className="flex gap-4 sm:gap-6 items-center">
+          {/* Links visibles en desktop */}
           {[
             { href: '/dashboard', label: 'Dashboard' },
             { href: '/dashboard/caja', label: 'Caja' },
@@ -58,10 +60,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
               {label}
             </Link>
           ))}
-          <ThemeToggle />
-          <form action="/api/auth/signout" method="POST">
-            <button className="text-slate-500 hover:text-white text-sm">Salir</button>
-          </form>
+          {/* Controles desktop */}
+          <div className="hidden sm:flex items-center gap-3">
+            <ThemeToggle />
+            <form action="/api/auth/signout" method="POST">
+              <button className="text-slate-500 hover:text-white text-sm">Salir</button>
+            </form>
+          </div>
+          {/* Menú hamburguesa mobile */}
+          <MobileNav />
         </div>
       </nav>
 
