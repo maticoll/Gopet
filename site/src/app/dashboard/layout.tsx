@@ -45,10 +45,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <div className="min-h-screen bg-slate-950">
       {/* Navbar */}
-      <nav className="bg-slate-900 border-b border-slate-800 px-4 py-3 flex justify-between items-center">
-        <span className="text-white font-bold">🐾 PetStock 2</span>
-        <div className="flex gap-4 sm:gap-6 items-center">
-          {/* Links visibles en desktop */}
+      <nav className="bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+        <span className="text-white font-bold shrink-0">🐾 PetStock 2</span>
+        {/* Links centrados en desktop */}
+        <div className="hidden sm:flex gap-6 items-center absolute left-1/2 -translate-x-1/2">
           {[
             { href: '/dashboard', label: 'Dashboard' },
             { href: '/dashboard/caja', label: 'Caja' },
@@ -57,15 +57,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
             { href: '/agente-meta', label: 'Meta' },
             { href: '/creacion-contenido', label: 'Contenido' },
           ].map(({ href, label }) => (
-            <Link key={href} href={href} className="text-slate-400 hover:text-white text-sm transition-colors hidden sm:inline">
+            <Link key={href} href={href} className="text-white font-semibold text-sm hover:text-slate-300 transition-colors">
               {label}
             </Link>
           ))}
-          {/* Controles desktop */}
+        </div>
+        {/* Controles derecha */}
+        <div className="flex items-center gap-3">
           <div className="hidden sm:flex items-center gap-3">
             <ThemeToggle />
             <form action="/api/auth/signout" method="POST">
-              <button className="text-slate-500 hover:text-white text-sm">Salir</button>
+              <button className="text-slate-400 hover:text-white text-sm">Salir</button>
             </form>
           </div>
           {/* Menú hamburguesa mobile */}
