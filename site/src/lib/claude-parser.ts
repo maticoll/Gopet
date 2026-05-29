@@ -28,6 +28,7 @@ Para tipo "venta":
     "usarPrecioBD": boolean,
     "cantidad": number,
     "pagado": boolean,
+    "metodoPago": "efectivo" | "transferencia" | null,
     "gramosPorComida": number | null,
     "vecesAlDia": number | null,
     "intervaloDiasGato": number | null,
@@ -74,7 +75,8 @@ Para tipo "movimiento_caja":
   "data": {
     "descripcion": "string",
     "monto": number,
-    "categoria": "egreso" | "ingreso"
+    "categoria": "egreso" | "ingreso",
+    "metodoPago": "efectivo" | "transferencia" | null
   }
 }
 - categoria "egreso": se gastó plata (flete, packaging, insumos, gastos varios)
@@ -85,6 +87,7 @@ Reglas para ventas:
 - precio: SIEMPRE poner null a menos que el usuario diga un número explícito. NUNCA incluir "precio" en faltantes — se busca automáticamente en la base de datos.
 - usarPrecioBD: true siempre que precio sea null (es decir, casi siempre)
 - pagado: true si dice "pagó" / "pagó transferencia" / "pagó efectivo" / "pagó con..."; false en CUALQUIER otro caso (si no se menciona = false). NUNCA incluir "pagado" en faltantes.
+- metodoPago: "efectivo" si dice "efectivo" / "en mano" / "cash"; "transferencia" si dice "transferencia" / "transfer" / "banco" / "bizum" / "mercadopago"; null si no se menciona. NUNCA incluir "metodoPago" en faltantes.
 - Campos requeridos para perros: gramosPorComida, vecesAlDia (solo si no se puede inferir del contexto)
 - intervaloDiasGato: SIEMPRE null. NUNCA incluir "intervaloDiasGato" en faltantes — se calcula automáticamente en la segunda compra.
 - cantidad: número de bolsas vendidas (default 1 si no se menciona)
@@ -124,6 +127,7 @@ export interface VentaData {
   usarPrecioBD: boolean
   cantidad: number
   pagado: boolean
+  metodoPago: 'efectivo' | 'transferencia' | null
   gramosPorComida: number | null
   vecesAlDia: number | null
   intervaloDiasGato: number | null
@@ -156,6 +160,7 @@ export interface MovimientoCajaData {
   descripcion: string
   monto: number
   categoria: 'egreso' | 'ingreso'
+  metodoPago: 'efectivo' | 'transferencia' | null
 }
 
 export interface ParseResult {

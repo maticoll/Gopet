@@ -7,7 +7,7 @@ export default async function CajaPage() {
   // Ventas recientes (últimas 50)
   const ventas = await sql`
     SELECT
-      v.id, v.producto, v.cantidad, v.precio, v.pagado, v.fecha_venta,
+      v.id, v.producto, v.cantidad, v.precio, v.pagado, v.fecha_venta, v.metodo_pago,
       c.nombre AS cliente_nombre,
       c.telefono AS cliente_telefono
     FROM ventas v
@@ -18,7 +18,7 @@ export default async function CajaPage() {
 
   // Movimientos de caja (últimos 30)
   const movimientos = await sql`
-    SELECT id, descripcion, monto, categoria, created_at
+    SELECT id, descripcion, monto, categoria, metodo_pago, created_at
     FROM movimientos_caja
     ORDER BY created_at DESC
     LIMIT 30
@@ -45,9 +45,50 @@ export default async function CajaPage() {
   const deudores = Array.from(deudoreMap.values())
   const totalPendiente = deudores.reduce((sum, d) => sum + d.total, 0)
 
+  // Totales por método de pago (solo ventas pagadas)
+  const ventasPagadas = ventas.filter(v => v.pagado)
+  const totalEfectivo = ventasPagadas
+    .filter(v => v.metodo_pago === 'efectivo')
+    .reduce((sum, v) => sum + (v.precio as number) * ((v.cantidad as number) ?? 1), 0)
+  const totalTransferencia = ventasPagadas
+    .filter(v => v.metodo_pago === 'transferencia')
+    .reduce((sum, v) => sum + (v.precio as number) * ((v.cantidad as number) ?? 1), 0)
+
+  // Movimientos por método
+  const movEfectivo = movimientos
+    .filter(m => m.metodo_pago === 'efectivo')
+    .reduce((sum, m) => sum + (m.categoria === 'egreso' ? -(m.monto as number) : (m.monto as number)), 0)
+  const movTransferencia = movimientos
+    .filter(m => m.metodo_pago === 'transferencia')
+    .reduce((sum, m) => sum + (m.categoria === 'egreso' ? -(m.monto as number) : (m.monto as number)), 0)
+
+  const saldoEfectivo = totalEfectivo + movEfectivo
+  const saldoTransferencia = totalTransferencia + movTransferencia
+
   return (
     <div className="space-y-8">
       <h1 className="text-2xl font-bold text-white">Caja</h1>
+
+      {/* ── Saldo por método de pago ───────────────────────────────── */}
+      <section>
+        <h2 className="text-lg font-semibold text-white mb-3">Saldo</h2>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+            <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">💵 Efectivo</p>
+            <p className={`text-2xl font-bold ${saldoEfectivo >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              ${saldoEfectivo.toLocaleString('es-UY')}
+            </p>
+            <p className="text-slate-600 text-xs mt-1">ventas cobradas + movimientos</p>
+          </div>
+          <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+            <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">🏦 Banco / Transferencia</p>
+            <p className={`text-2xl font-bold ${saldoTransferencia >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              ${saldoTransferencia.toLocaleString('es-UY')}
+            </p>
+            <p className="text-slate-600 text-xs mt-1">ventas cobradas + movimientos</p>
+          </div>
+        </div>
+      </section>
 
       {/* ── Pendiente de cobro ─────────────────────────────────────── */}
       <section>
@@ -96,7 +137,6 @@ export default async function CajaPage() {
                 <th className="text-left py-2 pr-4">Fecha</th>
                 <th className="text-left py-2 pr-4">Cliente</th>
                 <th className="text-left py-2 pr-4">Producto</th>
-                <th className="text-right py-2 pr-4">Cant.</th>
                 <th className="text-right py-2 pr-4">Total</th>
                 <th className="text-left py-2">Estado</th>
               </tr>
@@ -104,6 +144,7 @@ export default async function CajaPage() {
             <tbody>
               {ventas.map(v => {
                 const total = (v.precio as number) * ((v.cantidad as number) ?? 1)
+                const metodo = v.metodo_pago === 'efectivo' ? '💵' : v.metodo_pago === 'transferencia' ? '🏦' : ''
                 return (
                   <tr key={v.id as string} className={`border-b border-slate-800/50 ${!v.pagado ? 'bg-red-950/30' : ''}`}>
                     <td className="py-2 pr-4 text-slate-400">
@@ -111,11 +152,10 @@ export default async function CajaPage() {
                     </td>
                     <td className="py-2 pr-4 text-white">{(v.cliente_nombre as string) ?? '—'}</td>
                     <td className="py-2 pr-4 text-slate-300">{v.producto as string}</td>
-                    <td className="py-2 pr-4 text-right text-slate-300">{(v.cantidad as number) ?? 1}</td>
                     <td className="py-2 pr-4 text-right text-white">${total.toLocaleString('es-UY')}</td>
                     <td className="py-2">
                       {v.pagado ? (
-                        <span className="text-green-400 text-xs">✅ Pagado</span>
+                        <span className="text-green-400 text-xs">{metodo} Pagado</span>
                       ) : (
                         <form action={marcarPagado.bind(null, v.id as string)} className="inline">
                           <button type="submit" className="text-xs text-yellow-400 hover:text-yellow-300 border border-yellow-900 hover:border-yellow-700 px-2 py-0.5 rounded transition-colors">
@@ -144,21 +184,23 @@ export default async function CajaPage() {
                 <tr className="text-slate-400 border-b border-slate-800">
                   <th className="text-left py-2 pr-4">Fecha</th>
                   <th className="text-left py-2 pr-4">Descripción</th>
+                  <th className="text-left py-2 pr-4">Método</th>
                   <th className="text-right py-2">Monto</th>
                 </tr>
               </thead>
               <tbody>
                 {movimientos.map(m => {
                   const esEgreso = m.categoria === 'egreso'
+                  const metodo = m.metodo_pago === 'efectivo' ? '💵 Efectivo' : m.metodo_pago === 'transferencia' ? '🏦 Transfer' : '—'
                   return (
                     <tr key={m.id as string} className="border-b border-slate-800/50">
                       <td className="py-2 pr-4 text-slate-400">
                         {new Date(m.created_at as string).toLocaleDateString('es-UY')}
                       </td>
-                      <td className="py-2 pr-4 text-white flex items-center gap-2">
-                        <span>{esEgreso ? '💸' : '💰'}</span>
-                        <span>{m.descripcion as string}</span>
+                      <td className="py-2 pr-4 text-white">
+                        {esEgreso ? '💸' : '💰'} {m.descripcion as string}
                       </td>
+                      <td className="py-2 pr-4 text-slate-400 text-xs">{metodo}</td>
                       <td className={`py-2 text-right font-medium ${esEgreso ? 'text-red-400' : 'text-green-400'}`}>
                         {esEgreso ? '-' : '+'}${(m.monto as number).toLocaleString('es-UY')}
                       </td>

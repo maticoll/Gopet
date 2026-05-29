@@ -170,6 +170,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true })
       }
 
+      if (p.metodoPago) {
+        await sql`UPDATE ventas SET metodo_pago = ${p.metodoPago} WHERE id = ${ventaRows[0].venta_id as string}`
+      }
+
       try {
         await appendVentaToSheet({
           clienteNombre: p.clienteNombre, clienteTelefono: p.clienteTelefono,
@@ -393,12 +397,13 @@ export async function POST(req: NextRequest) {
     if (resultado.tipo === 'movimiento_caja') {
       const d = resultado.data as MovimientoCajaData
       await sql`
-        INSERT INTO movimientos_caja (descripcion, monto, categoria)
-        VALUES (${d.descripcion}, ${d.monto}, ${d.categoria})
+        INSERT INTO movimientos_caja (descripcion, monto, categoria, metodo_pago)
+        VALUES (${d.descripcion}, ${d.monto}, ${d.categoria}, ${d.metodoPago ?? null})
       `
       const emoji = d.categoria === 'egreso' ? '💸' : '💰'
       const signo = d.categoria === 'egreso' ? '-' : '+'
-      await sendMessage(chatId, `${emoji} <b>Movimiento registrado</b>\n📝 ${d.descripcion}\n💵 ${signo}$${d.monto.toLocaleString('es-UY')}`)
+      const metodoPagoTexto = d.metodoPago === 'efectivo' ? ' · 💵 Efectivo' : d.metodoPago === 'transferencia' ? ' · 🏦 Transferencia' : ''
+      await sendMessage(chatId, `${emoji} <b>Movimiento registrado</b>\n📝 ${d.descripcion}\n💵 ${signo}$${d.monto.toLocaleString('es-UY')}${metodoPagoTexto}`)
       return NextResponse.json({ ok: true })
     }
 
@@ -572,7 +577,7 @@ async function procesarVentaConProducto(chatId: string, d: VentaData) {
 
   const payload = {
     clienteId, perroId, producto: d.producto, tamañoBolsaKg: d.tamañoBolsaKg,
-    precio: d.precio, cantidad: d.cantidad, pagado: d.pagado,
+    precio: d.precio, cantidad: d.cantidad, pagado: d.pagado, metodoPago: d.metodoPago ?? null,
     gramosPorComida: d.gramosPorComida, vecesAlDia: d.vecesAlDia,
     gramosDiarios: gramosDiariosUsados, fechaFin,
     clienteNombre: d.clienteNombre, clienteTelefono: d.clienteTelefono,
