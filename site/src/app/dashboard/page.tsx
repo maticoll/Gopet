@@ -3,38 +3,86 @@ import { CrmTable } from '@/components/dashboard/crm-table'
 import { diasHastaFin } from '@/lib/calculations'
 
 export default async function DashboardPage() {
-  const ventas = await sql`
+  // Una fila por mascota con su última venta — luego agrupamos por cliente en JS
+  const rows = await sql`
+    WITH ultima_venta AS (
+      SELECT DISTINCT ON (v.perro_id)
+        v.perro_id,
+        v.cliente_id,
+        v.producto,
+        v.fecha_estimada_fin
+      FROM ventas v
+      ORDER BY v.perro_id, v.fecha_venta DESC
+    )
     SELECT
-      v.id,
-      v.producto,
-      v.precio,
-      v.fecha_venta,
-      v.fecha_estimada_fin,
-      c.id   AS cliente_id,
-      c.nombre AS cliente_nombre,
-      c.direccion AS cliente_direccion,
-      p.id   AS perro_id,
-      p.nombre AS perro_nombre,
+      c.id          AS cliente_id,
+      c.nombre      AS cliente_nombre,
+      c.direccion,
+      p.id          AS perro_id,
+      p.nombre      AS perro_nombre,
       p.especie,
-      p.peso_kg
-    FROM ventas v
-    JOIN clientes c ON c.id = v.cliente_id AND c.activo = true
-    LEFT JOIN perros p ON p.id = v.perro_id
-    ORDER BY v.fecha_estimada_fin ASC NULLS LAST
+      p.peso_kg,
+      uv.producto,
+      uv.fecha_estimada_fin
+    FROM clientes c
+    JOIN perros p ON p.cliente_id = c.id
+    LEFT JOIN ultima_venta uv ON uv.perro_id = p.id
+    WHERE c.activo = true
+    ORDER BY c.nombre ASC
   `
 
-  const clientes = ventas.map(v => ({
-    ventaId:       v.id as string,
-    clienteId:     v.cliente_id as string,
-    clienteNombre: v.cliente_nombre as string,
-    mascotaNombre: v.perro_nombre as string ?? '',
-    mascotaPeso:   v.peso_kg as number | null,
-    especie:       (v.especie ?? 'perro') as 'perro' | 'gato',
-    producto:      v.producto as string,
-    direccion:     v.cliente_direccion as string | null,
-    fechaFin:      v.fecha_estimada_fin as string | null,
-    diasRestantes: v.fecha_estimada_fin ? diasHastaFin(new Date(v.fecha_estimada_fin as string)) : null,
-  }))
+  // Agrupar por cliente
+  const clientesMap = new Map<string, {
+    clienteId: string
+    clienteNombre: string
+    direccion: string | null
+    mascotas: {
+      mascotaId: string
+      mascotaNombre: string
+      especie: 'perro' | 'gato'
+      mascotaPeso: number | null
+      producto: string | null
+      fechaFin: string | null
+      diasRestantes: number | null
+    }[]
+    proximosDias: number | null
+  }>()
+
+  for (const r of rows) {
+    const cId = r.cliente_id as string
+    if (!clientesMap.has(cId)) {
+      clientesMap.set(cId, {
+        clienteId: cId,
+        clienteNombre: r.cliente_nombre as string,
+        direccion: r.direccion as string | null,
+        mascotas: [],
+        proximosDias: null,
+      })
+    }
+    const entry = clientesMap.get(cId)!
+    const dias = r.fecha_estimada_fin ? diasHastaFin(new Date(r.fecha_estimada_fin as string)) : null
+    entry.mascotas.push({
+      mascotaId: r.perro_id as string,
+      mascotaNombre: r.perro_nombre as string,
+      especie: (r.especie ?? 'perro') as 'perro' | 'gato',
+      mascotaPeso: r.peso_kg as number | null,
+      producto: r.producto as string | null,
+      fechaFin: r.fecha_estimada_fin as string | null,
+      diasRestantes: dias,
+    })
+    // Guardar el fin de bolsa más próximo del cliente
+    if (dias !== null && (entry.proximosDias === null || dias < entry.proximosDias)) {
+      entry.proximosDias = dias
+    }
+  }
+
+  // Ordenar por días restantes (los más urgentes primero, sin fecha al final)
+  const clientes = Array.from(clientesMap.values()).sort((a, b) => {
+    if (a.proximosDias === null && b.proximosDias === null) return 0
+    if (a.proximosDias === null) return 1
+    if (b.proximosDias === null) return -1
+    return a.proximosDias - b.proximosDias
+  })
 
   return (
     <div className="space-y-6">
