@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "db:push": "ts-node --project tsconfig.scripts.json scripts/db-push.ts",
+    "db:push:init": "ts-node --project tsconfig.scripts.json scripts/db-push.ts --init"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.86.0",
