@@ -544,14 +544,27 @@ async function procesarVentaConProducto(chatId: string, d: VentaData) {
     clienteId = nuevo[0].id as string
   }
 
-  const mascotaRows = await sql`SELECT id FROM perros WHERE cliente_id = ${clienteId} AND lower(nombre) = lower(${d.mascotaNombre}) LIMIT 1`
+  // Buscar mascota: por nombre si lo dieron, o por especie si el cliente ya tiene una
+  let mascotaRows: { id: string; nombre: string }[] = []
+  if (d.mascotaNombre) {
+    mascotaRows = await sql`SELECT id, nombre FROM perros WHERE cliente_id = ${clienteId} AND lower(nombre) = lower(${d.mascotaNombre}) LIMIT 1` as { id: string; nombre: string }[]
+  } else {
+    // Sin nombre: buscar por especie del cliente
+    mascotaRows = await sql`SELECT id, nombre FROM perros WHERE cliente_id = ${clienteId} AND especie = ${d.especie} LIMIT 1` as { id: string; nombre: string }[]
+  }
+
   let perroId: string
 
   if (mascotaRows.length) {
     perroId = mascotaRows[0].id as string
+    // Si no tenían nombre, completar con el que encontramos en BD
+    if (!d.mascotaNombre) d.mascotaNombre = mascotaRows[0].nombre as string
   } else {
-    const nueva = await sql`INSERT INTO perros (cliente_id, nombre, especie, tipo, peso_kg) VALUES (${clienteId}, ${d.mascotaNombre}, ${d.especie}, ${d.tipoPerro ?? null}, ${d.pesoKg ?? null}) RETURNING id`
+    // No existe — crear con nombre genérico si no se dio uno
+    const nombreMascota = d.mascotaNombre ?? (d.especie === 'perro' ? 'Perro' : 'Gato')
+    const nueva = await sql`INSERT INTO perros (cliente_id, nombre, especie, tipo, peso_kg) VALUES (${clienteId}, ${nombreMascota}, ${d.especie}, ${d.tipoPerro ?? null}, ${d.pesoKg ?? null}) RETURNING id`
     perroId = nueva[0].id as string
+    d.mascotaNombre = nombreMascota
   }
 
   let fechaFin: string | null = null

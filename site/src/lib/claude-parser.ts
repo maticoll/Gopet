@@ -83,7 +83,8 @@ Para tipo "movimiento_caja":
 - categoria "ingreso": entró plata por fuera de ventas de bolsas (cobro de deuda, otro ingreso)
 
 Reglas para ventas:
-- Campos requeridos (únicos): clienteNombre, mascotaNombre, especie, producto, tamañoBolsaKg
+- Campos requeridos (únicos): clienteNombre, especie, producto, tamañoBolsaKg
+- mascotaNombre: solo requerido si el usuario lo menciona explícitamente. Si dice "el gato" / "el perro" / "el que tiene" / "su mascota" sin dar nombre, poner null. NUNCA incluir "mascotaNombre" en faltantes si la especie está clara.
 - precio: SIEMPRE poner null a menos que el usuario diga un número explícito. NUNCA incluir "precio" en faltantes — se busca automáticamente en la base de datos.
 - usarPrecioBD: true siempre que precio sea null (es decir, casi siempre)
 - pagado: true si dice "pagó" / "pagó transferencia" / "pagó efectivo" / "pagó con..."; false en CUALQUIER otro caso (si no se menciona = false). NUNCA incluir "pagado" en faltantes.
