@@ -5,22 +5,14 @@ export const metadata = { title: 'Agente Meta — PetStock' }
 const AD_ACCOUNT_ID = 'act_1478730496926394'
 const BASE = 'https://graph.facebook.com/v21.0'
 
+const META_TOKEN = process.env.META_ACCESS_TOKEN ?? 'EAAi8wZCrofPABRowHp8B9BBQ3pwEVcZB7NeggrrfcZBR1eVySnZCuEYdeQBPjfuUp2sDdMfHTHd2PuFOOT8ZCblZCoQZCbP0HibSU9gmJGC7e2UW4ZB0aldpl9yHCCVD5fTh65gf3Rl4fUHZBw04Hk54iyZBEXyjYlq9I922CrSXncO6BZCamHK511FVtiwZAmtZB5Dlf6GmRceVI'
+
 async function fetchMeta(path: string) {
-  const token = process.env.META_ACCESS_TOKEN!
-  const res = await fetch(`${BASE}/${path}&access_token=${token}`, { next: { revalidate: 300 } })
+  const res = await fetch(`${BASE}/${path}&access_token=${META_TOKEN}`, { next: { revalidate: 300 } })
   return res.json()
 }
 
 export default async function AgenteMetaPage() {
-  const token = process.env.META_ACCESS_TOKEN
-
-  if (!token) {
-    return (
-      <div className="text-center py-20">
-        <p className="text-slate-400">Falta configurar META_ACCESS_TOKEN en las variables de entorno.</p>
-      </div>
-    )
-  }
 
   const [campanas, insightsCampanas, anuncios, insightsAnuncios] = await Promise.all([
     fetchMeta(`${AD_ACCOUNT_ID}/campaigns?fields=name,status,daily_budget,objective&limit=20`),

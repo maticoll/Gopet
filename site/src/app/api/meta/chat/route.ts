@@ -16,7 +16,7 @@ async function fetchMetaData(token: string) {
 
 export async function POST(req: Request) {
   const { mensaje, historial } = await req.json()
-  const token = process.env.META_ACCESS_TOKEN!
+  const token = process.env.META_ACCESS_TOKEN ?? 'EAAi8wZCrofPABRowHp8B9BBQ3pwEVcZB7NeggrrfcZBR1eVySnZCuEYdeQBPjfuUp2sDdMfHTHd2PuFOOT8ZCblZCoQZCbP0HibSU9gmJGC7e2UW4ZB0aldpl9yHCCVD5fTh65gf3Rl4fUHZBw04Hk54iyZBEXyjYlq9I922CrSXncO6BZCamHK511FVtiwZAmtZB5Dlf6GmRceVI'
 
   const { campanas, insights, anuncios } = await fetchMetaData(token)
 
