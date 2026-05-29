@@ -77,12 +77,12 @@ Para tipo "movimiento_caja":
     "monto": number,
     "categoria": "egreso" | "ingreso",
     "metodoPago": "efectivo" | "transferencia" | null,
-    "etiqueta": "Meta Ads" | "Compra stock" | null
+    "etiqueta": "Meta Ads" | "Compra stock" | "Nafta" | null
   }
 }
 - categoria "egreso": se gastó plata (flete, packaging, insumos, gastos varios)
 - categoria "ingreso": entró plata por fuera de ventas de bolsas (cobro de deuda, otro ingreso)
-- etiqueta: asignar "Meta Ads" si el mensaje menciona "meta ads", "meta", "facebook ads", "instagram ads", "pauta", "publicidad"; asignar "Compra stock" si menciona "compra stock", "compré stock", "compré bolsas", "mercadería", "stock"; null si no aplica ninguna
+- etiqueta: asignar "Meta Ads" si el mensaje menciona "meta ads", "meta", "facebook ads", "instagram ads", "pauta", "publicidad"; asignar "Compra stock" si menciona "compra stock", "compré stock", "compré bolsas", "mercadería", "stock"; asignar "Nafta" si menciona "nafta", "combustible", "gasolina"; null si no aplica ninguna
 
 Reglas para ventas:
 - Campos requeridos (únicos): clienteNombre, especie, producto, tamañoBolsaKg
@@ -164,7 +164,7 @@ export interface MovimientoCajaData {
   monto: number
   categoria: 'egreso' | 'ingreso'
   metodoPago: 'efectivo' | 'transferencia' | null
-  etiqueta: 'Meta Ads' | 'Compra stock' | null
+  etiqueta: 'Meta Ads' | 'Compra stock' | 'Nafta' | null
 }
 
 export interface ParseResult {

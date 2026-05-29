@@ -13,7 +13,7 @@ type Movimiento = {
   created_at: string
 }
 
-const ETIQUETAS = ['Meta Ads', 'Compra stock']
+const ETIQUETAS = ['Meta Ads', 'Compra stock', 'Nafta']
 
 export default function MovimientosTable({ movimientos }: { movimientos: Movimiento[] }) {
   const [filtroEtiqueta, setFiltroEtiqueta] = useState<string>('todas')
