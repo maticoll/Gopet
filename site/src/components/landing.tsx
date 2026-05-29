@@ -278,7 +278,7 @@ export default function Landing() {
         ══════════════════════════════════════════════════════ */}
         <section style={{ backgroundColor:"#FEF9E7", borderTop:"1px solid #F5E6B0", borderBottom:"1px solid #F5E6B0" }}>
           <div className="max-w-6xl mx-auto px-6">
-            <div className="grid grid-cols-1 md:grid-cols-3" style={{ divide: "unset" }}>
+            <div className="grid grid-cols-1 md:grid-cols-3" style={{}}>
               {[
                 { icon:<Zap className="w-4 h-4" style={{ color:"#E87010" }}/>,       bg:"#FDE8C8", title:"Entrega express",        desc:"Coordinamos la entrega en tu horario. Gratis, siempre." },
                 { icon:<ShieldCheck className="w-4 h-4" style={{ color:"#C20808" }}/>, bg:"#FAD0D0", title:"Marcas de confianza",    desc:"Maxine y Lager · Agrofeed Uruguay. Calidad comprobada." },
