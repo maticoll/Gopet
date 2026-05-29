@@ -50,5 +50,15 @@ export default async function MapaPage() {
     })
   )
 
-  return <MapaClientes clientes={clientes} />
+  const sinUbicacionRaw = await sql`
+    SELECT id, nombre FROM clientes
+    WHERE activo = true AND (lat IS NULL OR lng IS NULL)
+    ORDER BY nombre
+  `
+  const sinUbicacion = sinUbicacionRaw.map(c => ({
+    id: c.id as string,
+    nombre: c.nombre as string,
+  }))
+
+  return <MapaClientes clientes={clientes} sinUbicacion={sinUbicacion} />
 }
