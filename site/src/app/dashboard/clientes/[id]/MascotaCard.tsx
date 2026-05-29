@@ -183,23 +183,48 @@ export default function MascotaCard({
           <div>
             <p className="text-slate-500 text-xs uppercase tracking-wide mb-0.5">Próximo fin de bolsa</p>
             {editandoFecha ? (
-              <div className="flex gap-2 items-center mt-1">
-                <input
-                  type="date"
-                  value={nuevaFecha}
-                  onChange={e => setNuevaFecha(e.target.value)}
-                  className="bg-slate-700 text-white rounded px-2 py-0.5 text-sm border border-slate-600"
-                />
+              <div className="flex flex-wrap gap-2 items-end mt-1">
+                <div>
+                  <label className="text-slate-500 text-xs block mb-1">Días que dura la ración</label>
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="ej: 45"
+                    onChange={e => {
+                      const dias = parseInt(e.target.value)
+                      if (!isNaN(dias) && ventaReciente?.fecha_venta) {
+                        const fecha = new Date(ventaReciente.fecha_venta + 'T12:00:00')
+                        fecha.setDate(fecha.getDate() + dias)
+                        setNuevaFecha(fecha.toISOString().split('T')[0])
+                      }
+                    }}
+                    className="bg-slate-700 text-white rounded px-2 py-0.5 text-sm border border-slate-600 w-24"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-500 text-xs block mb-1">O elegí la fecha directo</label>
+                  <input
+                    type="date"
+                    value={nuevaFecha}
+                    onChange={e => setNuevaFecha(e.target.value)}
+                    className="bg-slate-700 text-white rounded px-2 py-0.5 text-sm border border-slate-600"
+                  />
+                </div>
+                {nuevaFecha && (
+                  <p className="text-slate-400 text-xs self-end pb-1">
+                    → {new Date(nuevaFecha + 'T12:00:00').toLocaleDateString('es-UY')}
+                  </p>
+                )}
                 <button
                   onClick={guardarFecha}
                   disabled={savingFecha}
-                  className="text-xs text-green-400 hover:text-green-300 border border-green-900 px-2 py-0.5 rounded disabled:opacity-50 transition-colors"
+                  className="text-xs text-green-400 hover:text-green-300 border border-green-900 px-2 py-1.5 rounded disabled:opacity-50 transition-colors self-end"
                 >
                   {savingFecha ? '…' : 'Guardar'}
                 </button>
                 <button
                   onClick={() => setEditandoFecha(false)}
-                  className="text-xs text-slate-400 border border-slate-700 px-2 py-0.5 rounded transition-colors"
+                  className="text-xs text-slate-400 border border-slate-700 px-2 py-1.5 rounded transition-colors self-end"
                 >
                   Cancelar
                 </button>
