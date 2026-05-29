@@ -389,6 +389,19 @@ export async function POST(req: NextRequest) {
   try {
     const resultado = await parsearMensaje(texto)
 
+    // movimiento_caja siempre tiene ok:true pero lo chequeamos antes por si acaso
+    if (resultado.tipo === 'movimiento_caja') {
+      const d = resultado.data as MovimientoCajaData
+      await sql`
+        INSERT INTO movimientos_caja (descripcion, monto, categoria)
+        VALUES (${d.descripcion}, ${d.monto}, ${d.categoria})
+      `
+      const emoji = d.categoria === 'egreso' ? '💸' : '💰'
+      const signo = d.categoria === 'egreso' ? '-' : '+'
+      await sendMessage(chatId, `${emoji} <b>Movimiento registrado</b>\n📝 ${d.descripcion}\n💵 ${signo}$${d.monto.toLocaleString('es-UY')}`)
+      return NextResponse.json({ ok: true })
+    }
+
     if (!resultado.ok) {
       await sendMessage(chatId, resultado.mensajeRespuesta ?? 'No pude entender el mensaje.')
       return NextResponse.json({ ok: true })
@@ -407,18 +420,6 @@ export async function POST(req: NextRequest) {
         `📥 <b>Compra de stock</b>\n\n🛍 Producto: ${d.producto}\n📦 Cantidad: ${d.cantidad} bolsa${d.cantidad > 1 ? 's' : ''}${precioLinea}\n\n¿Confirmar?`,
         [{ text: '✅ Confirmar', callback_data: 'confirmar_compra_stock' }, { text: '❌ Cancelar', callback_data: 'cancelar_compra_stock' }]
       )
-      return NextResponse.json({ ok: true })
-    }
-
-    if (resultado.tipo === 'movimiento_caja') {
-      const d = resultado.data as MovimientoCajaData
-      await sql`
-        INSERT INTO movimientos_caja (descripcion, monto, categoria)
-        VALUES (${d.descripcion}, ${d.monto}, ${d.categoria})
-      `
-      const emoji = d.categoria === 'egreso' ? '💸' : '💰'
-      const signo = d.categoria === 'egreso' ? '-' : '+'
-      await sendMessage(chatId, `${emoji} <b>Movimiento registrado</b>\n📝 ${d.descripcion}\n💵 ${signo}$${d.monto.toLocaleString('es-UY')}`)
       return NextResponse.json({ ok: true })
     }
 

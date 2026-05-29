@@ -8,7 +8,7 @@ Primero determiná el tipo de mensaje:
 - "venta": se vendió comida a un cliente (menciona cliente y mascota)
 - "compra_stock": llegó mercadería / se compró stock para revender (sin cliente específico)
 - "actualizar_cliente": actualizar datos de un cliente existente (teléfono, dirección)
-- "movimiento_caja": gasto o ingreso de dinero por fuera de las ventas de bolsas (ej: "pagué el flete $500", "gasté $200 en packaging", "entró $1000 de X", "cobré deuda de X")
+- "movimiento_caja": gasto o ingreso de dinero por fuera de las ventas de bolsas. SIEMPRE elegir este tipo cuando el mensaje menciona "gasté", "pagué", "cobré", "entró plata", "salió plata", "flete", "nafta", "packaging", "insumo", o cualquier gasto/ingreso que NO sea venta de comida a un cliente con mascota. Ejemplos: "gasté mil en nafta", "pagué el flete $500", "gasté $200 en packaging", "entró $1000", "cobré deuda de X"
 
 Devolvé SOLO JSON válido, sin texto extra.
 
