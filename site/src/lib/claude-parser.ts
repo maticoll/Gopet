@@ -8,6 +8,7 @@ Primero determiná el tipo de mensaje:
 - "venta": se vendió comida a un cliente (menciona cliente y mascota)
 - "compra_stock": llegó mercadería / se compró stock para revender (sin cliente específico)
 - "actualizar_cliente": actualizar datos de un cliente existente (teléfono, dirección)
+- "movimiento_caja": gasto o ingreso de dinero por fuera de las ventas de bolsas (ej: "pagué el flete $500", "gasté $200 en packaging", "entró $1000 de X", "cobré deuda de X")
 
 Devolvé SOLO JSON válido, sin texto extra.
 
@@ -65,6 +66,19 @@ Para tipo "actualizar_cliente":
     "direccion": "string" | null
   }
 }
+
+Para tipo "movimiento_caja":
+{
+  "tipo": "movimiento_caja",
+  "ok": true,
+  "data": {
+    "descripcion": "string",
+    "monto": number,
+    "categoria": "egreso" | "ingreso"
+  }
+}
+- categoria "egreso": se gastó plata (flete, packaging, insumos, gastos varios)
+- categoria "ingreso": entró plata por fuera de ventas de bolsas (cobro de deuda, otro ingreso)
 
 Reglas para ventas:
 - Campos requeridos: clienteNombre, mascotaNombre, especie, producto, tamañoBolsaKg
@@ -139,10 +153,16 @@ export interface ActualizarClienteData {
   direccion: string | null
 }
 
+export interface MovimientoCajaData {
+  descripcion: string
+  monto: number
+  categoria: 'egreso' | 'ingreso'
+}
+
 export interface ParseResult {
-  tipo: 'venta' | 'compra_stock' | 'actualizar_cliente'
+  tipo: 'venta' | 'compra_stock' | 'actualizar_cliente' | 'movimiento_caja'
   ok: boolean
-  data?: VentaData | CompraStockData | ActualizarClienteData
+  data?: VentaData | CompraStockData | ActualizarClienteData | MovimientoCajaData
   faltantes?: string[]
   faltanteProducto?: FaltanteProducto
   mensajeRespuesta?: string

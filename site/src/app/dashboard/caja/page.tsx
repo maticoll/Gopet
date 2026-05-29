@@ -16,6 +16,14 @@ export default async function CajaPage() {
     LIMIT 50
   `
 
+  // Movimientos de caja (últimos 30)
+  const movimientos = await sql`
+    SELECT id, descripcion, monto, categoria, created_at
+    FROM movimientos_caja
+    ORDER BY created_at DESC
+    LIMIT 30
+  `
+
   // Stock actual
   const productos = await sql`
     SELECT nombre, marca, stock_actual FROM productos
@@ -122,6 +130,45 @@ export default async function CajaPage() {
             </tbody>
           </table>
         </div>
+      </section>
+
+      {/* ── Movimientos de caja ───────────────────────────────────── */}
+      <section>
+        <h2 className="text-lg font-semibold text-white mb-3">Movimientos de caja</h2>
+        {movimientos.length === 0 ? (
+          <p className="text-slate-500 text-sm">Sin movimientos registrados. Mandá un mensaje al bot de Telegram con tus gastos o ingresos.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-slate-400 border-b border-slate-800">
+                  <th className="text-left py-2 pr-4">Fecha</th>
+                  <th className="text-left py-2 pr-4">Descripción</th>
+                  <th className="text-right py-2">Monto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {movimientos.map(m => {
+                  const esEgreso = m.categoria === 'egreso'
+                  return (
+                    <tr key={m.id as string} className="border-b border-slate-800/50">
+                      <td className="py-2 pr-4 text-slate-400">
+                        {new Date(m.created_at as string).toLocaleDateString('es-UY')}
+                      </td>
+                      <td className="py-2 pr-4 text-white flex items-center gap-2">
+                        <span>{esEgreso ? '💸' : '💰'}</span>
+                        <span>{m.descripcion as string}</span>
+                      </td>
+                      <td className={`py-2 text-right font-medium ${esEgreso ? 'text-red-400' : 'text-green-400'}`}>
+                        {esEgreso ? '-' : '+'}${(m.monto as number).toLocaleString('es-UY')}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       {/* ── Stock actual ───────────────────────────────────────────── */}

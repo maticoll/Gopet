@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { parsearMensaje, type VentaData, type CompraStockData, type ActualizarClienteData, type FaltanteProducto, type ParseResult } from '@/lib/claude-parser'
+import { parsearMensaje, type VentaData, type CompraStockData, type ActualizarClienteData, type MovimientoCajaData, type FaltanteProducto, type ParseResult } from '@/lib/claude-parser'
 import { sendMessage, sendMessageWithButtons, answerCallbackQuery, deleteMessage, getFile, downloadFile, transcribeAudioWithClaude, getAuthorizedChatIds } from '@/lib/telegram'
 import { appendVentaToSheet } from '@/lib/google-sheets'
 import { sql } from '@/lib/db'
@@ -407,6 +407,18 @@ export async function POST(req: NextRequest) {
         `📥 <b>Compra de stock</b>\n\n🛍 Producto: ${d.producto}\n📦 Cantidad: ${d.cantidad} bolsa${d.cantidad > 1 ? 's' : ''}${precioLinea}\n\n¿Confirmar?`,
         [{ text: '✅ Confirmar', callback_data: 'confirmar_compra_stock' }, { text: '❌ Cancelar', callback_data: 'cancelar_compra_stock' }]
       )
+      return NextResponse.json({ ok: true })
+    }
+
+    if (resultado.tipo === 'movimiento_caja') {
+      const d = resultado.data as MovimientoCajaData
+      await sql`
+        INSERT INTO movimientos_caja (descripcion, monto, categoria)
+        VALUES (${d.descripcion}, ${d.monto}, ${d.categoria})
+      `
+      const emoji = d.categoria === 'egreso' ? '💸' : '💰'
+      const signo = d.categoria === 'egreso' ? '-' : '+'
+      await sendMessage(chatId, `${emoji} <b>Movimiento registrado</b>\n📝 ${d.descripcion}\n💵 ${signo}$${d.monto.toLocaleString('es-UY')}`)
       return NextResponse.json({ ok: true })
     }
 
