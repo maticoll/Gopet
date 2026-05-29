@@ -13,7 +13,17 @@
       "Bash(git add:*)",
       "Bash(git commit -m ':*)",
       "Bash(git push:*)",
-      "Bash(gh auth:*)"
+      "Bash(gh auth:*)",
+      "mcp__Claude_Preview__preview_start",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(open /Users/alfo/Downloads/Gopet-master/site/public/images/)",
+      "Bash(ls /Users/alfo/Downloads/Gopet-master/site/.env*)",
+      "Bash(psql \"postgresql://neondb_owner:npg_ksJ6HZoVX5dj@ep-winter-meadow-aqiku69r-pooler.c-8.us-east-1.aws.neon.tech/neondb?channel_binding=require&sslmode=require\" -f /Users/alfo/Downloads/Gopet-master/supabase/migrations/005_movimientos_caja.sql)",
+      "Bash(node -e ':*)",
+      "Bash(git commit:*)",
+      "Bash(npm run:*)",
+      "Bash(grep -E \"\\\\.\\(sql|ts\\)$\")",
+      "Bash(npx vercel:*)"
     ]
   }
 }
