@@ -40,8 +40,8 @@ export default function MapaClientes({ clientes }: { clientes: ClienteMapa[] }) 
       const map = L.map(mapRef.current!).setView([-34.9011, -56.1645], 12)
       mapInstanceRef.current = map
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap',
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap © CartoDB',
       }).addTo(map)
 
       for (const c of clientes) {
