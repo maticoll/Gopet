@@ -81,14 +81,12 @@ Para tipo "movimiento_caja":
 - categoria "ingreso": entró plata por fuera de ventas de bolsas (cobro de deuda, otro ingreso)
 
 Reglas para ventas:
-- Campos requeridos: clienteNombre, mascotaNombre, especie, producto, tamañoBolsaKg
-- El precio puede ser null si el usuario dice "usa el precio de la base de datos" / "precio de la BD" / "utiliza el precio de la base" / "busca el precio"
-- usarPrecioBD: true si el usuario pide usar el precio de la base de datos, false en caso contrario
-- Si el usuario da un precio explícito, usarPrecioBD: false y precio: el número
-- Campos requeridos para perros: gramosPorComida, vecesAlDia
+- Campos requeridos (únicos): clienteNombre, mascotaNombre, especie, producto, tamañoBolsaKg
+- precio: SIEMPRE poner null a menos que el usuario diga un número explícito. NUNCA incluir "precio" en faltantes — se busca automáticamente en la base de datos.
+- usarPrecioBD: true siempre que precio sea null (es decir, casi siempre)
+- pagado: true si dice "pagó" / "pagó transferencia" / "pagó efectivo" / "pagó con..."; false en CUALQUIER otro caso (si no se menciona = false). NUNCA incluir "pagado" en faltantes.
+- Campos requeridos para perros: gramosPorComida, vecesAlDia (solo si no se puede inferir del contexto)
 - cantidad: número de bolsas vendidas (default 1 si no se menciona)
-- pagado: true si dice "pagó" / "pagó transferencia" / "pagó efectivo" / "pagó con..."; false si dice "no pagó" / "debe" / "fiado" / no se menciona
-- precio: precio unitario por bolsa (no total), o null si usarPrecioBD=true
 - registrarSinPreguntar: true si el usuario dice "anotalo así" / "dejalo así" / "registralo así" / "guardalo así" / "así está bien" / "sin más datos" / "solo eso". False en caso contrario.
 
 Reglas para actualizar_cliente:
