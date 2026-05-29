@@ -1,8 +1,8 @@
 import { sql } from '@/lib/db'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
-import { diasHastaFin } from '@/lib/calculations'
 import { BajaButton } from './baja-button'
+import MascotaCard from './MascotaCard'
 
 export default async function ClientePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -56,48 +56,24 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
       </div>
 
       {mascotasConVentas.map((mascota) => (
-        <div key={mascota.id as string} className="bg-slate-900 rounded-lg p-4 mb-4">
-          <h3 className="text-white font-semibold mb-3">
-            {mascota.especie === 'perro' ? '🐶' : '🐱'} {mascota.nombre as string}
-            <span className="text-slate-500 text-sm ml-2">
-              ({mascota.peso_kg ? `${mascota.peso_kg}kg · ` : ''}{(mascota.tipo as string) ?? mascota.especie})
-            </span>
-          </h3>
-          <div className="space-y-2">
-            {mascota.ventas.map((v) => {
-              const venta = v as Record<string, string | number | boolean | null>
-              const dias = venta.fecha_estimada_fin
-                ? diasHastaFin(new Date(venta.fecha_estimada_fin as string))
-                : null
-              return (
-                <div key={venta.id as string} className="bg-slate-800 rounded p-3 flex justify-between items-center">
-                  <div>
-                    <p className="text-white text-sm">{venta.producto as string}</p>
-                    <p className="text-slate-400 text-xs">
-                      {new Date(venta.fecha_venta as string).toLocaleDateString('es-UY')} · ${(venta.precio as number)?.toLocaleString('es-UY')}
-                    </p>
-                  </div>
-                  {venta.fecha_estimada_fin && (
-                    <span className={`text-xs font-semibold ${
-                      dias !== null && dias <= 3 ? 'text-red-400' :
-                      dias !== null && dias <= 7 ? 'text-orange-400' :
-                      'text-green-400'
-                    }`}>
-                      {dias !== null
-                        ? dias >= 0
-                          ? `${dias}d restantes`
-                          : `Venció hace ${Math.abs(dias)}d`
-                        : ''}
-                    </span>
-                  )}
-                </div>
-              )
-            })}
-            {mascota.ventas.length === 0 && (
-              <p className="text-slate-600 text-sm">Sin ventas registradas</p>
-            )}
-          </div>
-        </div>
+        <MascotaCard
+          key={mascota.id as string}
+          clienteId={id}
+          mascota={{
+            id: mascota.id as string,
+            nombre: mascota.nombre as string,
+            especie: mascota.especie as string,
+            tipo: mascota.tipo as string | null,
+            peso_kg: mascota.peso_kg as number | null,
+            ventas: (mascota.ventas as Record<string, unknown>[]).map(v => ({
+              id: v.id as string,
+              producto: v.producto as string,
+              precio: v.precio as number,
+              fecha_venta: v.fecha_venta as string,
+              fecha_estimada_fin: v.fecha_estimada_fin as string | null,
+            })),
+          }}
+        />
       ))}
     </div>
   )
