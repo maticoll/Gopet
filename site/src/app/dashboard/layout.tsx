@@ -46,7 +46,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="min-h-screen bg-slate-950">
       {/* Navbar */}
       <nav className="bg-slate-900 border-b border-slate-800 px-4 py-3 flex justify-between items-center">
-        <span className="text-white font-bold">🐾 PetStock</span>
+        <span className="text-white font-bold">🐾 PetStock 1</span>
         <div className="flex gap-4 sm:gap-6 items-center">
           {/* Links visibles en desktop */}
           {[

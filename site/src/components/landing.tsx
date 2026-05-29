@@ -222,9 +222,9 @@ export default function Landing() {
               </div>
 
               <h1 className="font-heading font-black leading-[0.88] tracking-tighter mb-6 text-[clamp(3.5rem,12vw,8.5rem)]">
-                <span className="text-[#60a5fa]">Tu Ración</span>
+                <span className="text-white">Tu Ración</span>
                 <br />
-                <span className="text-primary">Al Instante.</span>
+                <span className="text-white">Al Instante.</span>
               </h1>
 
               <p className="text-white/55 text-lg max-w-md mb-10 leading-relaxed">
