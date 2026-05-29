@@ -9,10 +9,14 @@ type Movimiento = {
   monto: number
   categoria: string
   metodo_pago: string | null
+  etiqueta: string | null
   created_at: string
 }
 
+const ETIQUETAS = ['Meta Ads', 'Compra stock']
+
 export default function MovimientosTable({ movimientos }: { movimientos: Movimiento[] }) {
+  const [filtroEtiqueta, setFiltroEtiqueta] = useState<string>('todas')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<{
@@ -20,6 +24,7 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
     monto: number
     categoria: string
     metodo_pago: string
+    etiqueta: string
   } | null>(null)
 
   function startEdit(m: Movimiento) {
@@ -29,6 +34,7 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
       monto: m.monto,
       categoria: m.categoria,
       metodo_pago: m.metodo_pago ?? 'efectivo',
+      etiqueta: m.etiqueta ?? '',
     })
   }
 
@@ -45,124 +51,188 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
       monto: form.monto,
       categoria: form.categoria,
       metodo_pago: form.metodo_pago || null,
+      etiqueta: form.etiqueta || null,
     })
     setSaving(false)
     setEditingId(null)
     setForm(null)
   }
 
+  const movimientosFiltrados = filtroEtiqueta === 'todas'
+    ? movimientos
+    : movimientos.filter(m => m.etiqueta === filtroEtiqueta)
+
   if (movimientos.length === 0) {
     return <p className="text-slate-500 text-sm">Sin movimientos registrados. Mandá un mensaje al bot de Telegram con tus gastos o ingresos.</p>
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-slate-400 border-b border-slate-800">
-            <th className="text-left py-2 pr-4">Fecha</th>
-            <th className="text-left py-2 pr-4">Descripción</th>
-            <th className="text-left py-2 pr-4">Tipo</th>
-            <th className="text-left py-2 pr-4">Método</th>
-            <th className="text-right py-2 pr-4">Monto</th>
-            <th className="py-2"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {movimientos.map(m => {
-            const isEditing = editingId === m.id
+    <div className="space-y-3">
+      {/* Filtro por etiqueta */}
+      <div className="flex gap-2 flex-wrap">
+        <button
+          onClick={() => setFiltroEtiqueta('todas')}
+          className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+            filtroEtiqueta === 'todas'
+              ? 'bg-slate-600 border-slate-500 text-white'
+              : 'border-slate-700 text-slate-400 hover:border-slate-500'
+          }`}
+        >
+          Todos
+        </button>
+        {ETIQUETAS.map(e => (
+          <button
+            key={e}
+            onClick={() => setFiltroEtiqueta(e)}
+            className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+              filtroEtiqueta === e
+                ? 'bg-slate-600 border-slate-500 text-white'
+                : 'border-slate-700 text-slate-400 hover:border-slate-500'
+            }`}
+          >
+            🏷️ {e}
+          </button>
+        ))}
+      </div>
 
-            if (isEditing && form) {
-              return (
-                <tr key={m.id} className="border-b border-slate-700 bg-slate-800/60">
-                  <td className="py-2 pr-4 text-slate-400 text-xs">
-                    {new Date(m.created_at).toLocaleDateString('es-UY')}
-                  </td>
-                  <td className="py-2 pr-4">
-                    <input
-                      type="text"
-                      value={form.descripcion}
-                      onChange={e => setForm({ ...form, descripcion: e.target.value })}
-                      className="bg-slate-700 text-white rounded px-1.5 py-0.5 text-xs w-40 border border-slate-600"
-                    />
-                  </td>
-                  <td className="py-2 pr-4">
-                    <select
-                      value={form.categoria}
-                      onChange={e => setForm({ ...form, categoria: e.target.value })}
-                      className="bg-slate-700 text-white rounded px-1.5 py-0.5 text-xs border border-slate-600"
-                    >
-                      <option value="ingreso">💰 Ingreso</option>
-                      <option value="egreso">💸 Egreso</option>
-                    </select>
-                  </td>
-                  <td className="py-2 pr-4">
-                    <select
-                      value={form.metodo_pago}
-                      onChange={e => setForm({ ...form, metodo_pago: e.target.value })}
-                      className="bg-slate-700 text-white rounded px-1.5 py-0.5 text-xs border border-slate-600"
-                    >
-                      <option value="efectivo">💵 Efectivo</option>
-                      <option value="transferencia">🏦 Transfer</option>
-                    </select>
-                  </td>
-                  <td className="py-2 pr-4 text-right">
-                    <input
-                      type="number"
-                      value={form.monto}
-                      onChange={e => setForm({ ...form, monto: Number(e.target.value) })}
-                      className="bg-slate-700 text-white rounded px-1.5 py-0.5 text-xs w-24 border border-slate-600 text-right"
-                    />
-                  </td>
-                  <td className="py-2 whitespace-nowrap">
-                    <button
-                      onClick={() => saveEdit(m.id)}
-                      disabled={saving}
-                      className="text-xs text-green-400 hover:text-green-300 border border-green-900 hover:border-green-700 px-2 py-0.5 rounded mr-1 disabled:opacity-50 transition-colors"
-                    >
-                      {saving ? '…' : 'Guardar'}
-                    </button>
-                    <button
-                      onClick={cancelEdit}
-                      className="text-xs text-slate-400 hover:text-slate-300 border border-slate-700 hover:border-slate-500 px-2 py-0.5 rounded transition-colors"
-                    >
-                      Cancelar
-                    </button>
-                  </td>
-                </tr>
-              )
-            }
-
-            const esEgreso = m.categoria === 'egreso'
-            const metodo = m.metodo_pago === 'efectivo' ? '💵 Efectivo' : m.metodo_pago === 'transferencia' ? '🏦 Transfer' : '—'
-            return (
-              <tr key={m.id} className="border-b border-slate-800/50">
-                <td className="py-2 pr-4 text-slate-400">
-                  {new Date(m.created_at).toLocaleDateString('es-UY')}
-                </td>
-                <td className="py-2 pr-4 text-white">
-                  {esEgreso ? '💸' : '💰'} {m.descripcion}
-                </td>
-                <td className="py-2 pr-4 text-slate-400 text-xs">
-                  {esEgreso ? 'Egreso' : 'Ingreso'}
-                </td>
-                <td className="py-2 pr-4 text-slate-400 text-xs">{metodo}</td>
-                <td className={`py-2 pr-4 text-right font-medium ${esEgreso ? 'text-red-400' : 'text-green-400'}`}>
-                  {esEgreso ? '-' : '+'}${m.monto.toLocaleString('es-UY')}
-                </td>
-                <td className="py-2">
-                  <button
-                    onClick={() => startEdit(m)}
-                    className="text-xs text-blue-400 hover:text-blue-300 border border-blue-900 hover:border-blue-700 px-2 py-0.5 rounded transition-colors"
-                  >
-                    Editar
-                  </button>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-slate-400 border-b border-slate-800">
+              <th className="text-left py-2 pr-4">Fecha</th>
+              <th className="text-left py-2 pr-4">Descripción</th>
+              <th className="text-left py-2 pr-4">Etiqueta</th>
+              <th className="text-left py-2 pr-4">Tipo</th>
+              <th className="text-left py-2 pr-4">Método</th>
+              <th className="text-right py-2 pr-4">Monto</th>
+              <th className="py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {movimientosFiltrados.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="py-6 text-center text-slate-500 text-sm">
+                  No hay movimientos con la etiqueta "{filtroEtiqueta}"
                 </td>
               </tr>
-            )
-          })}
-        </tbody>
-      </table>
+            ) : (
+              movimientosFiltrados.map(m => {
+                const isEditing = editingId === m.id
+
+                if (isEditing && form) {
+                  return (
+                    <tr key={m.id} className="border-b border-slate-700 bg-slate-800/60">
+                      <td className="py-2 pr-4 text-slate-400 text-xs">
+                        {new Date(m.created_at).toLocaleDateString('es-UY')}
+                      </td>
+                      <td className="py-2 pr-4">
+                        <input
+                          type="text"
+                          value={form.descripcion}
+                          onChange={e => setForm({ ...form, descripcion: e.target.value })}
+                          className="bg-slate-700 text-white rounded px-1.5 py-0.5 text-xs w-36 border border-slate-600"
+                        />
+                      </td>
+                      <td className="py-2 pr-4">
+                        <select
+                          value={form.etiqueta}
+                          onChange={e => setForm({ ...form, etiqueta: e.target.value })}
+                          className="bg-slate-700 text-white rounded px-1.5 py-0.5 text-xs border border-slate-600"
+                        >
+                          <option value="">— sin etiqueta —</option>
+                          {ETIQUETAS.map(e => (
+                            <option key={e} value={e}>{e}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-2 pr-4">
+                        <select
+                          value={form.categoria}
+                          onChange={e => setForm({ ...form, categoria: e.target.value })}
+                          className="bg-slate-700 text-white rounded px-1.5 py-0.5 text-xs border border-slate-600"
+                        >
+                          <option value="ingreso">💰 Ingreso</option>
+                          <option value="egreso">💸 Egreso</option>
+                        </select>
+                      </td>
+                      <td className="py-2 pr-4">
+                        <select
+                          value={form.metodo_pago}
+                          onChange={e => setForm({ ...form, metodo_pago: e.target.value })}
+                          className="bg-slate-700 text-white rounded px-1.5 py-0.5 text-xs border border-slate-600"
+                        >
+                          <option value="efectivo">💵 Efectivo</option>
+                          <option value="transferencia">🏦 Transfer</option>
+                        </select>
+                      </td>
+                      <td className="py-2 pr-4 text-right">
+                        <input
+                          type="number"
+                          value={form.monto}
+                          onChange={e => setForm({ ...form, monto: Number(e.target.value) })}
+                          className="bg-slate-700 text-white rounded px-1.5 py-0.5 text-xs w-24 border border-slate-600 text-right"
+                        />
+                      </td>
+                      <td className="py-2 whitespace-nowrap">
+                        <button
+                          onClick={() => saveEdit(m.id)}
+                          disabled={saving}
+                          className="text-xs text-green-400 hover:text-green-300 border border-green-900 hover:border-green-700 px-2 py-0.5 rounded mr-1 disabled:opacity-50 transition-colors"
+                        >
+                          {saving ? '…' : 'Guardar'}
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="text-xs text-slate-400 hover:text-slate-300 border border-slate-700 hover:border-slate-500 px-2 py-0.5 rounded transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                }
+
+                const esEgreso = m.categoria === 'egreso'
+                const metodo = m.metodo_pago === 'efectivo' ? '💵 Efectivo' : m.metodo_pago === 'transferencia' ? '🏦 Transfer' : '—'
+                return (
+                  <tr key={m.id} className="border-b border-slate-800/50">
+                    <td className="py-2 pr-4 text-slate-400">
+                      {new Date(m.created_at).toLocaleDateString('es-UY')}
+                    </td>
+                    <td className="py-2 pr-4 text-white">
+                      {esEgreso ? '💸' : '💰'} {m.descripcion}
+                    </td>
+                    <td className="py-2 pr-4">
+                      {m.etiqueta ? (
+                        <span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">
+                          🏷️ {m.etiqueta}
+                        </span>
+                      ) : (
+                        <span className="text-slate-600 text-xs">—</span>
+                      )}
+                    </td>
+                    <td className="py-2 pr-4 text-slate-400 text-xs">
+                      {esEgreso ? 'Egreso' : 'Ingreso'}
+                    </td>
+                    <td className="py-2 pr-4 text-slate-400 text-xs">{metodo}</td>
+                    <td className={`py-2 pr-4 text-right font-medium ${esEgreso ? 'text-red-400' : 'text-green-400'}`}>
+                      {esEgreso ? '-' : '+'}${m.monto.toLocaleString('es-UY')}
+                    </td>
+                    <td className="py-2">
+                      <button
+                        onClick={() => startEdit(m)}
+                        className="text-xs text-blue-400 hover:text-blue-300 border border-blue-900 hover:border-blue-700 px-2 py-0.5 rounded transition-colors"
+                      >
+                        Editar
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

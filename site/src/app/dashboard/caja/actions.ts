@@ -41,6 +41,7 @@ export async function editarMovimiento(
     monto: number
     categoria: string
     metodo_pago: string | null
+    etiqueta: string | null
   }
 ): Promise<void> {
   await sql`
@@ -48,7 +49,8 @@ export async function editarMovimiento(
       descripcion = ${data.descripcion},
       monto       = ${data.monto},
       categoria   = ${data.categoria},
-      metodo_pago = ${data.metodo_pago}
+      metodo_pago = ${data.metodo_pago},
+      etiqueta    = ${data.etiqueta}
     WHERE id = ${movimientoId}
   `
   revalidatePath('/dashboard/caja')

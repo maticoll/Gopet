@@ -397,13 +397,14 @@ export async function POST(req: NextRequest) {
     if (resultado.tipo === 'movimiento_caja') {
       const d = resultado.data as MovimientoCajaData
       await sql`
-        INSERT INTO movimientos_caja (descripcion, monto, categoria, metodo_pago)
-        VALUES (${d.descripcion}, ${d.monto}, ${d.categoria}, ${d.metodoPago ?? null})
+        INSERT INTO movimientos_caja (descripcion, monto, categoria, metodo_pago, etiqueta)
+        VALUES (${d.descripcion}, ${d.monto}, ${d.categoria}, ${d.metodoPago ?? null}, ${d.etiqueta ?? null})
       `
       const emoji = d.categoria === 'egreso' ? '💸' : '💰'
       const signo = d.categoria === 'egreso' ? '-' : '+'
       const metodoPagoTexto = d.metodoPago === 'efectivo' ? ' · 💵 Efectivo' : d.metodoPago === 'transferencia' ? ' · 🏦 Transferencia' : ''
-      await sendMessage(chatId, `${emoji} <b>Movimiento registrado</b>\n📝 ${d.descripcion}\n💵 ${signo}$${d.monto.toLocaleString('es-UY')}${metodoPagoTexto}`)
+      const etiquetaTexto = d.etiqueta ? ` · 🏷️ ${d.etiqueta}` : ''
+      await sendMessage(chatId, `${emoji} <b>Movimiento registrado</b>\n📝 ${d.descripcion}\n💵 ${signo}$${d.monto.toLocaleString('es-UY')}${metodoPagoTexto}${etiquetaTexto}`)
       return NextResponse.json({ ok: true })
     }
 
