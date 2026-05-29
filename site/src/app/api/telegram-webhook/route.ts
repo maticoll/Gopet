@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { parsearMensaje, type VentaData, type CompraStockData, type ActualizarClienteData, type MovimientoCajaData, type FaltanteProducto, type ParseResult } from '@/lib/claude-parser'
+import { parsearMensaje, type VentaData, type CompraStockData, type ActualizarClienteData, type MovimientoCajaData, type TransferenciaInternaData, type FaltanteProducto, type ParseResult } from '@/lib/claude-parser'
 import { sendMessage, sendMessageWithButtons, answerCallbackQuery, deleteMessage, getFile, downloadFile, transcribeAudioWithClaude, getAuthorizedChatIds } from '@/lib/telegram'
 import { appendVentaToSheet } from '@/lib/google-sheets'
 import { sql } from '@/lib/db'
@@ -392,6 +392,23 @@ export async function POST(req: NextRequest) {
   // ── Parse message ──────────────────────────────────────────────────────
   try {
     const resultado = await parsearMensaje(texto)
+
+    // transferencia_interna: crea dos movimientos (sale de un método, entra al otro)
+    if (resultado.tipo === 'transferencia_interna') {
+      const d = resultado.data as TransferenciaInternaData
+      await sql`
+        INSERT INTO movimientos_caja (descripcion, monto, categoria, metodo_pago)
+        VALUES (${'Transferencia interna'}, ${d.monto}, ${'egreso'}, ${d.de})
+      `
+      await sql`
+        INSERT INTO movimientos_caja (descripcion, monto, categoria, metodo_pago)
+        VALUES (${'Transferencia interna'}, ${d.monto}, ${'ingreso'}, ${d.a})
+      `
+      const deLabel = d.de === 'efectivo' ? '💵 Efectivo' : '🏦 Banco'
+      const aLabel = d.a === 'efectivo' ? '💵 Efectivo' : '🏦 Banco'
+      await sendMessage(chatId, `🔄 <b>Transferencia interna registrada</b>\n💸 Sale de ${deLabel}: -$${d.monto.toLocaleString('es-UY')}\n💰 Entra a ${aLabel}: +$${d.monto.toLocaleString('es-UY')}`)
+      return NextResponse.json({ ok: true })
+    }
 
     // movimiento_caja siempre tiene ok:true pero lo chequeamos antes por si acaso
     if (resultado.tipo === 'movimiento_caja') {

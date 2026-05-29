@@ -9,6 +9,7 @@ Primero determiná el tipo de mensaje:
 - "compra_stock": llegó mercadería / se compró stock para revender (sin cliente específico)
 - "actualizar_cliente": actualizar datos de un cliente existente (teléfono, dirección)
 - "movimiento_caja": gasto o ingreso de dinero por fuera de las ventas de bolsas. SIEMPRE elegir este tipo cuando el mensaje menciona "gasté", "pagué", "cobré", "entró plata", "salió plata", "flete", "nafta", "packaging", "insumo", o cualquier gasto/ingreso que NO sea venta de comida a un cliente con mascota. Ejemplos: "gasté mil en nafta", "pagué el flete $500", "gasté $200 en packaging", "entró $1000", "cobré deuda de X"
+- "transferencia_interna": movimiento de plata entre métodos de pago (de efectivo al banco, o del banco a efectivo). Ejemplos: "pasé mil en efectivo al banco", "deposité $500 al banco", "saqué $2000 del banco en efectivo", "llevé plata al banco"
 
 Devolvé SOLO JSON válido, sin texto extra.
 
@@ -67,6 +68,20 @@ Para tipo "actualizar_cliente":
     "direccion": "string" | null
   }
 }
+
+Para tipo "transferencia_interna":
+{
+  "tipo": "transferencia_interna",
+  "ok": true,
+  "data": {
+    "monto": number,
+    "de": "efectivo" | "transferencia",
+    "a": "efectivo" | "transferencia"
+  }
+}
+- Usarlo cuando se mueve plata entre efectivo y banco/transferencia
+- "pasé al banco", "deposité al banco" → de: "efectivo", a: "transferencia"
+- "saqué del banco", "retiré del banco" → de: "transferencia", a: "efectivo"
 
 Para tipo "movimiento_caja":
 {
@@ -159,6 +174,12 @@ export interface ActualizarClienteData {
   direccion: string | null
 }
 
+export interface TransferenciaInternaData {
+  monto: number
+  de: 'efectivo' | 'transferencia'
+  a: 'efectivo' | 'transferencia'
+}
+
 export interface MovimientoCajaData {
   descripcion: string
   monto: number
@@ -168,9 +189,9 @@ export interface MovimientoCajaData {
 }
 
 export interface ParseResult {
-  tipo: 'venta' | 'compra_stock' | 'actualizar_cliente' | 'movimiento_caja'
+  tipo: 'venta' | 'compra_stock' | 'actualizar_cliente' | 'movimiento_caja' | 'transferencia_interna'
   ok: boolean
-  data?: VentaData | CompraStockData | ActualizarClienteData | MovimientoCajaData
+  data?: VentaData | CompraStockData | ActualizarClienteData | MovimientoCajaData | TransferenciaInternaData
   faltantes?: string[]
   faltanteProducto?: FaltanteProducto
   mensajeRespuesta?: string
