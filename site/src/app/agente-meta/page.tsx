@@ -70,5 +70,9 @@ export default async function AgenteMetaPage() {
   }).filter((a: { gasto?: number }) => a.gasto !== undefined)
     .sort((a: { gasto?: number }, b: { gasto?: number }) => (b.gasto ?? 0) - (a.gasto ?? 0))
 
-  return <AgenteMetaClient campanas={campanasMapped} anuncios={anunciosMapped} />
+  return (
+    <div className="min-h-screen bg-slate-950 p-6">
+      <AgenteMetaClient campanas={campanasMapped} anuncios={anunciosMapped} />
+    </div>
+  )
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 
 type Campana = {
   id: string
@@ -73,14 +74,17 @@ export default function AgenteMetaClient({
     estado === 'ACTIVE' ? 'text-green-400' : 'text-slate-500'
 
   return (
-    <div className="max-w-4xl space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Agente Meta</h1>
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Link href="/dashboard" className="text-slate-400 hover:text-white transition-colors text-lg">
+          ←
+        </Link>
+        <h1 className="text-2xl font-bold text-white flex-1">Agente Meta</h1>
         <p className="text-slate-400 text-sm">Últimos 30 días</p>
       </div>
 
       {/* Resumen */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
           <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Gasto total</p>
           <p className="text-white text-2xl font-bold">${totalGasto.toLocaleString('es-UY', { maximumFractionDigits: 0 })}</p>
@@ -92,6 +96,10 @@ export default function AgenteMetaClient({
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
           <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Clics</p>
           <p className="text-white text-2xl font-bold">{totalClics.toLocaleString('es-UY')}</p>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+          <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Campañas activas</p>
+          <p className="text-white text-2xl font-bold">{campanas.filter(c => c.estado === 'ACTIVE').length}</p>
         </div>
       </div>
 
