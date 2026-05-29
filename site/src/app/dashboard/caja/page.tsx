@@ -1,13 +1,17 @@
 import { sql } from '@/lib/db'
 import { marcarPagado } from './actions'
+import VentasTable from './VentasTable'
+import MovimientosTable from './MovimientosTable'
+import StockTable from './StockTable'
 
 export const metadata = { title: 'Caja — PetStock' }
 
 export default async function CajaPage() {
   // Ventas recientes (últimas 50)
-  const ventas = await sql`
+  const ventasRaw = await sql`
     SELECT
       v.id, v.producto, v.cantidad, v.precio, v.pagado, v.fecha_venta, v.metodo_pago,
+      v.cliente_id,
       c.nombre AS cliente_nombre,
       c.telefono AS cliente_telefono
     FROM ventas v
@@ -17,7 +21,7 @@ export default async function CajaPage() {
   `
 
   // Movimientos de caja (últimos 30)
-  const movimientos = await sql`
+  const movimientosRaw = await sql`
     SELECT id, descripcion, monto, categoria, metodo_pago, created_at
     FROM movimientos_caja
     ORDER BY created_at DESC
@@ -25,14 +29,19 @@ export default async function CajaPage() {
   `
 
   // Stock actual
-  const productos = await sql`
+  const productosRaw = await sql`
     SELECT nombre, marca, stock_actual FROM productos
     ORDER BY marca, nombre
   `
 
+  // Clientes activos para el selector de edición
+  const clientesRaw = await sql`
+    SELECT id, nombre FROM clientes WHERE activo = true ORDER BY nombre
+  `
+
   // Pendiente de cobro agrupado por cliente
-  const ventasNoPagas = ventas.filter(v => !v.pagado)
-  const deudoreMap = new Map<string, { nombre: string; telefono: string | null; total: number; ventas: typeof ventas }>()
+  const ventasNoPagas = ventasRaw.filter(v => !v.pagado)
+  const deudoreMap = new Map<string, { nombre: string; telefono: string | null; total: number; ventas: typeof ventasRaw }>()
   for (const v of ventasNoPagas) {
     const key = (v.cliente_nombre as string) ?? 'Desconocido'
     if (!deudoreMap.has(key)) {
@@ -46,7 +55,7 @@ export default async function CajaPage() {
   const totalPendiente = deudores.reduce((sum, d) => sum + d.total, 0)
 
   // Totales por método de pago (solo ventas pagadas)
-  const ventasPagadas = ventas.filter(v => v.pagado)
+  const ventasPagadas = ventasRaw.filter(v => v.pagado)
   const totalEfectivo = ventasPagadas
     .filter(v => v.metodo_pago === 'efectivo')
     .reduce((sum, v) => sum + (v.precio as number) * ((v.cantidad as number) ?? 1), 0)
@@ -55,15 +64,49 @@ export default async function CajaPage() {
     .reduce((sum, v) => sum + (v.precio as number) * ((v.cantidad as number) ?? 1), 0)
 
   // Movimientos por método
-  const movEfectivo = movimientos
+  const movEfectivo = movimientosRaw
     .filter(m => m.metodo_pago === 'efectivo')
     .reduce((sum, m) => sum + (m.categoria === 'egreso' ? -(m.monto as number) : (m.monto as number)), 0)
-  const movTransferencia = movimientos
+  const movTransferencia = movimientosRaw
     .filter(m => m.metodo_pago === 'transferencia')
     .reduce((sum, m) => sum + (m.categoria === 'egreso' ? -(m.monto as number) : (m.monto as number)), 0)
 
   const saldoEfectivo = totalEfectivo + movEfectivo
   const saldoTransferencia = totalTransferencia + movTransferencia
+
+  // Mapear a tipos concretos para los componentes cliente
+  const ventas = ventasRaw.map(v => ({
+    id: v.id as string,
+    producto: v.producto as string,
+    cantidad: (v.cantidad as number) ?? 1,
+    precio: v.precio as number,
+    pagado: v.pagado as boolean,
+    fecha_venta: v.fecha_venta as string,
+    metodo_pago: v.metodo_pago as string | null,
+    cliente_id: v.cliente_id as string | null,
+    cliente_nombre: v.cliente_nombre as string | null,
+    cliente_telefono: v.cliente_telefono as string | null,
+  }))
+
+  const movimientos = movimientosRaw.map(m => ({
+    id: m.id as string,
+    descripcion: m.descripcion as string,
+    monto: m.monto as number,
+    categoria: m.categoria as string,
+    metodo_pago: m.metodo_pago as string | null,
+    created_at: m.created_at as string,
+  }))
+
+  const productos = productosRaw.map(p => ({
+    nombre: p.nombre as string,
+    marca: p.marca as string,
+    stock_actual: p.stock_actual as number,
+  }))
+
+  const clientes = clientesRaw.map(c => ({
+    id: c.id as string,
+    nombre: c.nombre as string,
+  }))
 
   return (
     <div className="space-y-8">
@@ -130,124 +173,19 @@ export default async function CajaPage() {
       {/* ── Ventas recientes ───────────────────────────────────────── */}
       <section>
         <h2 className="text-lg font-semibold text-white mb-3">Ventas recientes</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-slate-400 border-b border-slate-800">
-                <th className="text-left py-2 pr-4">Fecha</th>
-                <th className="text-left py-2 pr-4">Cliente</th>
-                <th className="text-left py-2 pr-4">Producto</th>
-                <th className="text-right py-2 pr-4">Total</th>
-                <th className="text-left py-2">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ventas.map(v => {
-                const total = (v.precio as number) * ((v.cantidad as number) ?? 1)
-                const metodo = v.metodo_pago === 'efectivo' ? '💵' : v.metodo_pago === 'transferencia' ? '🏦' : ''
-                return (
-                  <tr key={v.id as string} className={`border-b border-slate-800/50 ${!v.pagado ? 'bg-red-950/30' : ''}`}>
-                    <td className="py-2 pr-4 text-slate-400">
-                      {new Date((v.fecha_venta as string) + 'T12:00:00').toLocaleDateString('es-UY')}
-                    </td>
-                    <td className="py-2 pr-4 text-white">{(v.cliente_nombre as string) ?? '—'}</td>
-                    <td className="py-2 pr-4 text-slate-300">{v.producto as string}</td>
-                    <td className="py-2 pr-4 text-right text-white">${total.toLocaleString('es-UY')}</td>
-                    <td className="py-2">
-                      {v.pagado ? (
-                        <span className="text-green-400 text-xs">{metodo} Pagado</span>
-                      ) : (
-                        <form action={marcarPagado.bind(null, v.id as string)} className="inline">
-                          <button type="submit" className="text-xs text-yellow-400 hover:text-yellow-300 border border-yellow-900 hover:border-yellow-700 px-2 py-0.5 rounded transition-colors">
-                            Marcar pagado
-                          </button>
-                        </form>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <VentasTable ventas={ventas} clientes={clientes} />
       </section>
 
       {/* ── Movimientos de caja ───────────────────────────────────── */}
       <section>
         <h2 className="text-lg font-semibold text-white mb-3">Movimientos de caja</h2>
-        {movimientos.length === 0 ? (
-          <p className="text-slate-500 text-sm">Sin movimientos registrados. Mandá un mensaje al bot de Telegram con tus gastos o ingresos.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-slate-400 border-b border-slate-800">
-                  <th className="text-left py-2 pr-4">Fecha</th>
-                  <th className="text-left py-2 pr-4">Descripción</th>
-                  <th className="text-left py-2 pr-4">Método</th>
-                  <th className="text-right py-2">Monto</th>
-                </tr>
-              </thead>
-              <tbody>
-                {movimientos.map(m => {
-                  const esEgreso = m.categoria === 'egreso'
-                  const metodo = m.metodo_pago === 'efectivo' ? '💵 Efectivo' : m.metodo_pago === 'transferencia' ? '🏦 Transfer' : '—'
-                  return (
-                    <tr key={m.id as string} className="border-b border-slate-800/50">
-                      <td className="py-2 pr-4 text-slate-400">
-                        {new Date(m.created_at as string).toLocaleDateString('es-UY')}
-                      </td>
-                      <td className="py-2 pr-4 text-white">
-                        {esEgreso ? '💸' : '💰'} {m.descripcion as string}
-                      </td>
-                      <td className="py-2 pr-4 text-slate-400 text-xs">{metodo}</td>
-                      <td className={`py-2 text-right font-medium ${esEgreso ? 'text-red-400' : 'text-green-400'}`}>
-                        {esEgreso ? '-' : '+'}${(m.monto as number).toLocaleString('es-UY')}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <MovimientosTable movimientos={movimientos} />
       </section>
 
       {/* ── Stock actual ───────────────────────────────────────────── */}
       <section>
         <h2 className="text-lg font-semibold text-white mb-3">Stock actual</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-slate-400 border-b border-slate-800">
-                <th className="text-left py-2 pr-4">Marca</th>
-                <th className="text-left py-2 pr-4">Producto</th>
-                <th className="text-right py-2">Stock</th>
-              </tr>
-            </thead>
-            <tbody>
-              {productos.map(p => {
-                const bajo     = (p.stock_actual as number) <= 2
-                const sinStock = (p.stock_actual as number) <= 0
-                return (
-                  <tr key={p.nombre as string} className="border-b border-slate-800/50">
-                    <td className="py-2 pr-4 text-slate-400">{p.marca as string}</td>
-                    <td className="py-2 pr-4 text-white">{p.nombre as string}</td>
-                    <td className="py-2 text-right">
-                      {sinStock ? (
-                        <span className="text-red-400 font-medium">Sin stock</span>
-                      ) : bajo ? (
-                        <span className="text-orange-400 font-medium">⚠️ {p.stock_actual as number}</span>
-                      ) : (
-                        <span className="text-slate-300">{p.stock_actual as number}</span>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <StockTable productos={productos} />
       </section>
     </div>
   )

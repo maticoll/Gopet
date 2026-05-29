@@ -7,3 +7,60 @@ export async function marcarPagado(ventaId: string): Promise<void> {
   await sql`UPDATE ventas SET pagado = true WHERE id = ${ventaId}`
   revalidatePath('/dashboard/caja')
 }
+
+export async function editarVenta(
+  ventaId: string,
+  data: {
+    fecha_venta: string
+    cliente_id: string
+    producto: string
+    precio: number
+    cantidad: number
+    pagado: boolean
+    metodo_pago: string | null
+  }
+): Promise<void> {
+  await sql`
+    UPDATE ventas SET
+      fecha_venta  = ${data.fecha_venta},
+      cliente_id   = ${data.cliente_id},
+      producto     = ${data.producto},
+      precio       = ${data.precio},
+      cantidad     = ${data.cantidad},
+      pagado       = ${data.pagado},
+      metodo_pago  = ${data.metodo_pago}
+    WHERE id = ${ventaId}
+  `
+  revalidatePath('/dashboard/caja')
+}
+
+export async function editarMovimiento(
+  movimientoId: string,
+  data: {
+    descripcion: string
+    monto: number
+    categoria: string
+    metodo_pago: string | null
+  }
+): Promise<void> {
+  await sql`
+    UPDATE movimientos_caja SET
+      descripcion = ${data.descripcion},
+      monto       = ${data.monto},
+      categoria   = ${data.categoria},
+      metodo_pago = ${data.metodo_pago}
+    WHERE id = ${movimientoId}
+  `
+  revalidatePath('/dashboard/caja')
+}
+
+export async function editarStock(
+  productoNombre: string,
+  stockActual: number
+): Promise<void> {
+  await sql`
+    UPDATE productos SET stock_actual = ${stockActual}
+    WHERE nombre = ${productoNombre}
+  `
+  revalidatePath('/dashboard/caja')
+}
