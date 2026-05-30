@@ -76,7 +76,7 @@ export default function DogGame() {
   const TICK = 120;
 
   const makeFood = useCallback((snake: Point[]): Food => {
-    let pos;
+    let pos: Point;
     do { pos = randCell(); }
     while (snake.some(s => s.x === pos.x && s.y === pos.y));
     const r = randRation(imagesRef.current);
