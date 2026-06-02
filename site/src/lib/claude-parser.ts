@@ -120,7 +120,8 @@ Reglas para ventas:
 - usarPrecioBD: true siempre que precio sea null (es decir, casi siempre)
 - pagado: true si dice "pagó" / "pagó transferencia" / "pagó efectivo" / "pagó con..."; false en CUALQUIER otro caso (si no se menciona = false). NUNCA incluir "pagado" en faltantes.
 - metodoPago: "efectivo" si dice "efectivo" / "en mano" / "cash"; "transferencia" si dice "transferencia" / "transfer" / "banco" / "bizum" / "mercadopago"; null si no se menciona. NUNCA incluir "metodoPago" en faltantes.
-- Campos requeridos para perros: gramosPorComida, vecesAlDia (solo si no se puede inferir del contexto)
+- gramosPorComida y vecesAlDia: poner null si no se mencionan explícitamente. NUNCA incluir en faltantes — el sistema los calcula automáticamente desde la base de datos.
+- clienteTelefono y clienteDireccion: extraerlos si el usuario los menciona, sino null. NUNCA incluirlos en faltantes.
 - intervaloDiasGato: SIEMPRE null. NUNCA incluir "intervaloDiasGato" en faltantes — se calcula automáticamente en la segunda compra.
 - cantidad: número de bolsas vendidas (default 1 si no se menciona)
 - registrarSinPreguntar: true si el usuario dice "anotalo así" / "dejalo así" / "registralo así" / "guardalo así" / "así está bien" / "sin más datos" / "solo eso". False en caso contrario.
