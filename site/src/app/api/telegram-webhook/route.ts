@@ -174,6 +174,16 @@ export async function POST(req: NextRequest) {
         await sql`UPDATE ventas SET metodo_pago = ${p.metodoPago} WHERE id = ${ventaRows[0].venta_id as string}`
       }
 
+      if (p.dataExtraInline) {
+        await sql`
+          UPDATE clientes SET data_extra = CASE
+            WHEN data_extra IS NULL OR data_extra = '' THEN ${p.dataExtraInline}
+            ELSE data_extra || E'\n' || ${p.dataExtraInline}
+          END
+          WHERE id = ${p.clienteId}
+        `
+      }
+
       try {
         await appendVentaToSheet({
           clienteNombre: p.clienteNombre, clienteTelefono: p.clienteTelefono,
@@ -590,16 +600,6 @@ async function procesarVentaConProducto(chatId: string, d: VentaData, dataExtraI
     clienteId = nuevo[0].id as string
   }
 
-  if (dataExtraInline) {
-    await sql`
-      UPDATE clientes SET data_extra = CASE
-        WHEN data_extra IS NULL OR data_extra = '' THEN ${dataExtraInline}
-        ELSE data_extra || E'\n' || ${dataExtraInline}
-      END
-      WHERE id = ${clienteId}
-    `
-  }
-
   // Buscar mascota: por nombre si lo dieron, o por especie si el cliente ya tiene una
   let mascotaRows: { id: string; nombre: string }[] = []
   if (d.mascotaNombre) {
@@ -652,6 +652,7 @@ async function procesarVentaConProducto(chatId: string, d: VentaData, dataExtraI
     clienteNombre: d.clienteNombre, clienteTelefono: d.clienteTelefono,
     clienteDireccion: d.clienteDireccion, mascotaNombre: d.mascotaNombre,
     especie: d.especie, tipoPerro: d.tipoPerro, pesoKg: d.pesoKg,
+    dataExtraInline,
   }
 
   const pStr = JSON.stringify(payload)
