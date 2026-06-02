@@ -559,22 +559,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
-    if (!d.registrarSinPreguntar) {
-      const primerCampoFaltante = obtenerSiguienteCampoFaltante(d, null)
-      if (primerCampoFaltante) {
-        const pStr = JSON.stringify({ ventaDataParcial: d, campoEsperado: primerCampoFaltante, dataExtraInline })
-        await sql`
-          INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
-          VALUES (${chatId}, 'esperando_datos_faltantes', null, ${pStr}, now())
-          ON CONFLICT (chat_id) DO UPDATE SET estado = 'esperando_datos_faltantes', venta_id = null, payload = ${pStr}, updated_at = now()
-        `
-        await sendMessage(chatId, primerCampoFaltante === 'telefono'
-          ? '📱 ¿Cuál es el teléfono del cliente? (o respondé "no" para saltar)'
-          : '📍 ¿Cuál es la dirección del cliente? (o respondé "no" para saltar)')
-        return NextResponse.json({ ok: true })
-      }
-    }
-
     await procesarVentaConProducto(chatId, d, dataExtraInline)
   } catch (err) {
     console.error('Webhook error:', err)

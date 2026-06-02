@@ -17,7 +17,7 @@ Devolvé SOLO JSON válido, sin texto extra.
 Para tipo "venta":
 {
   "tipo": "venta",
-  "ok": true/false,
+  "ok": true,
   "data": {
     "clienteNombre": "string",
     "mascotaNombre": "string",
@@ -38,7 +38,7 @@ Para tipo "venta":
     "clienteTelefono": "string" | null,
     "registrarSinPreguntar": boolean
   },
-  "faltantes": ["campos que faltan"],
+  "faltantes": [],
   "faltanteProducto": {
     "faltaMarca": boolean,
     "faltaTamaño": boolean,
@@ -114,7 +114,9 @@ Para tipo "movimiento_caja":
 - etiqueta: asignar "Meta Ads" si el mensaje menciona "meta ads", "meta", "facebook ads", "instagram ads", "pauta", "publicidad"; asignar "Compra stock" si menciona "compra stock", "compré stock", "compré bolsas", "mercadería", "stock"; asignar "Nafta" si menciona "nafta", "combustible", "gasolina"; null si no aplica ninguna
 
 Reglas para ventas:
-- Campos requeridos (únicos): clienteNombre, especie, producto, tamañoBolsaKg
+- ok: SIEMPRE true. NUNCA devolver ok:false para ventas. Registrar con lo que hay.
+- faltantes: SIEMPRE array vacío []. NUNCA pedir datos adicionales.
+- Campos mínimos: clienteNombre, producto, tamañoBolsaKg. El resto puede ser null.
 - especie: inferirla del producto si no se menciona explícitamente. "razas pequeñas", "adulto", "senior", "cachorro" en el nombre del producto → especie = "perro". "gato adulto", "gato castrado" → especie = "gato". NUNCA incluir "especie" en faltantes si se puede inferir del producto.
 - mascotaNombre: poner null si el usuario no lo menciona explícitamente. NUNCA incluir "mascotaNombre" en faltantes — no es un campo obligatorio.
 - precio: SIEMPRE poner null a menos que el usuario diga un número explícito. NUNCA incluir "precio" en faltantes — se busca automáticamente en la base de datos.
