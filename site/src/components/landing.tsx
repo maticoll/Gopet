@@ -246,8 +246,8 @@ export default function Landing() {
 
               <h1 className="font-heading font-black leading-[0.88] tracking-tighter mb-5 text-[clamp(3.2rem,8vw,6.5rem)]">
                 La Ración<br/>Que Tu<br/>
-                <span style={{ color:"#FFB347" }}>Mascota</span><br/>
-                Merece.
+                Mascota<br/>
+                <span style={{ color:"#FFB347" }}>Merece.</span>
               </h1>
 
               <p className="text-white/65 text-lg max-w-md mb-8 leading-relaxed">
