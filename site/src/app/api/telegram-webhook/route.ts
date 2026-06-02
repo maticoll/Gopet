@@ -359,7 +359,7 @@ export async function POST(req: NextRequest) {
     ventaDataParcial.precio        = prod.precio_venta
     ventaDataParcial.tamañoBolsaKg = tamañoBolsaKg
     await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
-    await procesarVentaConProducto(chatId, ventaDataParcial)
+    await procesarVentaConProducto(chatId, ventaDataParcial, payload.dataExtraInline ?? null)
     return NextResponse.json({ ok: true })
   }
 
@@ -385,8 +385,16 @@ export async function POST(req: NextRequest) {
     }
 
     await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
-    await procesarVentaConProducto(chatId, ventaDataParcial)
+    await procesarVentaConProducto(chatId, ventaDataParcial, payload.dataExtraInline ?? null)
     return NextResponse.json({ ok: true })
+  }
+
+  // ── Extraer "data extra" del mensaje antes de parsear ─────────────────
+  let dataExtraInline: string | null = null
+  const dataExtraMatch = texto.match(/\by?\s*data\s+extra\s+(.+)/i)
+  if (dataExtraMatch) {
+    dataExtraInline = dataExtraMatch[1].trim()
+    texto = texto.replace(dataExtraMatch[0], '').trim()
   }
 
   // ── Parse message ──────────────────────────────────────────────────────
@@ -499,7 +507,7 @@ export async function POST(req: NextRequest) {
         productosEncontrados = busqueda.encontrados
         if (busqueda.exacto && productosEncontrados.length === 1) {
           d.precio = productosEncontrados[0].precio_venta
-          await procesarVentaConProducto(chatId, d)
+          await procesarVentaConProducto(chatId, d, dataExtraInline)
           return NextResponse.json({ ok: true })
         }
       }
@@ -517,7 +525,7 @@ export async function POST(req: NextRequest) {
         let msg = '🔍 Encontré varios productos. ¿Cuál es?\n\n'
         productosEncontrados.forEach((p, i) => { msg += `<b>${i + 1}.</b> ${p.nombre} — $${p.precio_venta}\n` })
         msg += '\nRespondé con el número del producto.'
-        const pStr = JSON.stringify({ opcionesProducto: productosEncontrados, ventaDataParcial: d })
+        const pStr = JSON.stringify({ opcionesProducto: productosEncontrados, ventaDataParcial: d, dataExtraInline })
         await sql`
           INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
           VALUES (${chatId}, 'esperando_seleccion_producto', null, ${pStr}, now())
@@ -544,7 +552,7 @@ export async function POST(req: NextRequest) {
     if (!d.registrarSinPreguntar) {
       const primerCampoFaltante = obtenerSiguienteCampoFaltante(d, null)
       if (primerCampoFaltante) {
-        const pStr = JSON.stringify({ ventaDataParcial: d, campoEsperado: primerCampoFaltante })
+        const pStr = JSON.stringify({ ventaDataParcial: d, campoEsperado: primerCampoFaltante, dataExtraInline })
         await sql`
           INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
           VALUES (${chatId}, 'esperando_datos_faltantes', null, ${pStr}, now())
@@ -557,7 +565,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    await procesarVentaConProducto(chatId, d)
+    await procesarVentaConProducto(chatId, d, dataExtraInline)
   } catch (err) {
     console.error('Webhook error:', err)
     await sendMessage(chatId, '❌ Ocurrió un error al procesar el mensaje. Revisá los logs.')
@@ -568,7 +576,7 @@ export async function POST(req: NextRequest) {
 
 // ── procesarVentaConProducto ───────────────────────────────────────────────
 
-async function procesarVentaConProducto(chatId: string, d: VentaData) {
+async function procesarVentaConProducto(chatId: string, d: VentaData, dataExtraInline: string | null = null) {
   const clienteRows = await sql`SELECT id, activo FROM clientes WHERE lower(nombre) = lower(${d.clienteNombre}) LIMIT 1`
   let clienteId: string
 
@@ -580,6 +588,16 @@ async function procesarVentaConProducto(chatId: string, d: VentaData) {
   } else {
     const nuevo = await sql`INSERT INTO clientes (nombre, telefono, direccion, activo) VALUES (${d.clienteNombre}, ${d.clienteTelefono ?? null}, ${d.clienteDireccion ?? null}, true) RETURNING id`
     clienteId = nuevo[0].id as string
+  }
+
+  if (dataExtraInline) {
+    await sql`
+      UPDATE clientes SET data_extra = CASE
+        WHEN data_extra IS NULL OR data_extra = '' THEN ${dataExtraInline}
+        ELSE data_extra || E'\n' || ${dataExtraInline}
+      END
+      WHERE id = ${clienteId}
+    `
   }
 
   // Buscar mascota: por nombre si lo dieron, o por especie si el cliente ya tiene una
