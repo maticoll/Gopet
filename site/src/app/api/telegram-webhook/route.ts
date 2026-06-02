@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { parsearMensaje, type VentaData, type CompraStockData, type ActualizarClienteData, type MovimientoCajaData, type TransferenciaInternaData, type FaltanteProducto, type ParseResult } from '@/lib/claude-parser'
+import { parsearMensaje, type VentaData, type CompraStockData, type ActualizarClienteData, type MovimientoCajaData, type TransferenciaInternaData, type DataExtraClienteData, type FaltanteProducto, type ParseResult } from '@/lib/claude-parser'
 import { sendMessage, sendMessageWithButtons, answerCallbackQuery, deleteMessage, getFile, downloadFile, transcribeAudioWithClaude, getAuthorizedChatIds } from '@/lib/telegram'
 import { appendVentaToSheet } from '@/lib/google-sheets'
 import { sql } from '@/lib/db'
@@ -443,6 +443,26 @@ export async function POST(req: NextRequest) {
         `📥 <b>Compra de stock</b>\n\n🛍 Producto: ${d.producto}\n📦 Cantidad: ${d.cantidad} bolsa${d.cantidad > 1 ? 's' : ''}${precioLinea}\n\n¿Confirmar?`,
         [{ text: '✅ Confirmar', callback_data: 'confirmar_compra_stock' }, { text: '❌ Cancelar', callback_data: 'cancelar_compra_stock' }]
       )
+      return NextResponse.json({ ok: true })
+    }
+
+    if (resultado.tipo === 'data_extra_cliente') {
+      const d = resultado.data as DataExtraClienteData
+      const clienteRows = await sql`SELECT id FROM clientes WHERE lower(nombre) LIKE lower(${'%' + d.clienteNombre + '%'}) LIMIT 1`
+      if (!clienteRows.length) {
+        await sendMessage(chatId, `❌ No encontré un cliente con el nombre "${d.clienteNombre}".`)
+        return NextResponse.json({ ok: true })
+      }
+      const cId = clienteRows[0].id as string
+      // Concatenar a data_extra existente
+      await sql`
+        UPDATE clientes SET data_extra = CASE
+          WHEN data_extra IS NULL OR data_extra = '' THEN ${d.info}
+          ELSE data_extra || E'\n' || ${d.info}
+        END
+        WHERE id = ${cId}
+      `
+      await sendMessage(chatId, `📝 <b>Data extra de ${d.clienteNombre} actualizada:</b>\n${d.info}`)
       return NextResponse.json({ ok: true })
     }
 

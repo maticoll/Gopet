@@ -44,14 +44,20 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
         <BajaButton darDeBaja={darDeBaja} />
       </div>
 
-      <div className="bg-slate-900 rounded-lg p-4 mb-6 grid grid-cols-2 gap-3">
-        <div>
-          <p className="text-slate-500 text-xs uppercase tracking-wide mb-1">Teléfono</p>
-          <p className="text-white">{(cliente.telefono as string) ?? '—'}</p>
+      <div className="bg-slate-900 rounded-lg p-4 mb-6 space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-slate-500 text-xs uppercase tracking-wide mb-1">Teléfono</p>
+            <p className="text-white">{(cliente.telefono as string) ?? '—'}</p>
+          </div>
+          <div>
+            <p className="text-slate-500 text-xs uppercase tracking-wide mb-1">Dirección</p>
+            <p className="text-white">{(cliente.direccion as string) ?? '—'}</p>
+          </div>
         </div>
         <div>
-          <p className="text-slate-500 text-xs uppercase tracking-wide mb-1">Dirección</p>
-          <p className="text-white">{(cliente.direccion as string) ?? '—'}</p>
+          <p className="text-slate-500 text-xs uppercase tracking-wide mb-1">Data extra</p>
+          <p className="text-white whitespace-pre-wrap">{(cliente.data_extra as string) ?? '—'}</p>
         </div>
       </div>
 

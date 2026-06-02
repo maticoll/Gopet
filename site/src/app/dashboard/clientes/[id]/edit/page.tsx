@@ -8,15 +8,16 @@ export default async function EditClientePage({ params }: { params: Promise<{ id
 
   const clientes = await sql`SELECT *, (SELECT json_agg(p) FROM perros p WHERE p.cliente_id = clientes.id) AS perros FROM clientes WHERE id = ${id}`
   if (!clientes.length) notFound()
-  const cliente = clientes[0] as { id: string; nombre: string; telefono: string | null; direccion: string | null }
+  const cliente = clientes[0] as { id: string; nombre: string; telefono: string | null; direccion: string | null; data_extra: string | null }
 
   async function guardarCliente(formData: FormData) {
     'use server'
     await sql`
       UPDATE clientes SET
-        nombre    = ${formData.get('nombre') as string},
-        telefono  = ${(formData.get('telefono') as string) || null},
-        direccion = ${(formData.get('direccion') as string) || null}
+        nombre     = ${formData.get('nombre') as string},
+        telefono   = ${(formData.get('telefono') as string) || null},
+        direccion  = ${(formData.get('direccion') as string) || null},
+        data_extra = ${(formData.get('data_extra') as string) || null}
       WHERE id = ${id}
     `
     redirect(`/dashboard/clientes/${id}`)

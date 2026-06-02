@@ -10,6 +10,7 @@ Primero determiná el tipo de mensaje:
 - "actualizar_cliente": actualizar datos de un cliente existente (teléfono, dirección)
 - "movimiento_caja": gasto o ingreso de dinero por fuera de las ventas de bolsas. SIEMPRE elegir este tipo cuando el mensaje menciona "gasté", "pagué", "cobré", "entró plata", "salió plata", "flete", "nafta", "packaging", "insumo", o cualquier gasto/ingreso que NO sea venta de comida a un cliente con mascota. Ejemplos: "gasté mil en nafta", "pagué el flete $500", "gasté $200 en packaging", "entró $1000", "cobré deuda de X"
 - "transferencia_interna": movimiento de plata entre métodos de pago (de efectivo al banco, o del banco a efectivo). Ejemplos: "pasé mil en efectivo al banco", "deposité $500 al banco", "saqué $2000 del banco en efectivo", "llevé plata al banco"
+- "data_extra_cliente": anotar información extra de un cliente. El mensaje DEBE empezar con "data extra" seguido del nombre del cliente y la información. Ejemplo: "data extra Juan tiene alergia al pollo", "data extra María prefiere que la llamen a la tarde"
 
 Devolvé SOLO JSON válido, sin texto extra.
 
@@ -82,6 +83,19 @@ Para tipo "transferencia_interna":
 - Usarlo cuando se mueve plata entre efectivo y banco/transferencia
 - "pasé al banco", "deposité al banco" → de: "efectivo", a: "transferencia"
 - "saqué del banco", "retiré del banco" → de: "transferencia", a: "efectivo"
+
+Para tipo "data_extra_cliente":
+{
+  "tipo": "data_extra_cliente",
+  "ok": true,
+  "data": {
+    "clienteNombre": "string",
+    "info": "string (toda la información extra a anotar)"
+  }
+}
+- Solo usar este tipo cuando el mensaje empieza con "data extra" (case insensitive)
+- clienteNombre: el nombre del cliente mencionado justo después de "data extra"
+- info: todo el texto restante después del nombre del cliente
 
 Para tipo "movimiento_caja":
 {
@@ -188,10 +202,15 @@ export interface MovimientoCajaData {
   etiqueta: 'Meta Ads' | 'Compra stock' | 'Nafta' | null
 }
 
+export interface DataExtraClienteData {
+  clienteNombre: string
+  info: string
+}
+
 export interface ParseResult {
-  tipo: 'venta' | 'compra_stock' | 'actualizar_cliente' | 'movimiento_caja' | 'transferencia_interna'
+  tipo: 'venta' | 'compra_stock' | 'actualizar_cliente' | 'movimiento_caja' | 'transferencia_interna' | 'data_extra_cliente'
   ok: boolean
-  data?: VentaData | CompraStockData | ActualizarClienteData | MovimientoCajaData | TransferenciaInternaData
+  data?: VentaData | CompraStockData | ActualizarClienteData | MovimientoCajaData | TransferenciaInternaData | DataExtraClienteData
   faltantes?: string[]
   faltanteProducto?: FaltanteProducto
   mensajeRespuesta?: string

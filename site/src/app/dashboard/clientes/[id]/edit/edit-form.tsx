@@ -5,6 +5,7 @@ interface Cliente {
   nombre: string
   telefono: string | null
   direccion: string | null
+  data_extra: string | null
 }
 
 export function EditClienteForm({
@@ -50,6 +51,19 @@ export function EditClienteForm({
           name="direccion"
           defaultValue={cliente.direccion ?? ''}
           className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="data_extra" className="block text-slate-300 text-sm mb-1">
+          Data extra
+        </label>
+        <textarea
+          id="data_extra"
+          name="data_extra"
+          defaultValue={cliente.data_extra ?? ''}
+          rows={4}
+          className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500 resize-none"
         />
       </div>
 
