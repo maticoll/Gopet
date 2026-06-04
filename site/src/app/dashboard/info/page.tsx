@@ -66,10 +66,31 @@ export default async function InfoPage() {
     .slice(-6)
 
   const totalClientes = perros + gatos
+  const META = 102000
+  const totalVentas = ventas.reduce((sum, v) => sum + (v.precio as number), 0)
+  const porcentajeMeta = Math.min((totalVentas / META) * 100, 100)
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-white">Info</h1>
+
+      {/* Meta de ventas */}
+      <div className="bg-slate-900 rounded-lg p-5 border border-slate-800">
+        <div className="flex items-end justify-between mb-3">
+          <div>
+            <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Meta de ventas</p>
+            <p className="text-white text-3xl font-bold">${totalVentas.toLocaleString('es-UY')}</p>
+          </div>
+          <p className="text-slate-400 text-sm">de ${META.toLocaleString('es-UY')}</p>
+        </div>
+        <div className="w-full bg-slate-800 rounded-full h-3">
+          <div
+            className="bg-amber-500 h-3 rounded-full transition-all"
+            style={{ width: `${porcentajeMeta}%` }}
+          />
+        </div>
+        <p className="text-slate-400 text-xs mt-2">{porcentajeMeta.toFixed(1)}% completado</p>
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-gradient-to-br from-blue-900/50 to-slate-900 rounded-lg p-4 border border-blue-800/30">
