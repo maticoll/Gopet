@@ -129,17 +129,49 @@ function DripDivider({ fromColor, toColor = "#FFFFFF" }: { fromColor: string; to
   );
 }
 
+// ── Weight label — splits "21+4 kg gratis / 7.5 kg" into stacked lines ────────
+
+function WeightLabel({ weight }: { weight: string }) {
+  const sizes = weight.split(" / ");
+  return (
+    <div className="flex flex-col gap-1">
+      {sizes.map((size) => {
+        const hasGratis = size.includes("gratis");
+        const base = size.replace(" gratis", "").trim();
+        return (
+          <div key={size} className="flex items-center gap-1.5">
+            <span className="text-xs font-semibold" style={{ color:"#9C7050" }}>{base}</span>
+            {hasGratis && (
+              <span className="inline-flex items-center justify-center text-[9px] font-bold uppercase tracking-wide rounded-full px-1.5 py-0.5 leading-none"
+                    style={{ backgroundColor:"#E87010", color:"#fff", minWidth:"36px" }}>
+                gratis
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Product card ──────────────────────────────────────────────────────────────
 
 function ProductCard({ p }: { p: Product }) {
   const msg = `Hola GoPet! Quiero consultar sobre ${p.brand} ${p.name} (${p.weight}). ¿Está disponible?`;
+  const isBestseller = p.id === "mx-a";
   return (
     <motion.div
       initial={{ opacity:0, y:20 }} whileInView={{ opacity:1, y:0 }}
       viewport={{ once:true }} transition={{ duration:0.4, ease:[0.25,1,0.5,1] }}
-      className="rounded-2xl overflow-hidden flex flex-col hover:shadow-xl transition-shadow"
-      style={{ border:"1px solid #E8D5BF", backgroundColor:"#FFFFFF" }}
+      className="rounded-2xl overflow-hidden flex flex-col hover:shadow-xl transition-shadow relative"
+      style={{ border: isBestseller ? "1.5px solid #E87010" : "1px solid #E8D5BF", backgroundColor:"#FFFFFF" }}
     >
+      {isBestseller && (
+        <div className="absolute top-3 right-3 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide text-white"
+             style={{ backgroundColor:"#C20808" }}>
+          🏆 Más vendido
+        </div>
+      )}
       <div className="relative h-48 flex items-center justify-center overflow-hidden" style={{ backgroundColor:"#FFFBF6" }}>
         <Image src={p.image} alt={`${p.brand} ${p.name}`} fill className="object-contain p-3"
                sizes="(max-width:640px) 50vw,(max-width:1024px) 33vw,25vw"/>
@@ -154,7 +186,7 @@ function ProductCard({ p }: { p: Product }) {
           <p className="text-xs mt-0.5" style={{ color:"#9C7050" }}>{p.desc}</p>
         </div>
         <div className="mt-auto flex items-center justify-between">
-          <span className="text-xs font-semibold" style={{ color:"#9C7050" }}>{p.weight}</span>
+          <WeightLabel weight={p.weight} />
           <a href={waURL(msg)} target="_blank" rel="noopener noreferrer"
              className="inline-flex items-center gap-1.5 text-xs font-heading font-bold px-3 py-2 rounded-lg text-white transition-opacity hover:opacity-90 cursor-pointer"
              style={{ backgroundColor:"#E87010" }}>
