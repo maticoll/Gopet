@@ -180,18 +180,18 @@ function ProductCard({ p }: { p: Product }) {
           <span className="font-black text-black leading-none" style={{ fontSize:"9px", letterSpacing:"0.03em", textAlign:"center", lineHeight:1.1 }}>MÁS{"\n"}VENDIDO</span>
         </div>
       )}
-      <div className="relative h-48 flex items-center justify-center overflow-hidden" style={{ backgroundColor:"#FFFBF6" }}>
-        <Image src={p.image} alt={`${p.brand} ${p.name}`} fill className="object-contain p-3"
+      <div className="relative h-36 sm:h-48 flex items-center justify-center overflow-hidden" style={{ backgroundColor:"#FFFBF6" }}>
+        <Image src={p.image} alt={`${p.brand} ${p.name}`} fill className="object-contain p-2 sm:p-3"
                sizes="(max-width:640px) 50vw,(max-width:1024px) 33vw,25vw"/>
-        <span className="absolute top-2 left-2 text-xs font-heading font-bold px-2 py-0.5 rounded-full text-white"
+        <span className="absolute top-2 left-2 text-[10px] sm:text-xs font-heading font-bold px-1.5 sm:px-2 py-0.5 rounded-full text-white"
               style={{ backgroundColor: p.color }}>
           {p.brand}
         </span>
       </div>
-      <div className="p-4 flex flex-col gap-3 flex-1">
+      <div className="p-3 sm:p-4 flex flex-col gap-2 sm:gap-3 flex-1">
         <div>
-          <h3 className="font-heading font-bold text-base leading-tight" style={{ color:"#3D2010" }}>{p.name}</h3>
-          <p className="text-xs mt-0.5" style={{ color:"#9C7050" }}>{p.desc}</p>
+          <h3 className="font-heading font-bold text-sm sm:text-base leading-tight" style={{ color:"#3D2010" }}>{p.name}</h3>
+          <p className="text-[10px] sm:text-xs mt-0.5" style={{ color:"#9C7050" }}>{p.desc}</p>
         </div>
         <div className="mt-auto flex items-center justify-between">
           <WeightLabel weight={p.weight} />
@@ -284,13 +284,13 @@ export default function Landing() {
                 Uruguay · Envío gratis a domicilio
               </div>
 
-              <h1 className="font-heading font-black leading-[0.88] tracking-tighter mb-5 text-[clamp(3.2rem,8vw,6.5rem)]">
+              <h1 className="font-heading font-black leading-[0.88] tracking-tighter mb-5 text-[clamp(2.4rem,8vw,6.5rem)]">
                 La Ración<br/>Que Tu<br/>
                 Mascota<br/>
                 <span style={{ color:"#FFB347" }}>Merece.</span>
               </h1>
 
-              <p className="text-white/65 text-lg max-w-md mb-8 leading-relaxed">
+              <p className="text-white/65 text-base sm:text-lg max-w-md mb-8 leading-relaxed">
                 Alimento premium Maxine y Lager — Agrofeed Uruguay. Envío gratis a domicilio. Todo por WhatsApp.
               </p>
 
@@ -325,8 +325,11 @@ export default function Landing() {
                 { icon:<ShieldCheck className="w-4 h-4" style={{ color:"#C20808" }}/>, bg:"#FAD0D0", title:"Marcas de confianza",    desc:"Maxine y Lager · Agrofeed Uruguay. Calidad comprobada." },
                 { icon:<Leaf className="w-4 h-4" style={{ color:"#2D9B4A" }}/>,        bg:"#C8F0D8", title:"Asesoría personalizada", desc:"Te ayudamos a elegir la ración correcta. Por WhatsApp." },
               ].map((f, i, arr) => (
-                <div key={i} className="flex items-center gap-4 px-8 py-7"
-                     style={{ borderRight: i < arr.length - 1 ? "1px solid #F5E6B0" : "none" }}>
+                <div key={i} className="flex items-center gap-4 px-6 py-5 md:px-8 md:py-7"
+                     style={{
+                       borderRight:   i < arr.length - 1 ? "1px solid #F5E6B0" : "none",
+                       borderBottom: "1px solid #F5E6B0",
+                     }}>
                   <div className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: f.bg }}>
                     {f.icon}
                   </div>
@@ -445,18 +448,18 @@ export default function Landing() {
             </div>
 
             {/* Mobile */}
-            <div className="lg:hidden flex flex-col items-center gap-8 mt-4">
-              <div className="relative" style={{ width:"200px", height:"280px" }}>
+            <div className="lg:hidden flex flex-col items-center gap-6 mt-2">
+              <div className="relative" style={{ width:"240px", height:"320px" }}>
                 <div style={{ position:"absolute", inset:0, mixBlendMode:"multiply" as const }}>
-                  <Image src="/images/maxine-adulto.png" alt="Maxine Adultos 21 kg" fill className="object-contain" sizes="200px"/>
+                  <Image src="/images/maxine-adulto.png" alt="Maxine Adultos 21+4 kg gratis" fill className="object-contain" sizes="240px"/>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2.5 w-full max-w-xs">
-                {[["Agrofeed Uruguay","Marca nacional"],["Super Premium","Alta calidad"],["Pollo y Arroz","Proteína natural"],
-                  ["High Performance","Máximo rendimiento"],["Razas Adultas","1 a 7 años"],["21+4 kg gratis","Gran bolsa"]].map(([label, sub]) => (
-                  <div key={label} className="rounded-2xl p-3 text-center" style={{ border:"1px solid #E8C8A8", backgroundColor:"rgba(255,255,255,0.7)" }}>
-                    <p className="font-heading font-bold text-xs" style={{ color:"#3D2010" }}>{label}</p>
-                    <p className="text-[10px]" style={{ color:"#9C7050" }}>{sub}</p>
+              <div className="grid grid-cols-3 gap-2 w-full max-w-sm">
+                {[["Agrofeed","Marca nacional"],["Super Premium","Alta calidad"],["Pollo y Arroz","Proteína natural"],
+                  ["High Performance","Máx. rendimiento"],["Razas Adultas","1 a 7 años"],["21+4 kg gratis","Gran bolsa"]].map(([label, sub]) => (
+                  <div key={label} className="rounded-xl p-2.5 text-center" style={{ border:"1px solid #E8C8A8", backgroundColor:"rgba(255,255,255,0.7)" }}>
+                    <p className="font-heading font-bold text-[10px] leading-tight" style={{ color:"#3D2010" }}>{label}</p>
+                    <p className="text-[9px] mt-0.5" style={{ color:"#9C7050" }}>{sub}</p>
                   </div>
                 ))}
               </div>
@@ -480,7 +483,7 @@ export default function Landing() {
         {/* ══════════════════════════════════════════════════════
             PRODUCTOS — blanco limpio
         ══════════════════════════════════════════════════════ */}
-        <section id="productos" className="py-24 px-6 bg-white">
+        <section id="productos" className="py-16 sm:py-24 px-4 sm:px-6 bg-white">
           <div className="max-w-6xl mx-auto">
             <div className="mb-10">
               <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter mb-2" style={{ color:"#3D2010" }}>
@@ -525,8 +528,11 @@ export default function Landing() {
               priority
             />
             {/* Gradiente sobre la imagen para legibilidad */}
-            <div className="absolute inset-0" style={{
+            <div className="absolute inset-0 hidden sm:block" style={{
               background:"linear-gradient(to right, rgba(20,10,0,0.82) 0%, rgba(20,10,0,0.45) 45%, rgba(20,10,0,0.15) 100%)"
+            }}/>
+            <div className="absolute inset-0 sm:hidden" style={{
+              background:"rgba(20,10,0,0.72)"
             }}/>
           </div>
 
@@ -555,7 +561,7 @@ export default function Landing() {
                 <span className="text-white/50 text-sm">gratis</span>
               </div>
 
-              <p className="text-white/70 text-lg mb-8 leading-relaxed max-w-xs">
+              <p className="text-white/70 text-base sm:text-lg mb-6 sm:mb-8 leading-relaxed max-w-xs">
                 ¡Al mejor precio del mercado! Alimento premium para perros adultos.
               </p>
 
@@ -604,7 +610,7 @@ export default function Landing() {
         {/* ══════════════════════════════════════════════════════
             CÓMO FUNCIONA — celeste bebé
         ══════════════════════════════════════════════════════ */}
-        <section id="como-funciona" className="py-24 px-6" style={{ backgroundColor:"#EFF9FF" }}>
+        <section id="como-funciona" className="py-16 sm:py-24 px-5 sm:px-6" style={{ backgroundColor:"#EFF9FF" }}>
           <div className="max-w-6xl mx-auto">
             <div className="mb-14">
               <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter mb-2" style={{ color:"#1A6FA0" }}>
@@ -639,7 +645,7 @@ export default function Landing() {
         {/* ══════════════════════════════════════════════════════
             BENEFICIOS — verde menta suave
         ══════════════════════════════════════════════════════ */}
-        <section id="beneficios" className="py-24 px-6" style={{ backgroundColor:"#F0FFF6" }}>
+        <section id="beneficios" className="py-16 sm:py-24 px-5 sm:px-6" style={{ backgroundColor:"#F0FFF6" }}>
           <div className="max-w-6xl mx-auto">
             <div className="mb-14">
               <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter mb-2" style={{ color:"#1A7A40" }}>
@@ -700,7 +706,7 @@ export default function Landing() {
         {/* ══════════════════════════════════════════════════════
             CTA FINAL — naranja cálido y juguetón
         ══════════════════════════════════════════════════════ */}
-        <section className="py-28 px-6 text-white" style={{ backgroundColor:"#E87010" }}>
+        <section className="py-16 sm:py-28 px-5 sm:px-6 text-white" style={{ backgroundColor:"#E87010" }}>
           <div className="max-w-6xl mx-auto">
             <motion.div initial={{ opacity:0, y:24 }} whileInView={{ opacity:1, y:0 }}
                         viewport={{ once:true }} transition={{ duration:0.6, ease:[0.25,1,0.5,1] }}
