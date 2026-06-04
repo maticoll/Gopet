@@ -484,6 +484,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
+    if (resultado.tipo === 'ventas_multiples') {
+      const ventas = resultado.ventas!
+      await sendMessage(chatId, `📦 Registrando ${ventas.length} ventas para <b>${ventas[0].clienteNombre}</b>...`)
+      for (const ventaItem of ventas) {
+        await procesarVentaConProducto(chatId, ventaItem, dataExtraInline)
+      }
+      return NextResponse.json({ ok: true })
+    }
+
     if (resultado.tipo === 'actualizar_cliente') {
       const d = resultado.data as ActualizarClienteData
       const clienteRows = await sql`SELECT id FROM clientes WHERE lower(nombre) LIKE lower(${'%' + d.clienteNombre + '%'}) LIMIT 1`

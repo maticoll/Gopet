@@ -5,7 +5,8 @@ const client = new Anthropic()
 const SYSTEM_PROMPT = `Sos un asistente que procesa mensajes sobre ventas y stock de alimento para mascotas (Uruguay).
 
 Primero determiná el tipo de mensaje:
-- "venta": se vendió comida a un cliente (menciona cliente y mascota)
+- "ventas_multiples": se vendieron DOS O MÁS productos DISTINTOS al mismo cliente en un solo mensaje (distintos tamaños o distintas marcas). Ejemplo: "vendí a Pablo una de 25kg y una de 7,5kg"
+- "venta": se vendió UN solo producto (o varias bolsas del mismo producto) a un cliente
 - "compra_stock": llegó mercadería / se compró stock para revender (sin cliente específico)
 - "actualizar_cliente": actualizar datos de un cliente existente (teléfono, dirección)
 - "movimiento_caja": gasto o ingreso de dinero por fuera de las ventas de bolsas. SIEMPRE elegir este tipo cuando el mensaje menciona "gasté", "pagué", "cobré", "entró plata", "salió plata", "flete", "nafta", "packaging", "insumo", o cualquier gasto/ingreso que NO sea venta de comida a un cliente con mascota. Ejemplos: "gasté mil en nafta", "pagué el flete $500", "gasté $200 en packaging", "entró $1000", "cobré deuda de X"
@@ -47,6 +48,37 @@ Para tipo "venta":
     "tamañoMencionado": number | null
   }
 }
+
+Para tipo "ventas_multiples":
+{
+  "tipo": "ventas_multiples",
+  "ok": true,
+  "ventas": [
+    {
+      "clienteNombre": "string",
+      "mascotaNombre": "string" | null,
+      "especie": "perro" | "gato",
+      "tipoPerro": "adulto" | "senior" | "cachorro" | "raza_pequeña" | null,
+      "pesoKg": number | null,
+      "producto": "string normalizado del catálogo",
+      "tamañoBolsaKg": number,
+      "precio": number | null,
+      "usarPrecioBD": boolean,
+      "cantidad": number,
+      "pagado": boolean,
+      "metodoPago": "efectivo" | "transferencia" | null,
+      "gramosPorComida": number | null,
+      "vecesAlDia": number | null,
+      "intervaloDiasGato": number | null,
+      "clienteDireccion": "string" | null,
+      "clienteTelefono": "string" | null,
+      "registrarSinPreguntar": true
+    }
+  ]
+}
+- Si el usuario menciona un precio total para todas las bolsas, dividirlo proporcionalmente entre los productos o poner null y usar usarPrecioBD:true para cada uno.
+- Si menciona precios individuales, asignarlos a cada producto.
+- El cliente, especie y mascota son los mismos para todas las ventas del array.
 
 Para tipo "compra_stock":
 {
@@ -212,9 +244,10 @@ export interface DataExtraClienteData {
 }
 
 export interface ParseResult {
-  tipo: 'venta' | 'compra_stock' | 'actualizar_cliente' | 'movimiento_caja' | 'transferencia_interna' | 'data_extra_cliente'
+  tipo: 'venta' | 'ventas_multiples' | 'compra_stock' | 'actualizar_cliente' | 'movimiento_caja' | 'transferencia_interna' | 'data_extra_cliente'
   ok: boolean
   data?: VentaData | CompraStockData | ActualizarClienteData | MovimientoCajaData | TransferenciaInternaData | DataExtraClienteData
+  ventas?: VentaData[]
   faltantes?: string[]
   faltanteProducto?: FaltanteProducto
   mensajeRespuesta?: string
