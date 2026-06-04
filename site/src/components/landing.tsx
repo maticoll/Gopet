@@ -142,8 +142,8 @@ function WeightLabel({ weight }: { weight: string }) {
           <div key={size} className="flex items-center gap-1">
             <span className="text-xs font-semibold whitespace-nowrap" style={{ color:"#9C7050" }}>{base}</span>
             {hasGratis && (
-              <span className="inline-flex items-center justify-center text-[8px] font-bold uppercase tracking-wide rounded-full px-1.5 leading-none flex-shrink-0"
-                    style={{ backgroundColor:"#E87010", color:"#fff", height:"14px" }}>
+              <span className="inline-flex items-center justify-center text-[7px] font-bold uppercase rounded-full leading-none flex-shrink-0"
+                    style={{ backgroundColor:"#E87010", color:"#fff", height:"11px", padding:"0 3px" }}>
                 gratis
               </span>
             )}
