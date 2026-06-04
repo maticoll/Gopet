@@ -515,7 +515,7 @@ export default function Landing() {
         {/* ══════════════════════════════════════════════════════
             PROMO LAGER ADULTO
         ══════════════════════════════════════════════════════ */}
-        <section className="relative overflow-hidden" style={{ backgroundColor:"#1A0F00" }}>
+        <section className="order-5 sm:order-none relative overflow-hidden" style={{ backgroundColor:"#1A0F00" }}>
           {/* Imagen de fondo full-bleed — máxima calidad */}
           <div className="absolute inset-0">
             <Image
@@ -610,7 +610,7 @@ export default function Landing() {
         {/* ══════════════════════════════════════════════════════
             CÓMO FUNCIONA — celeste bebé
         ══════════════════════════════════════════════════════ */}
-        <section id="como-funciona" className="py-16 sm:py-24 px-5 sm:px-6" style={{ backgroundColor:"#EFF9FF" }}>
+        <section id="como-funciona" className="order-6 sm:order-none py-16 sm:py-24 px-5 sm:px-6" style={{ backgroundColor:"#EFF9FF" }}>
           <div className="max-w-6xl mx-auto">
             <div className="mb-14">
               <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter mb-2" style={{ color:"#1A6FA0" }}>
@@ -640,12 +640,12 @@ export default function Landing() {
           </div>
         </section>
 
-        <DripDivider fromColor="#EFF9FF" toColor="#F0FFF6"/>
+        <div className="hidden sm:block"><DripDivider fromColor="#EFF9FF" toColor="#F0FFF6"/></div>
 
         {/* ══════════════════════════════════════════════════════
             BENEFICIOS — verde menta suave
         ══════════════════════════════════════════════════════ */}
-        <section id="beneficios" className="py-16 sm:py-24 px-5 sm:px-6" style={{ backgroundColor:"#F0FFF6" }}>
+        <section id="beneficios" className="order-7 sm:order-none py-16 sm:py-24 px-5 sm:px-6" style={{ backgroundColor:"#F0FFF6" }}>
           <div className="max-w-6xl mx-auto">
             <div className="mb-14">
               <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter mb-2" style={{ color:"#1A7A40" }}>
@@ -675,12 +675,12 @@ export default function Landing() {
           </div>
         </section>
 
-        <DripDivider fromColor="#F0FFF6" toColor="#FEF9E7"/>
+        <div className="hidden sm:block"><DripDivider fromColor="#F0FFF6" toColor="#FEF9E7"/></div>
 
         {/* ══════════════════════════════════════════════════════
             MINIJUEGO — perro come raciones
         ══════════════════════════════════════════════════════ */}
-        <section className="py-24 px-6" style={{ backgroundColor:"#FEF9E7" }}>
+        <section className="order-8 sm:order-none py-24 px-6" style={{ backgroundColor:"#FEF9E7" }}>
           <div className="max-w-6xl mx-auto">
             <motion.div initial={{ opacity:0, y:16 }} whileInView={{ opacity:1, y:0 }}
                         viewport={{ once:true }} transition={{ duration:0.55 }}
@@ -701,12 +701,12 @@ export default function Landing() {
           </div>
         </section>
 
-        <DripDivider fromColor="#FEF9E7" toColor="#E87010"/>
+        <div className="hidden sm:block"><DripDivider fromColor="#FEF9E7" toColor="#E87010"/></div>
 
         {/* ══════════════════════════════════════════════════════
             CTA FINAL — naranja cálido y juguetón
         ══════════════════════════════════════════════════════ */}
-        <section className="py-16 sm:py-28 px-5 sm:px-6 text-white" style={{ backgroundColor:"#E87010" }}>
+        <section className="order-9 sm:order-none py-16 sm:py-28 px-5 sm:px-6 text-white" style={{ backgroundColor:"#E87010" }}>
           <div className="max-w-6xl mx-auto">
             <motion.div initial={{ opacity:0, y:24 }} whileInView={{ opacity:1, y:0 }}
                         viewport={{ once:true }} transition={{ duration:0.6, ease:[0.25,1,0.5,1] }}
@@ -736,7 +736,7 @@ export default function Landing() {
         </section>
 
         {/* ── FOOTER ── */}
-        <footer className="py-8 px-6 text-white/50" style={{ backgroundColor:"#3D2010" }}>
+        <footer className="order-10 sm:order-none py-8 px-6 text-white/50" style={{ backgroundColor:"#3D2010" }}>
           <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-1.5 font-heading font-black">
               <span style={{ color:"#FFB347" }}>Go</span>
