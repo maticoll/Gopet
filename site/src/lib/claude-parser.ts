@@ -179,6 +179,7 @@ Normalización del nombre de producto — usar estos formatos exactos:
 - Tipo: Adulto | Senior | Razas Pequeñas | Cachorro | Gato adulto | Gato castrado
 - Tamaño: tal cual (22+3 kg, 21+4 kg, 10 kg, 7,5 kg, 8 kg, 25 kg, 21 kg, 22 kg)
 - Ejemplo: "Lager Gato castrado 10 kg", "Maxine Adulto 21+4 kg"
+- Alias de tamaño: si el usuario dice "25 kg" para Lager Adulto → normalizar a "Lager Adulto 22+3 kg" (tamañoBolsaKg: 25). Si dice "25 kg" para Maxine Adulto → normalizar a "Maxine Adulto 21+4 kg" (tamañoBolsaKg: 25). En ambos casos el tamañoBolsaKg es 25.
 
 Precios: "1800", "mil ochocientos", "$1.800" → número.
 Bolsas: "15kg", "15 kilos" → número.`
