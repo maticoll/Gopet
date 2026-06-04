@@ -11,10 +11,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const session = await auth()
   if (!session?.user) redirect('/login')
 
-  // Total ventas (todas las históricas)
-  const ventasData = await sql`SELECT precio FROM ventas`
-  const totalVentas = ventasData.reduce((sum, v) => sum + (v.precio as number), 0)
-
   // Alertas: ventas con fecha_estimada_fin próxima (próximos 14 días)
   const hoy = fechaHoyUruguayISO()
   const en14dias = fechaHoyUruguay()
@@ -78,7 +74,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
       {/* Main */}
       <div className="flex flex-col md:flex-row">
-        <Sidebar totalVentas={totalVentas} meta={102000} alertas={alertas} />
+        <Sidebar alertas={alertas} />
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </div>
     </div>
