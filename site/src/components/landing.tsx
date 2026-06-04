@@ -139,11 +139,11 @@ function WeightLabel({ weight }: { weight: string }) {
         const hasGratis = size.includes("gratis");
         const base = size.replace(" gratis", "").trim();
         return (
-          <div key={size} className="flex items-center gap-1.5">
-            <span className="text-xs font-semibold" style={{ color:"#9C7050" }}>{base}</span>
+          <div key={size} className="flex items-center gap-1">
+            <span className="text-xs font-semibold whitespace-nowrap" style={{ color:"#9C7050" }}>{base}</span>
             {hasGratis && (
-              <span className="inline-flex items-center justify-center text-[9px] font-bold uppercase tracking-wide rounded-full px-1.5 py-0.5 leading-none"
-                    style={{ backgroundColor:"#E87010", color:"#fff", minWidth:"36px" }}>
+              <span className="inline-flex items-center justify-center text-[8px] font-bold uppercase tracking-wide rounded-full px-1.5 leading-none flex-shrink-0"
+                    style={{ backgroundColor:"#E87010", color:"#fff", height:"14px" }}>
                 gratis
               </span>
             )}
@@ -265,12 +265,12 @@ export default function Landing() {
         </AnimatePresence>
       </header>
 
-      <main>
+      <main className="flex flex-col sm:block">
         {/* ══════════════════════════════════════════════════════
             HERO — imagen de fondo full-screen
             Guardar imagen en: site/public/images/hero-bg.jpg
         ══════════════════════════════════════════════════════ */}
-        <section className="relative min-h-screen text-white overflow-hidden flex flex-col justify-end"
+        <section className="order-1 sm:order-none relative min-h-screen text-white overflow-hidden flex flex-col justify-end"
                  style={{ backgroundImage:"url('/images/hero-bg.jpg')", backgroundSize:"cover", backgroundPosition:"center bottom", backgroundColor:"#3D2010" }}>
           <div className="absolute inset-0 pointer-events-none" style={{
             background:"linear-gradient(to bottom, rgba(61,32,16,0.3) 0%, rgba(61,32,16,0.05) 35%, rgba(61,32,16,0.55) 65%, rgba(61,32,16,0.96) 100%)"
@@ -317,7 +317,7 @@ export default function Landing() {
         {/* ══════════════════════════════════════════════════════
             FEATURE STRIP — amarillo miel
         ══════════════════════════════════════════════════════ */}
-        <section style={{ backgroundColor:"#FEF9E7", borderTop:"1px solid #F5E6B0", borderBottom:"1px solid #F5E6B0" }}>
+        <section className="order-3 sm:order-none" style={{ backgroundColor:"#FEF9E7", borderTop:"1px solid #F5E6B0", borderBottom:"1px solid #F5E6B0" }}>
           <div className="max-w-6xl mx-auto px-6">
             <div className="grid grid-cols-1 md:grid-cols-3" style={{}}>
               {[
@@ -348,7 +348,7 @@ export default function Landing() {
             La bolsa usa mix-blend-mode:multiply → fondo desaparece
             Container: 896×560px · viewBox 0 0 896 560
         ══════════════════════════════════════════════════════ */}
-        <section className="py-24 px-6 overflow-hidden" style={{ backgroundColor:"#FFF5EE" }}>
+        <section className="order-4 sm:order-none py-24 px-6 overflow-hidden" style={{ backgroundColor:"#FFF5EE" }}>
           <div className="max-w-6xl mx-auto">
 
             <motion.div initial={{ opacity:0, y:16 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }} transition={{ duration:0.55 }}
@@ -478,12 +478,12 @@ export default function Landing() {
           </div>
         </section>
 
-        <DripDivider fromColor="#FFF5EE" toColor="#FFFFFF"/>
+        <div className="hidden sm:block"><DripDivider fromColor="#FFF5EE" toColor="#FFFFFF"/></div>
 
         {/* ══════════════════════════════════════════════════════
             PRODUCTOS — blanco limpio
         ══════════════════════════════════════════════════════ */}
-        <section id="productos" className="py-16 sm:py-24 px-4 sm:px-6 bg-white">
+        <section id="productos" className="order-2 sm:order-none py-16 sm:py-24 px-4 sm:px-6 bg-white">
           <div className="max-w-6xl mx-auto">
             <div className="mb-10">
               <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter mb-2" style={{ color:"#3D2010" }}>
@@ -605,7 +605,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <DripDivider fromColor="#1A0F00" toColor="#EFF9FF"/>
+        <div className="hidden sm:block"><DripDivider fromColor="#1A0F00" toColor="#EFF9FF"/></div>
 
         {/* ══════════════════════════════════════════════════════
             CÓMO FUNCIONA — celeste bebé
