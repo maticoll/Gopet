@@ -167,9 +167,17 @@ function ProductCard({ p }: { p: Product }) {
       style={{ border: isBestseller ? "1.5px solid #E87010" : "1px solid #E8D5BF", backgroundColor:"#FFFFFF" }}
     >
       {isBestseller && (
-        <div className="absolute top-3 right-3 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide text-white"
-             style={{ backgroundColor:"#C20808" }}>
-          🏆 Más vendido
+        <div className="absolute top-0 right-4 z-10 flex flex-col items-center pt-2 pb-3"
+             style={{
+               width: "52px",
+               background: "#F5A800",
+               clipPath: "polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%)",
+               filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.18))",
+             }}>
+          <svg viewBox="0 0 24 24" fill="black" className="w-5 h-5 mb-1" aria-hidden>
+            <path d="M7 2v2H5C3.9 4 3 4.9 3 6v1c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0011 14.9V17H9v2h6v-2h-2v-2.1a5.01 5.01 0 003.61-2.96C19.08 11.63 21 9.55 21 7V6c0-1.1-.9-2-2-2h-2V2H7zm0 4h10v1c0 1.65-1.35 3-3 3h-4C8.35 10 7 8.65 7 7V6zm-2 0h2v1c0 .35.03.69.08 1.03C5.9 7.7 5 6.94 5 6zm14 0h2c0 .94-.9 1.7-2.08 2.03.05-.34.08-.68.08-1.03V6z"/>
+          </svg>
+          <span className="font-black text-black leading-none" style={{ fontSize:"9px", letterSpacing:"0.03em", textAlign:"center", lineHeight:1.1 }}>MÁS{"\n"}VENDIDO</span>
         </div>
       )}
       <div className="relative h-48 flex items-center justify-center overflow-hidden" style={{ backgroundColor:"#FFFBF6" }}>
