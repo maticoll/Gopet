@@ -34,6 +34,35 @@ export async function eliminarMascota(
   revalidatePath(`/dashboard/clientes/${clienteId}`)
 }
 
+export async function editarVenta(
+  ventaId: string,
+  clienteId: string,
+  data: {
+    producto: string
+    precio: number
+    fecha_venta: string
+    fecha_estimada_fin: string | null
+  }
+): Promise<void> {
+  await sql`
+    UPDATE ventas SET
+      producto          = ${data.producto},
+      precio            = ${data.precio},
+      fecha_venta       = ${data.fecha_venta}::date,
+      fecha_estimada_fin = ${data.fecha_estimada_fin}::date
+    WHERE id = ${ventaId}
+  `
+  revalidatePath(`/dashboard/clientes/${clienteId}`)
+}
+
+export async function eliminarVenta(
+  ventaId: string,
+  clienteId: string
+): Promise<void> {
+  await sql`DELETE FROM ventas WHERE id = ${ventaId}`
+  revalidatePath(`/dashboard/clientes/${clienteId}`)
+}
+
 export async function editarFechaFinBolsa(
   ventaId: string,
   clienteId: string,

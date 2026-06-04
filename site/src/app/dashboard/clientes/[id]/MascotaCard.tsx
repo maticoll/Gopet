@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { diasHastaFin } from '@/lib/calculations'
-import { editarMascota, eliminarMascota, editarFechaFinBolsa } from './actions'
+import { editarMascota, eliminarMascota, editarFechaFinBolsa, editarVenta, eliminarVenta } from './actions'
 
 type Venta = {
   id: string
@@ -262,32 +262,131 @@ export default function MascotaCard({
 
       {/* Historial de ventas */}
       <div className="space-y-2">
-        {mascota.ventas.map((v) => {
-          const d = v.fecha_estimada_fin
-            ? diasHastaFin(new Date(v.fecha_estimada_fin))
-            : null
-          return (
-            <div key={v.id} className="bg-slate-800 rounded p-3 flex justify-between items-center">
-              <div>
-                <p className="text-white text-sm">{v.producto}</p>
-                <p className="text-slate-400 text-xs">
-                  {new Date(v.fecha_venta + 'T12:00:00').toLocaleDateString('es-UY')} · ${v.precio?.toLocaleString('es-UY')}
-                </p>
-              </div>
-              {v.fecha_estimada_fin && (
-                <span className={`text-xs font-semibold ${
-                  d !== null && d <= 3 ? 'text-red-400' :
-                  d !== null && d <= 7 ? 'text-orange-400' :
-                  'text-green-400'
-                }`}>
-                  {d !== null ? (d >= 0 ? `${d}d restantes` : `Venció hace ${Math.abs(d)}d`) : ''}
-                </span>
-              )}
-            </div>
-          )
-        })}
+        {mascota.ventas.map((v) => (
+          <VentaRow key={v.id} venta={v} clienteId={clienteId} />
+        ))}
         {mascota.ventas.length === 0 && (
           <p className="text-slate-600 text-sm">Sin ventas registradas</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function VentaRow({ venta: v, clienteId }: { venta: Venta; clienteId: string }) {
+  const [editando, setEditando] = useState(false)
+  const [eliminando, setEliminando] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({
+    producto: v.producto,
+    precio: v.precio?.toString() ?? '',
+    fecha_venta: v.fecha_venta?.split('T')[0] ?? '',
+    fecha_estimada_fin: v.fecha_estimada_fin?.split('T')[0] ?? '',
+  })
+
+  const d = v.fecha_estimada_fin ? diasHastaFin(new Date(v.fecha_estimada_fin)) : null
+
+  async function guardar() {
+    setSaving(true)
+    await editarVenta(v.id, clienteId, {
+      producto: form.producto,
+      precio: Number(form.precio),
+      fecha_venta: form.fecha_venta,
+      fecha_estimada_fin: form.fecha_estimada_fin || null,
+    })
+    setSaving(false)
+    setEditando(false)
+  }
+
+  async function confirmarEliminar() {
+    setSaving(true)
+    await eliminarVenta(v.id, clienteId)
+  }
+
+  if (editando) {
+    return (
+      <div className="bg-slate-800 rounded p-3 space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="col-span-2">
+            <label className="text-slate-500 text-xs block mb-1">Producto</label>
+            <input
+              type="text"
+              value={form.producto}
+              onChange={e => setForm({ ...form, producto: e.target.value })}
+              className="w-full bg-slate-700 text-white rounded px-2 py-1 text-sm border border-slate-600"
+            />
+          </div>
+          <div>
+            <label className="text-slate-500 text-xs block mb-1">Precio ($)</label>
+            <input
+              type="number"
+              value={form.precio}
+              onChange={e => setForm({ ...form, precio: e.target.value })}
+              className="w-full bg-slate-700 text-white rounded px-2 py-1 text-sm border border-slate-600"
+            />
+          </div>
+          <div>
+            <label className="text-slate-500 text-xs block mb-1">Fecha venta</label>
+            <input
+              type="date"
+              value={form.fecha_venta}
+              onChange={e => setForm({ ...form, fecha_venta: e.target.value })}
+              className="w-full bg-slate-700 text-white rounded px-2 py-1 text-sm border border-slate-600"
+            />
+          </div>
+          <div className="col-span-2">
+            <label className="text-slate-500 text-xs block mb-1">Fecha estimada fin de bolsa</label>
+            <input
+              type="date"
+              value={form.fecha_estimada_fin}
+              onChange={e => setForm({ ...form, fecha_estimada_fin: e.target.value })}
+              className="w-full bg-slate-700 text-white rounded px-2 py-1 text-sm border border-slate-600"
+            />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={guardar} disabled={saving} className="text-xs text-green-400 hover:text-green-300 border border-green-900 px-3 py-1 rounded disabled:opacity-50 transition-colors">
+            {saving ? '…' : 'Guardar'}
+          </button>
+          <button onClick={() => setEditando(false)} className="text-xs text-slate-400 border border-slate-700 px-3 py-1 rounded transition-colors">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-slate-800 rounded p-3 flex justify-between items-center gap-2">
+      <div className="flex-1 min-w-0">
+        <p className="text-white text-sm">{v.producto}</p>
+        <p className="text-slate-400 text-xs">
+          {v.fecha_venta ? new Date(v.fecha_venta + 'T12:00:00').toLocaleDateString('es-UY') : 'Sin fecha'} · ${v.precio?.toLocaleString('es-UY')}
+        </p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        {v.fecha_estimada_fin && (
+          <span className={`text-xs font-semibold ${d !== null && d <= 3 ? 'text-red-400' : d !== null && d <= 7 ? 'text-orange-400' : 'text-green-400'}`}>
+            {d !== null ? (d >= 0 ? `${d}d` : `−${Math.abs(d)}d`) : ''}
+          </span>
+        )}
+        <button onClick={() => setEditando(true)} className="text-xs text-blue-400 hover:text-blue-300 border border-blue-900 hover:border-blue-700 px-2 py-0.5 rounded transition-colors">
+          Editar
+        </button>
+        {!eliminando ? (
+          <button onClick={() => setEliminando(true)} className="text-xs text-red-400 hover:text-red-300 border border-red-900 hover:border-red-700 px-2 py-0.5 rounded transition-colors">
+            ✕
+          </button>
+        ) : (
+          <div className="flex gap-1 items-center">
+            <span className="text-xs text-slate-400">¿Borrar?</span>
+            <button onClick={confirmarEliminar} disabled={saving} className="text-xs text-red-400 border border-red-900 px-2 py-0.5 rounded disabled:opacity-50 transition-colors">
+              {saving ? '…' : 'Sí'}
+            </button>
+            <button onClick={() => setEliminando(false)} className="text-xs text-slate-400 border border-slate-700 px-2 py-0.5 rounded transition-colors">
+              No
+            </button>
+          </div>
         )}
       </div>
     </div>
