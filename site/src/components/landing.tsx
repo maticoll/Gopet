@@ -39,21 +39,21 @@ type Product = {
 };
 
 const perros: Product[] = [
-  { id:"mx-c", brand:"Maxine", name:"Cachorros",     label:"C",  color:"#E87010", weight:"21 kg", desc:"Para cachorros de todas las razas",  image:"/images/p01.jpg" },
-  { id:"mx-a", brand:"Maxine", name:"Adultos",        label:"A",  color:"#C20808", weight:"21 kg", desc:"Para perros adultos",                image:"/images/p02.jpg" },
-  { id:"mx-s", brand:"Maxine", name:"Senior",         label:"S",  color:"#4E9A1A", weight:"21 kg", desc:"Para perros mayores de 7 años",      image:"/images/p03.jpg" },
-  { id:"mx-p", brand:"Maxine", name:"Razas Pequeñas", label:"P",  color:"#9A2A80", weight:"21 kg", desc:"Adultos razas pequeñas",             image:"/images/p04.jpg" },
-  { id:"lg-c", brand:"Lager",  name:"Cachorros",      label:"C",  color:"#6AAE18", weight:"22 kg", desc:"Para cachorros de todas las razas",  image:"/images/p09.jpg" },
-  { id:"lg-a", brand:"Lager",  name:"Adultos",        label:"A",  color:"#D07010", weight:"22 kg", desc:"Para perros adultos",                image:"/images/p12.jpg" },
-  { id:"lg-s", brand:"Lager",  name:"Senior 7+",      label:"S",  color:"#223A88", weight:"22 kg", desc:"Para perros mayores de 7 años",      image:"/images/p07.jpg" },
-  { id:"lg-p", brand:"Lager",  name:"Razas Pequeñas", label:"P",  color:"#008A80", weight:"22 kg", desc:"Adultos razas pequeñas",             image:"/images/p08.jpg" },
+  { id:"mx-c", brand:"Maxine", name:"Cachorros",     label:"C",  color:"#E87010", weight:"21 kg / 7.5 kg",          desc:"Para cachorros de todas las razas",  image:"/images/p01.jpg" },
+  { id:"mx-a", brand:"Maxine", name:"Adultos",        label:"A",  color:"#C20808", weight:"21+4 kg gratis / 7.5 kg", desc:"Para perros adultos",                image:"/images/p02.jpg" },
+  { id:"mx-s", brand:"Maxine", name:"Senior",         label:"S",  color:"#4E9A1A", weight:"21 kg / 7.5 kg",          desc:"Para perros mayores de 7 años",      image:"/images/p03.jpg" },
+  { id:"mx-p", brand:"Maxine", name:"Razas Pequeñas", label:"P",  color:"#9A2A80", weight:"21 kg / 7.5 kg",          desc:"Adultos razas pequeñas",             image:"/images/p04.jpg" },
+  { id:"lg-c", brand:"Lager",  name:"Cachorros",      label:"C",  color:"#6AAE18", weight:"22 kg / 10 kg",           desc:"Para cachorros de todas las razas",  image:"/images/p09.jpg" },
+  { id:"lg-a", brand:"Lager",  name:"Adultos",        label:"A",  color:"#D07010", weight:"22+3 kg gratis / 10 kg",  desc:"Para perros adultos",                image:"/images/p12.jpg" },
+  { id:"lg-s", brand:"Lager",  name:"Senior 7+",      label:"S",  color:"#223A88", weight:"22 kg / 10 kg",           desc:"Para perros mayores de 7 años",      image:"/images/p07.jpg" },
+  { id:"lg-p", brand:"Lager",  name:"Razas Pequeñas", label:"P",  color:"#008A80", weight:"22 kg / 10 kg",           desc:"Adultos razas pequeñas",             image:"/images/p08.jpg" },
 ];
 
 const gatos: Product[] = [
-  { id:"mx-g",  brand:"Maxine", name:"Gatos",           label:"G",  color:"#2878B8", weight:"21 kg", desc:"Para gatos adultos",                       image:"/images/p05.jpg" },
-  { id:"mx-gc", brand:"Maxine", name:"Gatos Castrados", label:"GC", color:"#C02888", weight:"21 kg", desc:"Para gatos castrados adultos",              image:"/images/p06.jpg" },
-  { id:"lg-g",  brand:"Lager",  name:"Gatos",           label:"G",  color:"#B81870", weight:"22 kg", desc:"Para gatos adultos — mix salmón y carne",   image:"/images/p10.jpg" },
-  { id:"lg-gc", brand:"Lager",  name:"Gatos Castrados", label:"GC", color:"#702480", weight:"22 kg", desc:"Para gatos castrados — mix salmón y pollo", image:"/images/p11.jpg" },
+  { id:"mx-g",  brand:"Maxine", name:"Gatos",           label:"G",  color:"#2878B8", weight:"21 kg / 7.5 kg", desc:"Para gatos adultos",                       image:"/images/p05.jpg" },
+  { id:"mx-gc", brand:"Maxine", name:"Gatos Castrados", label:"GC", color:"#C02888", weight:"21 kg / 7.5 kg", desc:"Para gatos castrados adultos",              image:"/images/p06.jpg" },
+  { id:"lg-g",  brand:"Lager",  name:"Gatos",           label:"G",  color:"#B81870", weight:"22 kg / 10 kg",  desc:"Para gatos adultos — mix salmón y carne",   image:"/images/p10.jpg" },
+  { id:"lg-gc", brand:"Lager",  name:"Gatos Castrados", label:"GC", color:"#702480", weight:"22 kg / 10 kg",  desc:"Para gatos castrados — mix salmón y pollo", image:"/images/p11.jpg" },
 ];
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
@@ -388,7 +388,7 @@ export default function Landing() {
               {[
                 { top:25,  title:"High Performance", desc:"Optimizado para el máximo rendimiento y vitalidad canina.", dot:"#C20808" },
                 { top:295, title:"Razas Adultas",    desc:"Formulado para perros de 1 a 7 años de todas las razas.",  dot:"#C20808" },
-                { top:565, title:"21 kg",            desc:"Gran bolsa familiar. Sello de garantía Maxine certificado.", dot:"#C20808" },
+                { top:565, title:"21+4 kg gratis",   desc:"Gran bolsa familiar. Sello de garantía Maxine certificado.", dot:"#C20808" },
               ].map(({ top, title, desc, dot }, i) => (
                 <motion.div key={title} initial={{ opacity:0, x:20 }} whileInView={{ opacity:1, x:0 }}
                             viewport={{ once:true }} transition={{ duration:0.5, delay:i*0.1 }}
@@ -413,7 +413,7 @@ export default function Landing() {
               </div>
               <div className="grid grid-cols-2 gap-2.5 w-full max-w-xs">
                 {[["Agrofeed Uruguay","Marca nacional"],["Super Premium","Alta calidad"],["Pollo y Arroz","Proteína natural"],
-                  ["High Performance","Máximo rendimiento"],["Razas Adultas","1 a 7 años"],["21 kg","Gran bolsa"]].map(([label, sub]) => (
+                  ["High Performance","Máximo rendimiento"],["Razas Adultas","1 a 7 años"],["21+4 kg gratis","Gran bolsa"]].map(([label, sub]) => (
                   <div key={label} className="rounded-2xl p-3 text-center" style={{ border:"1px solid #E8C8A8", backgroundColor:"rgba(255,255,255,0.7)" }}>
                     <p className="font-heading font-bold text-xs" style={{ color:"#3D2010" }}>{label}</p>
                     <p className="text-[10px]" style={{ color:"#9C7050" }}>{sub}</p>
@@ -477,7 +477,7 @@ export default function Landing() {
           <div className="absolute inset-0">
             <Image
               src="/images/promo-lager.png"
-              alt="Lager Adulto 21+4 kg promoción"
+              alt="Lager Adulto 22+3 kg promoción"
               fill
               className="object-cover object-center"
               sizes="100vw"
@@ -511,7 +511,7 @@ export default function Landing() {
 
               <div className="inline-flex items-center gap-3 mb-5 px-4 py-2 rounded-full"
                    style={{ backgroundColor:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)" }}>
-                <span className="font-heading font-black text-white text-xl">21 + 4 kg</span>
+                <span className="font-heading font-black text-white text-xl">22 + 3 kg</span>
                 <span className="text-white/50 text-sm">gratis</span>
               </div>
 
@@ -540,7 +540,7 @@ export default function Landing() {
 
               {/* Envíos gratis + CTA */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <a href={waURL("Hola GoPet! Quiero aprovechar la promo de Lager Adulto 21+4 kg a $1.850. ¿Está disponible?")}
+                <a href={waURL("Hola GoPet! Quiero aprovechar la promo de Lager Adulto 22+3 kg a $1.850. ¿Está disponible?")}
                    target="_blank" rel="noopener noreferrer"
                    className="inline-flex items-center gap-2.5 px-7 py-4 rounded-2xl text-white font-heading font-black text-base hover:opacity-90 transition-opacity cursor-pointer shadow-lg"
                    style={{ backgroundColor:"#25D366", boxShadow:"0 8px 32px rgba(37,211,102,0.35)" }}>
