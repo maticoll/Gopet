@@ -215,6 +215,57 @@ export async function POST(req: NextRequest) {
         await sendMessage(chatId, `📊 <b>Cálculo:</b>\n• Intervalo de compra: ${dias} días (basado en historial)`)
       }
 
+    // ── confirmar_ventas_multiples ───────────────────────────────────
+    } else if (accion === 'confirmar_ventas_multiples') {
+      if (messageId) await deleteMessage(chatId, messageId)
+
+      const estados = await sql`SELECT payload FROM telegram_estados WHERE chat_id = ${chatId}`
+      if (!estados.length || !estados[0].payload) {
+        await sendMessage(chatId, '⚠️ No hay ventas pendientes de confirmación.')
+        return NextResponse.json({ ok: true })
+      }
+      const p = estados[0].payload as any
+      await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
+
+      let registradas = 0
+      for (const v of p.ventasMultiples as VentaData[]) {
+        // Buscar o crear cliente
+        const clienteRows = await sql`SELECT id, activo FROM clientes WHERE lower(nombre) = lower(${v.clienteNombre}) LIMIT 1`
+        let clienteId: string
+        if (clienteRows.length) {
+          clienteId = clienteRows[0].id as string
+          if (!clienteRows[0].activo) await sql`UPDATE clientes SET activo = true WHERE id = ${clienteId}`
+        } else {
+          const nuevo = await sql`INSERT INTO clientes (nombre, activo) VALUES (${v.clienteNombre}, true) RETURNING id`
+          clienteId = nuevo[0].id as string
+        }
+        // Buscar o crear mascota
+        let mascotaRows = await sql`SELECT id FROM perros WHERE cliente_id = ${clienteId} AND especie = ${v.especie} LIMIT 1`
+        let perroId: string
+        if (mascotaRows.length) {
+          perroId = mascotaRows[0].id as string
+        } else {
+          const nueva = await sql`INSERT INTO perros (cliente_id, nombre, especie) VALUES (${clienteId}, ${v.mascotaNombre ?? (v.especie === 'perro' ? 'Perro' : 'Gato')}, ${v.especie}) RETURNING id`
+          perroId = nueva[0].id as string
+        }
+        // Calcular fecha fin
+        let fechaFin: string | null = null
+        if (v.especie === 'perro') {
+          const g = await obtenerGramosDiariosDeTabla(v.tipoPerro, v.pesoKg)
+          if (g) fechaFin = calcularFechaFinPorGramosDia(fechaHoyUruguay(), v.tamañoBolsaKg, g).toISOString().split('T')[0]
+        }
+        await sql`SELECT registrar_venta(${clienteId}::uuid, ${perroId}::uuid, ${v.producto}, ${v.tamañoBolsaKg}, ${v.precio}, ${null}, ${null}, ${fechaFin}::date, 1, ${v.pagado})`
+        if (v.metodoPago) {
+          const vRows = await sql`SELECT id FROM ventas WHERE cliente_id = ${clienteId} ORDER BY fecha_venta DESC LIMIT 1`
+          if (vRows.length) await sql`UPDATE ventas SET metodo_pago = ${v.metodoPago} WHERE id = ${vRows[0].id as string}`
+        }
+        if (p.dataExtraInline && registradas === 0) {
+          await sql`UPDATE clientes SET data_extra = CASE WHEN data_extra IS NULL OR data_extra = '' THEN ${p.dataExtraInline} ELSE data_extra || E'\n' || ${p.dataExtraInline} END WHERE id = ${clienteId}`
+        }
+        registradas++
+      }
+      await sendMessage(chatId, `✅ ${registradas} ventas registradas para <b>${(p.ventasMultiples as VentaData[])[0].clienteNombre}</b>`)
+
     // ── cancelar_venta ───────────────────────────────────────────────
     } else if (accion === 'cancelar_venta') {
       if (messageId) await deleteMessage(chatId, messageId)
@@ -486,10 +537,37 @@ export async function POST(req: NextRequest) {
 
     if (resultado.tipo === 'ventas_multiples') {
       const ventas = resultado.ventas!
-      await sendMessage(chatId, `📦 Registrando ${ventas.length} ventas para <b>${ventas[0].clienteNombre}</b>...`)
-      for (const ventaItem of ventas) {
-        await procesarVentaConProducto(chatId, ventaItem, dataExtraInline)
+      // Resolver precios desde BD para cada producto
+      const ventasResueltas = []
+      for (const v of ventas) {
+        let precio = v.precio
+        if (!precio || v.usarPrecioBD) {
+          const busqueda = await buscarProductoEnBD(v.producto)
+          if (busqueda.exacto && busqueda.encontrados.length === 1) {
+            precio = busqueda.encontrados[0].precio_venta
+            v.producto = busqueda.encontrados[0].nombre
+          }
+        }
+        ventasResueltas.push({ ...v, precio })
       }
+
+      // Mostrar una sola confirmación con todos los productos
+      let msg = `📦 <b>Ventas múltiples</b>\n👤 Cliente: ${ventas[0].clienteNombre}\n\n`
+      ventasResueltas.forEach((v, i) => {
+        msg += `<b>${i + 1}.</b> ${v.producto} — $${v.precio ?? '?'}\n`
+      })
+      msg += `\n💳 Pago: ${ventas[0].pagado ? '✅ Pagado' : '⏳ Pendiente'}\n\n¿Confirmar?`
+
+      const pStr = JSON.stringify({ ventasMultiples: ventasResueltas, dataExtraInline })
+      await sql`
+        INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
+        VALUES (${chatId}, 'confirmando_ventas_multiples', null, ${pStr}, now())
+        ON CONFLICT (chat_id) DO UPDATE SET estado = 'confirmando_ventas_multiples', venta_id = null, payload = ${pStr}, updated_at = now()
+      `
+      await sendMessageWithButtons(chatId, msg, [
+        { text: '✅ Confirmar todo', callback_data: 'confirmar_ventas_multiples' },
+        { text: '❌ Cancelar', callback_data: 'cancelar_venta' },
+      ])
       return NextResponse.json({ ok: true })
     }
 
