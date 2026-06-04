@@ -179,7 +179,22 @@ Normalización del nombre de producto — usar estos formatos exactos:
 - Tipo: Adulto | Senior | Razas Pequeñas | Cachorro | Gato adulto | Gato castrado
 - Tamaño: tal cual (22+3 kg, 21+4 kg, 10 kg, 7,5 kg, 8 kg, 25 kg, 21 kg, 22 kg)
 - Ejemplo: "Lager Gato castrado 10 kg", "Maxine Adulto 21+4 kg"
-- Alias de tamaño: si el usuario dice "25 kg" para Lager Adulto → normalizar a "Lager Adulto 22+3 kg" (tamañoBolsaKg: 25). Si dice "25 kg" para Maxine Adulto → normalizar a "Maxine Adulto 21+4 kg" (tamañoBolsaKg: 25). En ambos casos el tamañoBolsaKg es 25.
+- Alias de tamaño — bolsa grande (tamañoBolsaKg siempre es 25 para estas):
+  - Lager Adulto: "22 kg", "22+3 kg", "25 kg" → "Lager Adulto 22+3 kg"
+  - Lager Senior: "22 kg", "22+3 kg", "25 kg" → "Lager Senior 22+3 kg"
+  - Lager Gato adulto: "21 kg", "22 kg", "22+3 kg", "25 kg" → "Lager Gato adulto 22+3 kg"
+  - Lager Gato castrado: "21 kg", "22 kg", "22+3 kg", "25 kg" → "Lager Gato castrado 22+3 kg"
+  - Lager Cachorro: "22 kg", "25 kg" → "Lager Cachorro 22 kg" (tamañoBolsaKg: 22)
+  - Lager Razas Pequeñas: "22 kg", "25 kg" → "Lager Razas Pequeñas 22 kg" (tamañoBolsaKg: 22)
+  - Maxine Adulto: "21 kg", "21+4 kg", "25 kg" → "Maxine Adulto 21+4 kg"
+  - Maxine Senior: "21 kg", "25 kg" → "Maxine Senior 21 kg"
+  - Maxine Cachorro: "21 kg", "25 kg" → "Maxine Cachorro 21 kg"
+  - Maxine Gato adulto: "21 kg", "25 kg" → "Maxine Gato adulto 21 kg"
+  - Connie Adulto: "22 kg", "22+3 kg", "25 kg" → "Connie Adulto 22+3 kg"
+  - Connie Gato: "22 kg", "22+3 kg", "25 kg" → "Connie Gato 22+3 kg"
+  - Connie Cachorro: "22 kg", "25 kg" → "Connie Cachorro 22 kg"
+  - Si el usuario dice solo "gato" sin especificar adulto/castrado para Lager → asumir "Lager Gato adulto"
+  - Si el usuario dice solo "gato" sin especificar para Maxine → asumir "Maxine Gato adulto"
 
 Precios: "1800", "mil ochocientos", "$1.800" → número.
 Bolsas: "15kg", "15 kilos" → número.`

@@ -235,8 +235,10 @@ export async function POST(req: NextRequest) {
         if (clienteRows.length) {
           clienteId = clienteRows[0].id as string
           if (!clienteRows[0].activo) await sql`UPDATE clientes SET activo = true WHERE id = ${clienteId}`
+          if (v.clienteDireccion) await sql`UPDATE clientes SET direccion = ${v.clienteDireccion} WHERE id = ${clienteId}`
+          if (v.clienteTelefono)  await sql`UPDATE clientes SET telefono  = ${v.clienteTelefono}  WHERE id = ${clienteId}`
         } else {
-          const nuevo = await sql`INSERT INTO clientes (nombre, activo) VALUES (${v.clienteNombre}, true) RETURNING id`
+          const nuevo = await sql`INSERT INTO clientes (nombre, telefono, direccion, activo) VALUES (${v.clienteNombre}, ${v.clienteTelefono ?? null}, ${v.clienteDireccion ?? null}, true) RETURNING id`
           clienteId = nuevo[0].id as string
         }
         // Buscar o crear mascota
@@ -253,6 +255,10 @@ export async function POST(req: NextRequest) {
         if (v.especie === 'perro') {
           const g = await obtenerGramosDiariosDeTabla(v.tipoPerro, v.pesoKg)
           if (g) fechaFin = calcularFechaFinPorGramosDia(fechaHoyUruguay(), v.tamañoBolsaKg, g).toISOString().split('T')[0]
+        }
+        if (v.precio === null || v.precio === undefined) {
+          await sendMessage(chatId, `⚠️ No encontré el precio de "<b>${v.producto}</b>". Esa venta no se registró — registrala por separado con el precio.`)
+          continue
         }
         await sql`SELECT registrar_venta(${clienteId}::uuid, ${perroId}::uuid, ${v.producto}, ${v.tamañoBolsaKg}, ${v.precio}, ${null}, ${null}, ${fechaFin}::date, 1, ${v.pagado})`
         if (v.metodoPago) {
