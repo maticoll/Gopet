@@ -71,13 +71,16 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
             especie: mascota.especie as string,
             tipo: mascota.tipo as string | null,
             peso_kg: mascota.peso_kg as number | null,
-            ventas: (mascota.ventas as Record<string, unknown>[]).map(v => ({
-              id: v.id as string,
-              producto: v.producto as string,
-              precio: v.precio as number,
-              fecha_venta: v.fecha_venta as string,
-              fecha_estimada_fin: v.fecha_estimada_fin as string | null,
-            })),
+            ventas: (mascota.ventas as Record<string, unknown>[]).map(v => {
+              const toISO = (d: unknown) => d instanceof Date ? d.toISOString().substring(0, 10) : d ? String(d).substring(0, 10) : null
+              return {
+                id: v.id as string,
+                producto: v.producto as string,
+                precio: v.precio as number,
+                fecha_venta: toISO(v.fecha_venta) ?? '',
+                fecha_estimada_fin: toISO(v.fecha_estimada_fin),
+              }
+            }),
           }}
         />
       ))}
