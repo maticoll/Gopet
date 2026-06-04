@@ -239,7 +239,7 @@ export default function MascotaCard({
                   {ventaReciente.fecha_estimada_fin
                     ? dias !== null
                       ? dias >= 0
-                        ? `${dias}d restantes (${new Date(ventaReciente.fecha_estimada_fin + 'T12:00:00').toLocaleDateString('es-UY')})`
+                        ? `${dias}d restantes (${new Date(String(ventaReciente.fecha_estimada_fin).substring(0, 10) + 'T12:00:00').toLocaleDateString('es-UY')})`
                         : `Venció hace ${Math.abs(dias)}d`
                       : '—'
                     : <span className="text-slate-500">Sin fecha</span>
@@ -277,11 +277,12 @@ function VentaRow({ venta: v, clienteId }: { venta: Venta; clienteId: string }) 
   const [editando, setEditando] = useState(false)
   const [eliminando, setEliminando] = useState(false)
   const [saving, setSaving] = useState(false)
+  const toDateStr = (val: unknown) => val ? String(val).substring(0, 10) : ''
   const [form, setForm] = useState({
     producto: v.producto,
     precio: v.precio?.toString() ?? '',
-    fecha_venta: v.fecha_venta?.split('T')[0] ?? '',
-    fecha_estimada_fin: v.fecha_estimada_fin?.split('T')[0] ?? '',
+    fecha_venta: toDateStr(v.fecha_venta),
+    fecha_estimada_fin: toDateStr(v.fecha_estimada_fin),
   })
 
   const d = v.fecha_estimada_fin ? diasHastaFin(new Date(v.fecha_estimada_fin)) : null
@@ -361,7 +362,7 @@ function VentaRow({ venta: v, clienteId }: { venta: Venta; clienteId: string }) 
       <div className="flex-1 min-w-0">
         <p className="text-white text-sm">{v.producto}</p>
         <p className="text-slate-400 text-xs">
-          {v.fecha_venta ? new Date(v.fecha_venta + 'T12:00:00').toLocaleDateString('es-UY') : 'Sin fecha'} · ${v.precio?.toLocaleString('es-UY')}
+          {v.fecha_venta ? new Date(String(v.fecha_venta).substring(0, 10) + 'T12:00:00').toLocaleDateString('es-UY') : 'Sin fecha'} · ${v.precio?.toLocaleString('es-UY')}
         </p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
