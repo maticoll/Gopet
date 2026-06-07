@@ -72,58 +72,52 @@ const WaIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-// ── Drip Divider ─────────────────────────────────────────────────────────────
-// Banda plana (rect) + gotas tipo "lollipop": lados cóncavos + círculo sólido abajo.
-// Cada gota es C1-continua con la banda (tangente horizontal en la unión).
-// k = constante mágica para aproximar círculo con bezier cúbico.
+// ── Section Divider ───────────────────────────────────────────────────────────
+// Onda suave y orgánica entre secciones. Doble capa: una onda de fondo translúcida
+// que asoma como sombra y una onda principal sólida encima → sensación de relieve.
+// La onda se genera muestreando una sinusoide y uniendo los puntos con curvas
+// cúbicas suaves (control en el punto medio) para que no haya quiebres.
 
-function DripDivider({ fromColor, toColor = "#FFFFFF" }: { fromColor: string; toColor?: string }) {
-  const W = 1440, bY = 52, k = 0.5523;
+function SectionDivider({ fromColor, toColor = "#FFFFFF" }: { fromColor: string; toColor?: string }) {
+  const W = 1440, H = 90;
 
-  // [cx, hwTop (semi-ancho en la banda), blobR (radio círculo), blobCY (centro Y del círculo)]
-  const drops: [number, number, number, number][] = [
-    [ 130,  62, 46, 110],
-    [ 345,  54, 40,  97],
-    [ 570,  70, 52, 118],
-    [ 785,  48, 36,  92],
-    [1008,  66, 49, 113],
-    [1215,  56, 41, 100],
-    [1378,  44, 32,  86],
-  ];
-
-  const maxY = Math.max(...drops.map(([,, bR, bCY]) => bCY + bR)) + 10;
-
-  // Cada gota: lados con S-curve (horizontal en la banda → vertical en tangente del círculo)
-  // + círculo completo en el fondo con bezier de precisión.
-  const makeDrip = ([cx, hwT, bR, bCY]: [number,number,number,number]) => {
-    const x1 = cx - hwT, x2 = cx + hwT;
-    return [
-      `M ${x1},${bY}`,
-      // Lado izquierdo: arranca horizontal (C1 con banda), curva cóncava, llega vertical al círculo
-      `C ${cx - hwT * 0.88},${bY}  ${cx - bR},${bCY - bR * 0.35}  ${cx - bR},${bCY}`,
-      // Arco inferior izquierdo
-      `C ${cx - bR},${bCY + bR * k}  ${cx - bR * k},${bCY + bR}  ${cx},${bCY + bR}`,
-      // Arco inferior derecho
-      `C ${cx + bR * k},${bCY + bR}  ${cx + bR},${bCY + bR * k}  ${cx + bR},${bCY}`,
-      // Lado derecho: simétrico — arranca vertical del círculo, sale horizontal a la banda
-      `C ${cx + bR},${bCY - bR * 0.35}  ${cx + hwT * 0.88},${bY}  ${x2},${bY}`,
-      `Z`,
-    ].join(" ");
+  // Onda que rellena la franja superior (fromColor) hasta la línea ondulada.
+  // Se colocan puntos en crestas y valles alternados (±amp respecto a baseY) y se
+  // unen con cúbicas de tangente horizontal (control en el punto medio) → onda
+  // continua y sin quiebres. `bumps` = nº de extremos; `up` invierte la fase.
+  const wavePath = (amp: number, baseY: number, bumps: number, up: boolean) => {
+    const pts: [number, number][] = [];
+    for (let i = 0; i <= bumps; i++) {
+      const x = (W / bumps) * i;
+      const dir = (i % 2 === 0) === up ? -1 : 1;
+      pts.push([+x.toFixed(1), +(baseY + amp * dir).toFixed(1)]);
+    }
+    let d = `M ${W},0 L 0,0 L 0,${pts[0][1]}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [x0, y0] = pts[i];
+      const [x1, y1] = pts[i + 1];
+      const mx = +((x0 + x1) / 2).toFixed(1);
+      d += ` C ${mx},${y0} ${mx},${y1} ${x1},${y1}`;
+    }
+    return d + ` L ${W},0 Z`;
   };
+
+  // Capa de fondo: baseline más baja + fase invertida → asoma como cinta de sombra.
+  const back  = wavePath(18, 58, 5, true);
+  // Capa principal sólida, un poco más arriba.
+  const front = wavePath(20, 40, 5, false);
 
   return (
     <div style={{ display:"block", lineHeight:0, backgroundColor: toColor, position:"relative", zIndex:5 }}>
       <svg
-        viewBox={`0 0 ${W} ${maxY}`}
+        viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="none"
         xmlns="http://www.w3.org/2000/svg"
-        style={{ width:"100%", height:`clamp(80px,${((maxY / W) * 100).toFixed(2)}vw,${maxY}px)`, display:"block", marginTop:"-1px" }}
+        style={{ width:"100%", height:"clamp(50px,5.5vw,90px)", display:"block", marginTop:"-1px" }}
         aria-hidden
       >
-        {/* Banda plana */}
-        <rect x="0" y="0" width={W} height={bY} fill={fromColor}/>
-        {/* Gotas */}
-        {drops.map((d, i) => <path key={i} d={makeDrip(d)} fill={fromColor}/>)}
+        <path d={back}  fill={fromColor} opacity={0.35}/>
+        <path d={front} fill={fromColor}/>
       </svg>
     </div>
   );
@@ -375,7 +369,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <div className="hidden sm:block"><DripDivider fromColor="#FFFFFF" toColor="#FFF5EE"/></div>
+        <div className="hidden sm:block"><SectionDivider fromColor="#FFFFFF" toColor="#FFF5EE"/></div>
 
         {/* ══════════════════════════════════════════════════════
             PRODUCT SPOTLIGHT — salmón muy claro
@@ -582,7 +576,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <div className="hidden sm:block"><DripDivider fromColor="#1A0F00" toColor="#EFF9FF"/></div>
+        <div className="hidden sm:block"><SectionDivider fromColor="#1A0F00" toColor="#EFF9FF"/></div>
 
         {/* ══════════════════════════════════════════════════════
             CÓMO FUNCIONA — celeste bebé
@@ -617,7 +611,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <div className="hidden sm:block"><DripDivider fromColor="#EFF9FF" toColor="#F0FFF6"/></div>
+        <div className="hidden sm:block"><SectionDivider fromColor="#EFF9FF" toColor="#F0FFF6"/></div>
 
         {/* ══════════════════════════════════════════════════════
             BENEFICIOS — verde menta suave
@@ -652,7 +646,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <div className="hidden sm:block"><DripDivider fromColor="#F0FFF6" toColor="#FEF9E7"/></div>
+        <div className="hidden sm:block"><SectionDivider fromColor="#F0FFF6" toColor="#FEF9E7"/></div>
 
         {/* ══════════════════════════════════════════════════════
             MINIJUEGO — perro come raciones
@@ -678,7 +672,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <div className="hidden sm:block"><DripDivider fromColor="#FEF9E7" toColor="#E87010"/></div>
+        <div className="hidden sm:block"><SectionDivider fromColor="#FEF9E7" toColor="#E87010"/></div>
 
         {/* ══════════════════════════════════════════════════════
             CTA FINAL — naranja cálido y juguetón
