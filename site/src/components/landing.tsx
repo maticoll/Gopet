@@ -44,7 +44,7 @@ const perros: Product[] = [
   { id:"mx-s", brand:"Maxine", name:"Senior",         label:"S",  color:"#4E9A1A", weight:"21 kg / 7.5 kg",          desc:"Para perros mayores de 7 años",      image:"/images/p03.jpg" },
   { id:"mx-p", brand:"Maxine", name:"Razas Pequeñas", label:"P",  color:"#9A2A80", weight:"21 kg / 7.5 kg",          desc:"Adultos razas pequeñas",             image:"/images/p04.jpg" },
   { id:"lg-c", brand:"Lager",  name:"Cachorros",      label:"C",  color:"#6AAE18", weight:"22 kg / 10 kg",           desc:"Para cachorros de todas las razas",  image:"/images/p09.jpg" },
-  { id:"lg-a", brand:"Lager",  name:"Adultos",        label:"A",  color:"#D07010", weight:"22+3 kg gratis / 10 kg",  desc:"Para perros adultos",                image:"/images/p12.jpg" },
+  { id:"lg-a", brand:"Lager",  name:"Adultos",        label:"A",  color:"#D07010", weight:"22+13 kg gratis / 10 kg", desc:"Para perros adultos",                image:"/images/p12.jpg" },
   { id:"lg-s", brand:"Lager",  name:"Senior 7+",      label:"S",  color:"#223A88", weight:"22 kg / 10 kg",           desc:"Para perros mayores de 7 años",      image:"/images/p07.jpg" },
   { id:"lg-p", brand:"Lager",  name:"Razas Pequeñas", label:"P",  color:"#008A80", weight:"22 kg / 10 kg",           desc:"Adultos razas pequeñas",             image:"/images/p08.jpg" },
 ];
@@ -557,8 +557,8 @@ export default function Landing() {
 
               <div className="inline-flex items-center gap-3 mb-5 px-4 py-2 rounded-full"
                    style={{ backgroundColor:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)" }}>
-                <span className="font-heading font-black text-white text-xl">22 + 3 kg</span>
-                <span className="text-white/50 text-sm">gratis</span>
+                <span className="font-heading font-black text-white text-xl">22 kg +</span>
+                <span className="font-heading font-black text-xl px-2 py-0.5 rounded-lg" style={{ backgroundColor:"#E87010", color:"#fff" }}>13 kg GRATIS</span>
               </div>
 
               <p className="text-white/70 text-base sm:text-lg mb-6 sm:mb-8 leading-relaxed max-w-xs">
@@ -570,23 +570,23 @@ export default function Landing() {
                 <div className="flex flex-col">
                   <span className="text-white/40 text-sm font-medium mb-0.5">Antes</span>
                   <span className="font-heading font-bold text-2xl text-white/40 line-through decoration-red-400">
-                    $2.140
+                    $2.870
                   </span>
                 </div>
                 <div className="flex flex-col">
                   <span className="text-[11px] font-bold uppercase tracking-widest mb-0.5" style={{ color:"#4ADE80" }}>Ahora</span>
                   <span className="font-heading font-black leading-none" style={{ fontSize:"clamp(3rem,6vw,4.5rem)", color:"#FFFFFF" }}>
-                    $1.850
+                    $2.450
                   </span>
                 </div>
                 <div className="mb-2 px-2 py-1 rounded-lg text-xs font-bold" style={{ backgroundColor:"#C20808", color:"#fff" }}>
-                  13% OFF
+                  15% OFF
                 </div>
               </div>
 
               {/* Envíos gratis + CTA */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <a href={waURL("Hola GoPet! Quiero aprovechar la promo de Lager Adulto 22+3 kg a $1.850. ¿Está disponible?")}
+                <a href={waURL("Hola GoPet! Quiero aprovechar la promo de Lager Adulto 22+13 kg gratis a $2.450. ¿Está disponible?")}
                    target="_blank" rel="noopener noreferrer"
                    className="inline-flex items-center gap-2.5 px-7 py-4 rounded-2xl text-white font-heading font-black text-base hover:opacity-90 transition-opacity cursor-pointer shadow-lg"
                    style={{ backgroundColor:"#25D366", boxShadow:"0 8px 32px rgba(37,211,102,0.35)" }}>
