@@ -558,7 +558,8 @@ export default function Landing() {
               <div className="inline-flex items-center gap-3 mb-5 px-4 py-2 rounded-full"
                    style={{ backgroundColor:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)" }}>
                 <span className="font-heading font-black text-white text-xl">22 kg +</span>
-                <span className="font-heading font-black text-xl px-2 py-0.5 rounded-lg" style={{ backgroundColor:"#E87010", color:"#fff" }}>13 kg GRATIS</span>
+                <span className="font-heading font-black text-xl px-2 py-0.5 rounded-lg" style={{ backgroundColor:"#E87010", color:"#fff" }}>13 kg</span>
+                <span className="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-lg" style={{ backgroundColor:"#C20808", color:"#fff" }}>¡OFERTA!</span>
               </div>
 
               <p className="text-white/70 text-base sm:text-lg mb-6 sm:mb-8 leading-relaxed max-w-xs">
