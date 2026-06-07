@@ -777,7 +777,7 @@ export default function Landing() {
         <section className="order-5 sm:order-none relative overflow-hidden" style={{ backgroundColor:"#1A0F00" }}>
           {/* Imagen de fondo */}
           <div className="absolute inset-0">
-            <Image src="/images/promo-lager.png" alt="Lager Adulto promoción" fill
+            <Image src="/images/promo-lager-2.png" alt="Lager Adulto promoción" fill
               className="object-cover object-center" sizes="100vw" quality={100} priority/>
             <div className="absolute inset-0" style={{
               background:"linear-gradient(to right, rgba(14,7,0,0.93) 0%, rgba(14,7,0,0.7) 50%, rgba(14,7,0,0.2) 100%)"
