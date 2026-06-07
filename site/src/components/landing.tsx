@@ -56,6 +56,151 @@ const gatos: Product[] = [
   { id:"lg-gc", brand:"Lager",  name:"Gatos Castrados", label:"GC", color:"#702480", weight:"22 kg / 10 kg",  desc:"Para gatos castrados — mix salmón y pollo", image:"/images/p11.jpg" },
 ];
 
+// ── Datos de detalle por producto (del catálogo Agrofeed Sep 2025) ────────────
+
+type ProductDetail = {
+  formula: string;
+  badge: string;
+  tier: string;
+  packs: string[];
+  features: { emoji: string; title: string; desc: string }[];
+};
+
+const productDetails: Record<string, ProductDetail> = {
+  "mx-a": {
+    formula: "Fórmula optimizada para máximo rendimiento. Alta concentración de energía. Pollo y arroz.",
+    badge: "HIGH PERFORMANCE", tier: "Super Premium",
+    packs: ["1.5 kg", "3 kg", "7.5 kg", "21 kg"],
+    features: [
+      { emoji:"💪", title:"Músculos fuertes y sanos",          desc:"Proteínas de alta biodisponibilidad para mantener la masa muscular óptima." },
+      { emoji:"✨", title:"Pelaje saludable y brillante",       desc:"Ácidos grasos esenciales para un pelaje radiante y sedoso." },
+      { emoji:"🛡️", title:"Sistema inmunológico",              desc:"Antioxidantes naturales que refuerzan las defensas del organismo." },
+      { emoji:"🌿", title:"Cuidado del tracto intestinal",      desc:"Prebióticos naturales que promueven una digestión saludable." },
+    ],
+  },
+  "mx-c": {
+    formula: "Fórmula ajustada para un óptimo crecimiento y desarrollo de animales jóvenes.",
+    badge: "HIGH PERFORMANCE", tier: "Super Premium",
+    packs: ["1.5 kg", "3 kg", "7.5 kg", "21 kg"],
+    features: [
+      { emoji:"🦴", title:"Músculos y huesos sanos",            desc:"Calcio y fósforo en proporción ideal para el desarrollo óseo." },
+      { emoji:"✨", title:"Pelaje saludable y brillante",       desc:"Nutrientes esenciales para un pelaje sedoso desde cachorro." },
+      { emoji:"🌿", title:"Cuidado del tracto intestinal",      desc:"Fórmula de alta digestibilidad adaptada para estómagos jóvenes." },
+      { emoji:"🌱", title:"Con Prebióticos naturales",          desc:"Flora intestinal equilibrada para una digestión segura y eficiente." },
+    ],
+  },
+  "mx-s": {
+    formula: "Máxima protección de articulaciones con Glucosamina y Condroitina. Antioxidantes naturales (vitaminas E, C y Selenio). Con extracto de Yuca.",
+    badge: "HIGH PERFORMANCE", tier: "Super Premium",
+    packs: ["1.5 kg", "3 kg", "7.5 kg", "21 kg"],
+    features: [
+      { emoji:"🦴", title:"Salud articular",                    desc:"Glucosamina y Condroitina para proteger articulaciones en perros maduros." },
+      { emoji:"🌿", title:"Cuidado del tracto digestivo",       desc:"Extracto de Yuca y prebióticos para una digestión óptima." },
+      { emoji:"🛡️", title:"Sistema inmunológico",              desc:"Vitaminas E, C y Selenio como antioxidantes naturales potentes." },
+      { emoji:"🌱", title:"Con Prebióticos naturales",          desc:"Equilibrio de la flora intestinal para mayor bienestar." },
+    ],
+  },
+  "mx-p": {
+    formula: "Fórmula optimizada para máximo rendimiento en razas pequeñas. Alta concentración de energía. Pollo y arroz.",
+    badge: "HIGH PERFORMANCE", tier: "Super Premium",
+    packs: ["1.5 kg", "3 kg", "7.5 kg", "21 kg"],
+    features: [
+      { emoji:"🌿", title:"Salud intestinal",                   desc:"Digestión adaptada al metabolismo acelerado de razas pequeñas." },
+      { emoji:"💪", title:"Energía muscular",                   desc:"Alta concentración de proteínas para mantener la vitalidad." },
+      { emoji:"🛡️", title:"Protección inmunológica",           desc:"Refuerzo natural del sistema inmune con antioxidantes." },
+      { emoji:"🌱", title:"Ingredientes naturales",             desc:"Sin colorantes artificiales, 100% ingredientes naturales." },
+    ],
+  },
+  "mx-g": {
+    formula: "Cuidado integral de la salud felina. Previene y controla la formación de bola de pelos. Excelente digestión, reduce volumen y olor en las heces.",
+    badge: "HIGH PERFORMANCE", tier: "Super Premium",
+    packs: ["500 g", "3 kg", "7.5 kg", "21 kg"],
+    features: [
+      { emoji:"🥩", title:"Proteínas de máxima calidad",        desc:"Alta concentración de proteínas con cantidad controlada de minerales." },
+      { emoji:"🛡️", title:"Sistema inmunológico óptimo",        desc:"Antioxidantes y vitaminas para una inmunidad robusta." },
+      { emoji:"🧪", title:"Ph urinario controlado",             desc:"Fórmula que equilibra el Ph urinario y reduce riesgos renales." },
+      { emoji:"🌿", title:"Sabor 100% natural",                 desc:"Sin colorantes artificiales, sabor que los gatos adoran." },
+    ],
+  },
+  "mx-gc": {
+    formula: "Fórmula específica para gatos castrados. Ayuda a controlar el peso. Excelente digestibilidad. Reduce volumen y olor en las heces.",
+    badge: "HIGH PERFORMANCE", tier: "Super Premium",
+    packs: ["500 g", "7.5 kg"],
+    features: [
+      { emoji:"⚖️", title:"Control de peso",                    desc:"Fórmula balanceada para el metabolismo reducido del gato castrado." },
+      { emoji:"🧪", title:"Ph urinario equilibrado",            desc:"Minerales controlados para proteger la salud renal." },
+      { emoji:"🛡️", title:"Sistema inmunológico",              desc:"Vitaminas y antioxidantes para defender el organismo." },
+      { emoji:"🌿", title:"Ingredientes naturales",             desc:"Sin colorantes artificiales, digestión suave y eficiente." },
+    ],
+  },
+  "lg-a": {
+    formula: "1er Alimento Premium del Uruguay. Ingredientes 100% naturales. Balanceado y nutritivo.",
+    badge: "ALTA CALIDAD", tier: "Premium",
+    packs: ["1.5 kg", "3 kg", "10 kg", "22 kg"],
+    features: [
+      { emoji:"🍽️", title:"Excelente nutrición y sabor",       desc:"Fórmula que combina palatabilidad superior con nutrición completa." },
+      { emoji:"🌿", title:"Salud intestinal",                   desc:"Yuca y pulpa de remolacha para una microbiota intestinal saludable." },
+      { emoji:"💪", title:"Mejor condición muscular",           desc:"Proteínas de alta calidad para mantener la masa muscular ideal." },
+      { emoji:"✨", title:"Piel y pelaje saludables",           desc:"Ácidos grasos esenciales para un pelaje brillante y piel sana." },
+    ],
+  },
+  "lg-s": {
+    formula: "Para perros adultos mayores de 7 años. Ingredientes naturales. 100% balanceado y nutritivo. Reducido en grasa.",
+    badge: "ALTA CALIDAD", tier: "Premium",
+    packs: ["1.5 kg", "3 kg", "10 kg", "22 kg"],
+    features: [
+      { emoji:"⚖️", title:"Control de peso",                    desc:"Fórmula reducida en grasa para mantener el peso ideal en perros seniors." },
+      { emoji:"❤️", title:"Salud renal y calidad de vida",      desc:"Ingredientes que cuidan los riñones y mejoran el bienestar general." },
+      { emoji:"🦴", title:"Protección ostearticular",           desc:"Glucosaminas y Condroitina para articulaciones flexibles y sin dolor." },
+      { emoji:"🛡️", title:"Inmunidad con Probióticos",         desc:"Flora intestinal reforzada para una salud óptima en la vejez." },
+    ],
+  },
+  "lg-p": {
+    formula: "Para perros adultos de razas pequeñas. Ingredientes naturales. 100% balanceado y nutritivo.",
+    badge: "ALTA CALIDAD", tier: "Premium",
+    packs: ["1.5 kg", "3 kg", "10 kg", "22 kg"],
+    features: [
+      { emoji:"🌿", title:"Salud intestinal",                   desc:"Probióticos y pulpa de remolacha para una digestión perfecta." },
+      { emoji:"✨", title:"Pelo sano y brillante",              desc:"Omega 3 y 6, ácidos grasos esenciales para un pelaje impecable." },
+      { emoji:"💪", title:"Vigor muscular",                     desc:"Proteínas de alta calidad adaptadas al metabolismo de razas pequeñas." },
+      { emoji:"🌱", title:"Ingredientes naturales",             desc:"Sin colorantes artificiales, fórmula limpia y transparente." },
+    ],
+  },
+  "lg-c": {
+    formula: "Para cachorros saludables. Ingredientes naturales. 100% balanceado y nutritivo.",
+    badge: "ALTA CALIDAD", tier: "Premium",
+    packs: ["1.5 kg", "3 kg", "10 kg", "22 kg"],
+    features: [
+      { emoji:"🦴", title:"Crecimiento de huesos y músculos",   desc:"Calcio y fósforo en proporción ideal para un desarrollo óptimo." },
+      { emoji:"🌱", title:"Ingredientes naturales",             desc:"Fórmula sin aditivos artificiales, segura para cachorros." },
+      { emoji:"🌿", title:"Máxima salud intestinal",            desc:"Alta digestibilidad para estómagos jóvenes en desarrollo." },
+      { emoji:"✨", title:"Pelaje brillante y saludable",       desc:"Nutrientes esenciales para un pelaje hermoso desde pequeño." },
+    ],
+  },
+  "lg-g": {
+    formula: "Con Taurina. Omega 3 y 6. Enriquecido con Aceite de Pescado. Mix Pescado y Carne.",
+    badge: "ALTA CALIDAD", tier: "Premium",
+    packs: ["500 g", "3 kg", "10 kg", "22 kg"],
+    features: [
+      { emoji:"🚿", title:"Protege el tracto urinario",         desc:"Fórmula con control de minerales para la salud renal y urinaria." },
+      { emoji:"❤️", title:"Corazón y visión saludables",        desc:"Taurina esencial para el correcto funcionamiento cardíaco y visual." },
+      { emoji:"✨", title:"Pelo suave y brillante",             desc:"Omega 3 y 6 para un manto felino reluciente y sedoso." },
+      { emoji:"🥩", title:"Proteína de alta calidad",           desc:"Mix de pescado y carne para un sabor irresistible y nutrición completa." },
+    ],
+  },
+  "lg-gc": {
+    formula: "Ayuda a controlar el peso. Excelente digestibilidad. Reducido en minerales para protección renal. Elaborado con salmón. Mix Salmón y Pollo.",
+    badge: "ALTA CALIDAD", tier: "Premium",
+    packs: ["500 g", "3 kg", "10 kg", "22 kg"],
+    features: [
+      { emoji:"⚖️", title:"Control de peso",                    desc:"Reducido en minerales y grasa para el metabolismo del gato castrado." },
+      { emoji:"🚿", title:"Protege el tracto urinario",         desc:"Menos minerales para prevenir cálculos urinarios y proteger riñones." },
+      { emoji:"❤️", title:"Corazón y visión saludables",        desc:"Taurina que cuida el sistema cardiovascular y la salud visual." },
+      { emoji:"🥩", title:"Proteína sin colorantes",            desc:"Mix de salmón y pollo, sabor natural y fórmula limpia." },
+    ],
+  },
+};
+
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
 const IgIcon = ({ className }: { className?: string }) => (
@@ -148,9 +293,120 @@ function WeightLabel({ weight }: { weight: string }) {
   );
 }
 
+// ── Product Modal ─────────────────────────────────────────────────────────────
+
+function ProductModal({ p, onClose }: { p: Product; onClose: () => void }) {
+  const det = productDetails[p.id];
+  const msg = `Hola GoPet! Quiero pedir ${p.brand} ${p.name} (${p.weight}). ¿Está disponible?`;
+
+  // Cerrar con Escape
+  const handleKey = (e: React.KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+
+  if (!det) return null;
+  return (
+    <AnimatePresence>
+      {/* Backdrop */}
+      <motion.div
+        key="backdrop"
+        initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6"
+        style={{ backgroundColor:"rgba(0,0,0,0.6)", backdropFilter:"blur(6px)" }}
+        onClick={onClose}
+        onKeyDown={handleKey}
+        tabIndex={-1}
+      >
+        {/* Panel */}
+        <motion.div
+          key="panel"
+          initial={{ opacity:0, y:60 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:60 }}
+          transition={{ type:"spring", damping:28, stiffness:320 }}
+          className="relative w-full sm:max-w-2xl max-h-[92dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl"
+          style={{ backgroundColor:"#FFFBF6" }}
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Handle bar (mobile) */}
+          <div className="flex justify-center pt-3 pb-1 sm:hidden">
+            <div className="w-10 h-1 rounded-full" style={{ backgroundColor:"#E8D5BF" }}/>
+          </div>
+
+          {/* Cabecera con imagen */}
+          <div className="relative h-52 sm:h-64 flex items-center justify-center overflow-hidden rounded-t-3xl sm:rounded-t-3xl"
+               style={{ backgroundColor:"#FFF5EE" }}>
+            <Image src={p.image} alt={`${p.brand} ${p.name}`} fill className="object-contain p-6 sm:p-10"
+                   sizes="(max-width:640px) 100vw, 672px" priority/>
+            {/* Badges */}
+            <div className="absolute top-4 left-4 flex flex-col gap-1.5">
+              <span className="text-xs font-heading font-bold px-2.5 py-1 rounded-full text-white"
+                    style={{ backgroundColor: p.color }}>{p.brand}</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full"
+                    style={{ backgroundColor:"rgba(255,255,255,0.85)", color:"#3D2010" }}>{det.tier}</span>
+            </div>
+            {/* Close */}
+            <button onClick={onClose}
+                    className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full transition-colors cursor-pointer"
+                    style={{ backgroundColor:"rgba(255,255,255,0.85)", color:"#3D2010" }}
+                    aria-label="Cerrar">
+              <X className="w-4 h-4"/>
+            </button>
+          </div>
+
+          {/* Contenido */}
+          <div className="p-5 sm:p-7">
+            {/* Título */}
+            <div className="mb-4">
+              <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: p.color }}>{det.badge}</p>
+              <h2 className="font-heading font-black text-2xl sm:text-3xl tracking-tight" style={{ color:"#3D2010" }}>
+                {p.brand} <span style={{ color: p.color }}>{p.name}</span>
+              </h2>
+              <p className="text-sm mt-1.5 leading-relaxed" style={{ color:"#9C7050" }}>{det.formula}</p>
+            </div>
+
+            {/* Packs disponibles */}
+            <div className="mb-5">
+              <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color:"#C4804A" }}>Presentaciones</p>
+              <div className="flex flex-wrap gap-2">
+                {det.packs.map(pk => (
+                  <span key={pk} className="px-3 py-1.5 rounded-full text-sm font-heading font-bold"
+                        style={{ backgroundColor:"#FEE8D0", color:"#3D2010", border:"1px solid #F5D0A8" }}>
+                    {pk}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Beneficios */}
+            <div className="mb-6">
+              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color:"#C4804A" }}>Beneficios</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {det.features.map(f => (
+                  <div key={f.title} className="flex items-start gap-3 p-3 rounded-2xl"
+                       style={{ backgroundColor:"#FFF5EE", border:"1px solid #F0DCCB" }}>
+                    <span className="text-xl mt-0.5 leading-none">{f.emoji}</span>
+                    <div>
+                      <p className="font-heading font-bold text-sm leading-tight" style={{ color:"#3D2010" }}>{f.title}</p>
+                      <p className="text-xs mt-0.5 leading-snug" style={{ color:"#9C7050" }}>{f.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* CTA */}
+            <a href={waURL(msg)} target="_blank" rel="noopener noreferrer"
+               className="flex items-center justify-center gap-2.5 w-full py-4 rounded-2xl font-heading font-black text-base text-white transition-all hover:brightness-110 cursor-pointer"
+               style={{ backgroundColor:"#E87010", boxShadow:"0 8px 24px rgba(232,112,16,0.35)" }}>
+              <WaIcon className="w-5 h-5"/> Pedir por WhatsApp
+            </a>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 // ── Product card ──────────────────────────────────────────────────────────────
 
-function ProductCard({ p }: { p: Product }) {
+function ProductCard({ p, onClick }: { p: Product; onClick: () => void }) {
   const msg = `Hola GoPet! Quiero consultar sobre ${p.brand} ${p.name} (${p.weight}). ¿Está disponible?`;
   const isBestseller = p.id === "mx-a";
   return (
@@ -174,27 +430,42 @@ function ProductCard({ p }: { p: Product }) {
           <span className="font-black text-black leading-none" style={{ fontSize:"9px", letterSpacing:"0.03em", textAlign:"center", lineHeight:1.1 }}>MÁS{"\n"}VENDIDO</span>
         </div>
       )}
-      <div className="relative h-36 sm:h-48 flex items-center justify-center overflow-hidden" style={{ backgroundColor:"#FFFBF6" }}>
-        <Image src={p.image} alt={`${p.brand} ${p.name}`} fill className="object-contain p-2 sm:p-3"
+      {/* Zona imagen — clickeable para abrir detalle */}
+      <div className="relative h-36 sm:h-48 flex items-center justify-center overflow-hidden cursor-pointer group"
+           style={{ backgroundColor:"#FFFBF6" }}
+           onClick={onClick}>
+        <Image src={p.image} alt={`${p.brand} ${p.name}`} fill className="object-contain p-2 sm:p-3 group-hover:scale-105 transition-transform duration-300"
                sizes="(max-width:640px) 50vw,(max-width:1024px) 33vw,25vw"/>
         <span className="absolute top-2 left-2 text-[10px] sm:text-xs font-heading font-bold px-1.5 sm:px-2 py-0.5 rounded-full text-white"
               style={{ backgroundColor: p.color }}>
           {p.brand}
         </span>
+        {/* Indicador "Ver más" */}
+        <span className="absolute bottom-2 right-2 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ backgroundColor:"rgba(61,32,16,0.75)", color:"#fff" }}>
+          Ver más
+        </span>
       </div>
       <div className="p-3 sm:p-4 flex flex-col gap-2 sm:gap-3 flex-1">
-        <div>
+        <div className="cursor-pointer" onClick={onClick}>
           <h3 className="font-heading font-bold text-sm sm:text-base leading-tight" style={{ color:"#3D2010" }}>{p.name}</h3>
           <p className="text-[10px] sm:text-xs mt-0.5" style={{ color:"#9C7050" }}>{p.desc}</p>
         </div>
-        <div className="mt-auto flex items-center justify-between">
+        <div className="mt-auto flex items-center justify-between gap-2">
           <WeightLabel weight={p.weight} />
-          <a href={waURL(msg)} target="_blank" rel="noopener noreferrer"
-             className="inline-flex items-center gap-1.5 text-xs font-heading font-bold px-3 py-2 rounded-lg text-white transition-opacity hover:opacity-90 cursor-pointer"
-             style={{ backgroundColor:"#E87010" }}>
-            <WaIcon className="w-3.5 h-3.5"/>
-            Pedir
-          </a>
+          <div className="flex items-center gap-1.5">
+            <button onClick={onClick}
+                    className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg border cursor-pointer transition-colors"
+                    style={{ borderColor:"#E8D5BF", color:"#9C7050" }}>
+              Info
+            </button>
+            <a href={waURL(msg)} target="_blank" rel="noopener noreferrer"
+               className="inline-flex items-center gap-1 text-xs font-heading font-bold px-3 py-2 rounded-lg text-white transition-opacity hover:opacity-90 cursor-pointer"
+               style={{ backgroundColor:"#E87010" }}>
+              <WaIcon className="w-3.5 h-3.5"/>
+              Pedir
+            </a>
+          </div>
         </div>
       </div>
     </motion.div>
@@ -206,6 +477,7 @@ function ProductCard({ p }: { p: Product }) {
 export default function Landing() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"perros"|"gatos">("perros");
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const generalWA = waURL("Hola GoPet! Quiero hacer un pedido.");
 
   return (
@@ -363,7 +635,7 @@ export default function Landing() {
               <motion.div key={activeTab} initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-12 }}
                           transition={{ duration:0.25, ease:[0.25,1,0.5,1] }}
                           className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {(activeTab==="perros" ? perros : gatos).map((p) => <ProductCard key={p.id} p={p}/>)}
+                {(activeTab==="perros" ? perros : gatos).map((p) => <ProductCard key={p.id} p={p} onClick={() => setSelectedProduct(p)}/>)}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -722,6 +994,11 @@ export default function Landing() {
           </div>
         </footer>
       </main>
+
+      {/* Modal de detalle de producto */}
+      {selectedProduct && (
+        <ProductModal p={selectedProduct} onClose={() => setSelectedProduct(null)}/>
+      )}
     </>
   );
 }
