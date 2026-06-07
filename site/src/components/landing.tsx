@@ -841,7 +841,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <div className="hidden sm:block"><SectionDivider fromColor="#1A0F00" toColor="#EFF9FF"/></div>
+        <div className="hidden sm:block"><SectionDivider fromColor="#E87010" toColor="#EFF9FF"/></div>
 
         {/* ══════════════════════════════════════════════════════
             CÓMO FUNCIONA — celeste bebé
