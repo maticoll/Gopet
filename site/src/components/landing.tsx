@@ -44,7 +44,7 @@ const perros: Product[] = [
   { id:"mx-s", brand:"Maxine", name:"Senior",         label:"S",  color:"#4E9A1A", weight:"21 kg / 7.5 kg",          desc:"Para perros mayores de 7 años",      image:"/images/p03.jpg" },
   { id:"mx-p", brand:"Maxine", name:"Razas Pequeñas", label:"P",  color:"#9A2A80", weight:"21 kg / 7.5 kg",          desc:"Adultos razas pequeñas",             image:"/images/p04.jpg" },
   { id:"lg-c", brand:"Lager",  name:"Cachorros",      label:"C",  color:"#6AAE18", weight:"22 kg / 10 kg",           desc:"Para cachorros de todas las razas",  image:"/images/p09.jpg" },
-  { id:"lg-a", brand:"Lager",  name:"Adultos",        label:"A",  color:"#D07010", weight:"22+13 kg gratis / 10 kg", desc:"Para perros adultos",                image:"/images/p12.jpg" },
+  { id:"lg-a", brand:"Lager",  name:"Adultos",        label:"A",  color:"#D07010", weight:"22+3 kg gratis / 10 kg",  desc:"Para perros adultos",                image:"/images/p12.jpg" },
   { id:"lg-s", brand:"Lager",  name:"Senior 7+",      label:"S",  color:"#223A88", weight:"22 kg / 10 kg",           desc:"Para perros mayores de 7 años",      image:"/images/p07.jpg" },
   { id:"lg-p", brand:"Lager",  name:"Razas Pequeñas", label:"P",  color:"#008A80", weight:"22 kg / 10 kg",           desc:"Adultos razas pequeñas",             image:"/images/p08.jpg" },
 ];
@@ -70,7 +70,7 @@ const productDetails: Record<string, ProductDetail> = {
   "mx-a": {
     formula: "Fórmula optimizada para máximo rendimiento. Alta concentración de energía. Pollo y arroz.",
     badge: "HIGH PERFORMANCE", tier: "Super Premium",
-    packs: ["7.5 kg", "21 kg"],
+    packs: ["10 kg", "21+4 kg"],
     features: [
       { emoji:"💪", title:"Músculos fuertes y sanos",          desc:"Proteínas de alta biodisponibilidad para mantener la masa muscular óptima." },
       { emoji:"✨", title:"Pelaje saludable y brillante",       desc:"Ácidos grasos esenciales para un pelaje radiante y sedoso." },
@@ -81,7 +81,7 @@ const productDetails: Record<string, ProductDetail> = {
   "mx-c": {
     formula: "Fórmula ajustada para un óptimo crecimiento y desarrollo de animales jóvenes.",
     badge: "HIGH PERFORMANCE", tier: "Super Premium",
-    packs: ["7.5 kg", "21 kg"],
+    packs: ["10 kg", "21+4 kg"],
     features: [
       { emoji:"🦴", title:"Músculos y huesos sanos",            desc:"Calcio y fósforo en proporción ideal para el desarrollo óseo." },
       { emoji:"✨", title:"Pelaje saludable y brillante",       desc:"Nutrientes esenciales para un pelaje sedoso desde cachorro." },
@@ -92,7 +92,7 @@ const productDetails: Record<string, ProductDetail> = {
   "mx-s": {
     formula: "Máxima protección de articulaciones con Glucosamina y Condroitina. Antioxidantes naturales (vitaminas E, C y Selenio). Con extracto de Yuca.",
     badge: "HIGH PERFORMANCE", tier: "Super Premium",
-    packs: ["7.5 kg", "21 kg"],
+    packs: ["10 kg", "21+4 kg"],
     features: [
       { emoji:"🦴", title:"Salud articular",                    desc:"Glucosamina y Condroitina para proteger articulaciones en perros maduros." },
       { emoji:"🌿", title:"Cuidado del tracto digestivo",       desc:"Extracto de Yuca y prebióticos para una digestión óptima." },
@@ -103,7 +103,7 @@ const productDetails: Record<string, ProductDetail> = {
   "mx-p": {
     formula: "Fórmula optimizada para máximo rendimiento en razas pequeñas. Alta concentración de energía. Pollo y arroz.",
     badge: "HIGH PERFORMANCE", tier: "Super Premium",
-    packs: ["7.5 kg", "21 kg"],
+    packs: ["10 kg", "21+4 kg"],
     features: [
       { emoji:"🌿", title:"Salud intestinal",                   desc:"Digestión adaptada al metabolismo acelerado de razas pequeñas." },
       { emoji:"💪", title:"Energía muscular",                   desc:"Alta concentración de proteínas para mantener la vitalidad." },
@@ -114,7 +114,7 @@ const productDetails: Record<string, ProductDetail> = {
   "mx-g": {
     formula: "Cuidado integral de la salud felina. Previene y controla la formación de bola de pelos. Excelente digestión, reduce volumen y olor en las heces.",
     badge: "HIGH PERFORMANCE", tier: "Super Premium",
-    packs: ["7.5 kg", "21 kg"],
+    packs: ["10 kg", "21+4 kg"],
     features: [
       { emoji:"🥩", title:"Proteínas de máxima calidad",        desc:"Alta concentración de proteínas con cantidad controlada de minerales." },
       { emoji:"🛡️", title:"Sistema inmunológico óptimo",        desc:"Antioxidantes y vitaminas para una inmunidad robusta." },
@@ -125,7 +125,7 @@ const productDetails: Record<string, ProductDetail> = {
   "mx-gc": {
     formula: "Fórmula específica para gatos castrados. Ayuda a controlar el peso. Excelente digestibilidad. Reduce volumen y olor en las heces.",
     badge: "HIGH PERFORMANCE", tier: "Super Premium",
-    packs: ["7.5 kg"],
+    packs: ["10 kg"],
     features: [
       { emoji:"⚖️", title:"Control de peso",                    desc:"Fórmula balanceada para el metabolismo reducido del gato castrado." },
       { emoji:"🧪", title:"Ph urinario equilibrado",            desc:"Minerales controlados para proteger la salud renal." },
@@ -136,7 +136,7 @@ const productDetails: Record<string, ProductDetail> = {
   "lg-a": {
     formula: "1er Alimento Premium del Uruguay. Ingredientes 100% naturales. Balanceado y nutritivo.",
     badge: "ALTA CALIDAD", tier: "Premium",
-    packs: ["10 kg", "22 kg"],
+    packs: ["10 kg", "22+3 kg"],
     features: [
       { emoji:"🍽️", title:"Excelente nutrición y sabor",       desc:"Fórmula que combina palatabilidad superior con nutrición completa." },
       { emoji:"🌿", title:"Salud intestinal",                   desc:"Yuca y pulpa de remolacha para una microbiota intestinal saludable." },
@@ -147,7 +147,7 @@ const productDetails: Record<string, ProductDetail> = {
   "lg-s": {
     formula: "Para perros adultos mayores de 7 años. Ingredientes naturales. 100% balanceado y nutritivo. Reducido en grasa.",
     badge: "ALTA CALIDAD", tier: "Premium",
-    packs: ["10 kg", "22 kg"],
+    packs: ["10 kg", "22+3 kg"],
     features: [
       { emoji:"⚖️", title:"Control de peso",                    desc:"Fórmula reducida en grasa para mantener el peso ideal en perros seniors." },
       { emoji:"❤️", title:"Salud renal y calidad de vida",      desc:"Ingredientes que cuidan los riñones y mejoran el bienestar general." },
@@ -158,7 +158,7 @@ const productDetails: Record<string, ProductDetail> = {
   "lg-p": {
     formula: "Para perros adultos de razas pequeñas. Ingredientes naturales. 100% balanceado y nutritivo.",
     badge: "ALTA CALIDAD", tier: "Premium",
-    packs: ["10 kg", "22 kg"],
+    packs: ["10 kg", "22+3 kg"],
     features: [
       { emoji:"🌿", title:"Salud intestinal",                   desc:"Probióticos y pulpa de remolacha para una digestión perfecta." },
       { emoji:"✨", title:"Pelo sano y brillante",              desc:"Omega 3 y 6, ácidos grasos esenciales para un pelaje impecable." },
@@ -169,7 +169,7 @@ const productDetails: Record<string, ProductDetail> = {
   "lg-c": {
     formula: "Para cachorros saludables. Ingredientes naturales. 100% balanceado y nutritivo.",
     badge: "ALTA CALIDAD", tier: "Premium",
-    packs: ["10 kg", "22 kg"],
+    packs: ["10 kg", "22+3 kg"],
     features: [
       { emoji:"🦴", title:"Crecimiento de huesos y músculos",   desc:"Calcio y fósforo en proporción ideal para un desarrollo óptimo." },
       { emoji:"🌱", title:"Ingredientes naturales",             desc:"Fórmula sin aditivos artificiales, segura para cachorros." },
@@ -180,7 +180,7 @@ const productDetails: Record<string, ProductDetail> = {
   "lg-g": {
     formula: "Con Taurina. Omega 3 y 6. Enriquecido con Aceite de Pescado. Mix Pescado y Carne.",
     badge: "ALTA CALIDAD", tier: "Premium",
-    packs: ["10 kg", "22 kg"],
+    packs: ["10 kg", "22+3 kg"],
     features: [
       { emoji:"🚿", title:"Protege el tracto urinario",         desc:"Fórmula con control de minerales para la salud renal y urinaria." },
       { emoji:"❤️", title:"Corazón y visión saludables",        desc:"Taurina esencial para el correcto funcionamiento cardíaco y visual." },
@@ -191,7 +191,7 @@ const productDetails: Record<string, ProductDetail> = {
   "lg-gc": {
     formula: "Ayuda a controlar el peso. Excelente digestibilidad. Reducido en minerales para protección renal. Elaborado con salmón. Mix Salmón y Pollo.",
     badge: "ALTA CALIDAD", tier: "Premium",
-    packs: ["10 kg", "22 kg"],
+    packs: ["10 kg", "22+3 kg"],
     features: [
       { emoji:"⚖️", title:"Control de peso",                    desc:"Reducido en minerales y grasa para el metabolismo del gato castrado." },
       { emoji:"🚿", title:"Protege el tracto urinario",         desc:"Menos minerales para prevenir cálculos urinarios y proteger riñones." },
