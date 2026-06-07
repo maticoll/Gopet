@@ -6,7 +6,7 @@ import { PawPrint, Truck, Tag, Heart, Headphones, ChevronRight, Menu, X, Zap, Sh
 import { motion, AnimatePresence } from "framer-motion";
 import DogGame from "@/components/DogGame";
 
-const WA_NUMBER = "59892360472";
+const WA_NUMBER = "59892262052";
 const IG_HANDLE = "gopet_uy";
 
 const waURL = (msg: string) =>
