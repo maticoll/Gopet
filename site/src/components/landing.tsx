@@ -516,93 +516,69 @@ export default function Landing() {
             PROMO LAGER ADULTO
         ══════════════════════════════════════════════════════ */}
         <section className="order-5 sm:order-none relative overflow-hidden" style={{ backgroundColor:"#1A0F00" }}>
-          {/* Imagen de fondo full-bleed — máxima calidad */}
+          {/* Imagen de fondo */}
           <div className="absolute inset-0">
-            <Image
-              src="/images/promo-lager.png"
-              alt="Lager Adulto 22+3 kg promoción"
-              fill
-              className="object-cover object-center"
-              sizes="100vw"
-              quality={100}
-              priority
-            />
-            {/* Gradiente sobre la imagen para legibilidad */}
-            <div className="absolute inset-0 hidden sm:block" style={{
-              background:"linear-gradient(to right, rgba(20,10,0,0.82) 0%, rgba(20,10,0,0.45) 45%, rgba(20,10,0,0.15) 100%)"
-            }}/>
-            <div className="absolute inset-0 sm:hidden" style={{
-              background:"rgba(20,10,0,0.72)"
+            <Image src="/images/promo-lager.png" alt="Lager Adulto promoción" fill
+              className="object-cover object-center" sizes="100vw" quality={100} priority/>
+            <div className="absolute inset-0" style={{
+              background:"linear-gradient(to right, rgba(14,7,0,0.93) 0%, rgba(14,7,0,0.7) 50%, rgba(14,7,0,0.2) 100%)"
             }}/>
           </div>
 
-          <div className="relative z-10 max-w-6xl mx-auto px-6 py-20 lg:py-28 flex flex-col lg:flex-row items-center lg:items-end justify-between gap-10">
-
-            {/* Copy izquierdo */}
-            <motion.div initial={{ opacity:0, x:-30 }} whileInView={{ opacity:1, x:0 }}
+          <div className="relative z-10 max-w-6xl mx-auto px-6 sm:px-10 py-20 lg:py-32">
+            <motion.div initial={{ opacity:0, y:24 }} whileInView={{ opacity:1, y:0 }}
                         viewport={{ once:true }} transition={{ duration:0.6, ease:[0.25,1,0.5,1] }}
-                        className="max-w-lg">
+                        className="max-w-xl">
 
-              {/* Badge marca */}
-              <div className="inline-flex items-center gap-2 mb-5 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest"
-                   style={{ backgroundColor:"rgba(232,112,16,0.25)", border:"1px solid rgba(232,112,16,0.5)", color:"#FFB347" }}>
-                🐾 Oferta especial
-              </div>
-
-              <h2 className="font-heading font-black leading-[0.9] tracking-tighter text-white mb-3"
-                  style={{ fontSize:"clamp(2.8rem,7vw,5.5rem)" }}>
-                Lager<br/>
-                <span style={{ color:"#F5A623" }}>Adulto</span>
-              </h2>
-
-              <div className="inline-flex items-center gap-3 mb-5 px-4 py-2 rounded-full"
-                   style={{ backgroundColor:"rgba(255,255,255,0.12)", border:"1px solid rgba(255,255,255,0.2)" }}>
-                <span className="font-heading font-black text-white text-xl">22 kg +</span>
-                <span className="font-heading font-black text-xl px-2 py-0.5 rounded-lg" style={{ backgroundColor:"#E87010", color:"#fff" }}>13 kg</span>
-                <span className="text-xs font-bold uppercase tracking-widest px-2 py-0.5 rounded-lg" style={{ backgroundColor:"#E87010", color:"#fff" }}>¡OFERTA!</span>
-              </div>
-
-              <p className="text-white/70 text-base sm:text-lg mb-6 sm:mb-8 leading-relaxed max-w-xs">
-                ¡Al mejor precio del mercado! Alimento premium para perros adultos.
+              {/* Eyebrow */}
+              <p className="text-xs font-bold uppercase tracking-[0.2em] mb-4" style={{ color:"#E87010" }}>
+                Oferta especial · Lager Adulto
               </p>
 
-              {/* Bloque de precios */}
-              <div className="flex items-end gap-4 mb-8">
+              {/* Título */}
+              <h2 className="font-heading font-black tracking-tighter text-white mb-4"
+                  style={{ fontSize:"clamp(3rem,7vw,5.5rem)", lineHeight:0.9 }}>
+                22 kg<br/>
+                <span style={{ color:"#F5A623" }}>+ 13 kg</span>
+              </h2>
+
+              {/* Descripción */}
+              <p className="mb-8 leading-relaxed max-w-xs" style={{ color:"rgba(255,255,255,0.55)", fontSize:"1rem" }}>
+                Alimento premium para perros adultos al mejor precio del mercado.
+              </p>
+
+              {/* Precios */}
+              <div className="flex items-center gap-5 mb-10">
                 <div className="flex flex-col">
-                  <span className="text-white/40 text-sm font-medium mb-0.5">Antes</span>
-                  <span className="font-heading font-bold text-2xl text-white/40 line-through decoration-red-400">
-                    $2.870
-                  </span>
+                  <span className="text-[11px] uppercase tracking-widest font-semibold mb-0.5" style={{ color:"rgba(255,255,255,0.35)" }}>Antes</span>
+                  <span className="font-heading font-bold text-xl line-through" style={{ color:"rgba(255,255,255,0.3)" }}>$2.870</span>
                 </div>
+                <div className="w-px h-10 self-center" style={{ backgroundColor:"rgba(255,255,255,0.15)" }}/>
                 <div className="flex flex-col">
-                  <span className="text-[11px] font-bold uppercase tracking-widest mb-0.5" style={{ color:"#4ADE80" }}>Ahora</span>
-                  <span className="font-heading font-black leading-none" style={{ fontSize:"clamp(3rem,6vw,4.5rem)", color:"#FFFFFF" }}>
-                    $2.450
-                  </span>
+                  <span className="text-[11px] uppercase tracking-widest font-semibold mb-0.5" style={{ color:"#E87010" }}>Precio oferta</span>
+                  <span className="font-heading font-black" style={{ fontSize:"clamp(2.4rem,5vw,3.5rem)", color:"#fff", lineHeight:1 }}>$2.450</span>
                 </div>
-                <div className="mb-2 px-2 py-1 rounded-lg text-xs font-bold" style={{ backgroundColor:"#C20808", color:"#fff" }}>
+                <div className="self-end mb-1 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider"
+                     style={{ backgroundColor:"rgba(232,112,16,0.2)", border:"1px solid rgba(232,112,16,0.5)", color:"#F5A623" }}>
                   15% OFF
                 </div>
               </div>
 
-              {/* Envíos gratis + CTA */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <a href={waURL("Hola GoPet! Quiero aprovechar la promo de Lager Adulto 22+13 kg gratis a $2.450. ¿Está disponible?")}
+              {/* CTA */}
+              <div className="flex flex-col sm:flex-row items-start gap-3">
+                <a href={waURL("Hola GoPet! Quiero aprovechar la promo de Lager Adulto 22+13 kg a $2.450. ¿Está disponible?")}
                    target="_blank" rel="noopener noreferrer"
-                   className="inline-flex items-center gap-2.5 px-7 py-4 rounded-2xl text-white font-heading font-black text-base hover:opacity-90 transition-opacity cursor-pointer shadow-lg"
-                   style={{ backgroundColor:"#25D366", boxShadow:"0 8px 32px rgba(37,211,102,0.35)" }}>
+                   className="inline-flex items-center gap-2.5 px-7 py-4 rounded-2xl font-heading font-black text-base transition-all hover:brightness-110 cursor-pointer"
+                   style={{ backgroundColor:"#E87010", color:"#fff", boxShadow:"0 8px 32px rgba(232,112,16,0.4)" }}>
                   <WaIcon className="w-5 h-5"/> Pedir esta promo
                 </a>
-                <div className="flex items-center gap-2 px-4 py-3 rounded-2xl"
-                     style={{ backgroundColor:"rgba(255,255,255,0.08)", border:"1px solid rgba(255,255,255,0.15)" }}>
-                  <span className="text-lg">🚚</span>
-                  <span className="font-heading font-bold text-white text-sm">Envío gratis</span>
+                <div className="inline-flex items-center gap-2 px-5 py-4 rounded-2xl text-sm font-semibold"
+                     style={{ border:"1px solid rgba(255,255,255,0.15)", color:"rgba(255,255,255,0.6)" }}>
+                  🚚 Envío gratis a domicilio
                 </div>
               </div>
-            </motion.div>
 
-            {/* Espacio derecho — la imagen de fondo lo llena visualmente */}
-            <div className="hidden lg:block w-[380px] h-[380px]"/>
+            </motion.div>
           </div>
         </section>
 
