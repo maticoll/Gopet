@@ -344,6 +344,40 @@ export default function Landing() {
         </section>
 
         {/* ══════════════════════════════════════════════════════
+            PRODUCTOS — blanco limpio
+        ══════════════════════════════════════════════════════ */}
+        <section id="productos" className="order-2 sm:order-none py-16 sm:py-24 px-4 sm:px-6 bg-white">
+          <div className="max-w-6xl mx-auto">
+            <div className="mb-10">
+              <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter mb-2" style={{ color:"#3D2010" }}>
+                Productos 🐶🐱
+              </h2>
+              <p style={{ color:"#9C7050" }}>Marcas Maxine y Lager — Agrofeed Uruguay</p>
+            </div>
+
+            <div className="flex gap-2 mb-8">
+              {(["perros","gatos"] as const).map((tab) => (
+                <button key={tab} onClick={()=>setActiveTab(tab)}
+                  className="px-5 py-2.5 rounded-full font-heading font-bold text-sm transition-all cursor-pointer capitalize"
+                  style={activeTab===tab ? { backgroundColor:"#E87010", color:"#fff" } : { backgroundColor:"#FEE8D0", color:"#9C7050" }}>
+                  {tab==="perros" ? "🐶 Perros" : "🐱 Gatos"}
+                </button>
+              ))}
+            </div>
+
+            <AnimatePresence mode="wait">
+              <motion.div key={activeTab} initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-12 }}
+                          transition={{ duration:0.25, ease:[0.25,1,0.5,1] }}
+                          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {(activeTab==="perros" ? perros : gatos).map((p) => <ProductCard key={p.id} p={p}/>)}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </section>
+
+        <div className="hidden sm:block"><DripDivider fromColor="#FFFFFF" toColor="#FFF5EE"/></div>
+
+        {/* ══════════════════════════════════════════════════════
             PRODUCT SPOTLIGHT — salmón muy claro
             La bolsa usa mix-blend-mode:multiply → fondo desaparece
             Container: 896×560px · viewBox 0 0 896 560
@@ -475,40 +509,6 @@ export default function Landing() {
               </a>
               <p className="text-[11px] mt-3" style={{ color:"#C4804A" }}>También disponible: Cachorros · Senior · Razas Pequeñas · Gatos</p>
             </motion.div>
-          </div>
-        </section>
-
-        <div className="hidden sm:block"><DripDivider fromColor="#FFF5EE" toColor="#FFFFFF"/></div>
-
-        {/* ══════════════════════════════════════════════════════
-            PRODUCTOS — blanco limpio
-        ══════════════════════════════════════════════════════ */}
-        <section id="productos" className="order-2 sm:order-none py-16 sm:py-24 px-4 sm:px-6 bg-white">
-          <div className="max-w-6xl mx-auto">
-            <div className="mb-10">
-              <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter mb-2" style={{ color:"#3D2010" }}>
-                Productos 🐶🐱
-              </h2>
-              <p style={{ color:"#9C7050" }}>Marcas Maxine y Lager — Agrofeed Uruguay</p>
-            </div>
-
-            <div className="flex gap-2 mb-8">
-              {(["perros","gatos"] as const).map((tab) => (
-                <button key={tab} onClick={()=>setActiveTab(tab)}
-                  className="px-5 py-2.5 rounded-full font-heading font-bold text-sm transition-all cursor-pointer capitalize"
-                  style={activeTab===tab ? { backgroundColor:"#E87010", color:"#fff" } : { backgroundColor:"#FEE8D0", color:"#9C7050" }}>
-                  {tab==="perros" ? "🐶 Perros" : "🐱 Gatos"}
-                </button>
-              ))}
-            </div>
-
-            <AnimatePresence mode="wait">
-              <motion.div key={activeTab} initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-12 }}
-                          transition={{ duration:0.25, ease:[0.25,1,0.5,1] }}
-                          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {(activeTab==="perros" ? perros : gatos).map((p) => <ProductCard key={p.id} p={p}/>)}
-              </motion.div>
-            </AnimatePresence>
           </div>
         </section>
 
