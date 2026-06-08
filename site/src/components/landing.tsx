@@ -476,21 +476,21 @@ export default function Landing() {
   return (
     <>
       {/* ══ NAVBAR ══ */}
-      <header className="fixed top-0 left-0 right-0 z-50 text-white" style={{ backgroundColor:"#111111", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
+      <header className="fixed top-0 left-0 right-0 z-50 text-white" style={{ backgroundColor:"#FAF8F5", borderBottom:"1px solid rgba(0,0,0,0.08)" }}>
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <a href="/" className="flex items-center">
-            <Image src="/images/logo gopet sin fondo.png" alt="GoPet" width={130} height={44} className="object-contain" priority />
+            <Image src="/images/logo gopet negro.png" alt="GoPet" width={130} height={44} className="object-contain" priority />
           </a>
 
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-white/60">
-            <a href="#como-funciona" className="hover:text-white transition-colors">Cómo funciona</a>
-            <a href="#productos"     className="hover:text-white transition-colors">Productos</a>
-            <a href="#beneficios"    className="hover:text-white transition-colors">Beneficios</a>
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-black/50">
+            <a href="#como-funciona" className="hover:text-black transition-colors">Cómo funciona</a>
+            <a href="#productos"     className="hover:text-black transition-colors">Productos</a>
+            <a href="#beneficios"    className="hover:text-black transition-colors">Beneficios</a>
           </nav>
 
           <div className="hidden md:flex items-center gap-3">
             <a href={igURL} target="_blank" rel="noopener noreferrer"
-               className="flex items-center gap-2 text-sm font-medium text-white/60 hover:text-white transition-colors">
+               className="flex items-center gap-2 text-sm font-medium text-black/50 hover:text-black transition-colors">
               <IgIcon className="w-4 h-4"/> @{IG_HANDLE}
             </a>
             <a href={generalWA} target="_blank" rel="noopener noreferrer"
@@ -499,7 +499,7 @@ export default function Landing() {
             </a>
           </div>
 
-          <button className="md:hidden p-2 cursor-pointer" onClick={() => setMobileOpen(v=>!v)} aria-label="Abrir menú">
+          <button className="md:hidden p-2 cursor-pointer text-black" onClick={() => setMobileOpen(v=>!v)} aria-label="Abrir menú">
             {mobileOpen ? <X className="w-5 h-5"/> : <Menu className="w-5 h-5"/>}
           </button>
         </div>
@@ -507,7 +507,7 @@ export default function Landing() {
         <AnimatePresence>
           {mobileOpen && (
             <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:"auto" }} exit={{ opacity:0, height:0 }}
-                        className="md:hidden overflow-hidden" style={{ backgroundColor:"#111111", borderTop:"1px solid rgba(255,255,255,0.08)" }}>
+                        className="md:hidden overflow-hidden" style={{ backgroundColor:"#FAF8F5", borderTop:"1px solid rgba(0,0,0,0.08)" }}>
               <div className="px-6 py-4 flex flex-col gap-4">
                 <a href="#como-funciona" onClick={()=>setMobileOpen(false)} className="text-white/70 hover:text-white text-sm font-medium">Cómo funciona</a>
                 <a href="#productos"     onClick={()=>setMobileOpen(false)} className="text-white/70 hover:text-white text-sm font-medium">Productos</a>
