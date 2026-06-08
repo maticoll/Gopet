@@ -8,6 +8,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 const navLinks = [
   { href: '/dashboard', label: '📊 Dashboard' },
   { href: '/dashboard/caja', label: '💰 Caja' },
+  { href: '/dashboard/stock', label: '📦 Stock' },
   { href: '/dashboard/info', label: '📈 Info' },
   { href: '/ideas', label: '💡 Ideas' },
   { href: '/agente-meta', label: '📈 Meta' },

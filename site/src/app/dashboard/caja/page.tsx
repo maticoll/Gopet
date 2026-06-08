@@ -2,7 +2,6 @@ import { sql } from '@/lib/db'
 import { marcarPagado } from './actions'
 import VentasTable from './VentasTable'
 import MovimientosTable from './MovimientosTable'
-import StockTable from './StockTable'
 
 export const metadata = { title: 'Caja — PetStock' }
 
@@ -26,12 +25,6 @@ export default async function CajaPage() {
     FROM movimientos_caja
     ORDER BY created_at DESC
     LIMIT 30
-  `
-
-  // Stock actual
-  const productosRaw = await sql`
-    SELECT nombre, marca, stock_shangrila, stock_departamento FROM productos
-    ORDER BY marca, nombre
   `
 
   // Clientes activos para el selector de edición
@@ -96,13 +89,6 @@ export default async function CajaPage() {
     metodo_pago: m.metodo_pago as string | null,
     etiqueta: m.etiqueta as string | null,
     created_at: m.created_at as string,
-  }))
-
-  const productos = productosRaw.map(p => ({
-    nombre: p.nombre as string,
-    marca: p.marca as string,
-    stock_shangrila: p.stock_shangrila as number,
-    stock_departamento: p.stock_departamento as number,
   }))
 
   const clientes = clientesRaw.map(c => ({
@@ -184,11 +170,6 @@ export default async function CajaPage() {
         <MovimientosTable movimientos={movimientos} />
       </section>
 
-      {/* ── Stock actual ───────────────────────────────────────────── */}
-      <section>
-        <h2 className="text-lg font-semibold text-white mb-3">Stock actual</h2>
-        <StockTable productos={productos} />
-      </section>
     </div>
   )
 }
