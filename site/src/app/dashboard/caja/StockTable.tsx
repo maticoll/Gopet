@@ -6,17 +6,26 @@ import { editarStock } from './actions'
 type Producto = {
   nombre: string
   marca: string
-  stock_actual: number
+  stock_shangrila: number
+  stock_departamento: number
+}
+
+function StockBadge({ value }: { value: number }) {
+  if (value <= 0) return <span className="text-red-400 font-medium">Sin stock</span>
+  if (value <= 2) return <span className="text-orange-400 font-medium">⚠️ {value}</span>
+  return <span className="text-slate-300">{value}</span>
 }
 
 export default function StockTable({ productos }: { productos: Producto[] }) {
   const [editingNombre, setEditingNombre] = useState<string | null>(null)
-  const [stockValue, setStockValue] = useState<number>(0)
+  const [shangrila, setShangrila] = useState<number>(0)
+  const [departamento, setDepartamento] = useState<number>(0)
   const [saving, setSaving] = useState(false)
 
   function startEdit(p: Producto) {
     setEditingNombre(p.nombre)
-    setStockValue(p.stock_actual)
+    setShangrila(p.stock_shangrila)
+    setDepartamento(p.stock_departamento)
   }
 
   function cancelEdit() {
@@ -25,7 +34,7 @@ export default function StockTable({ productos }: { productos: Producto[] }) {
 
   async function saveEdit(nombre: string) {
     setSaving(true)
-    await editarStock(nombre, stockValue)
+    await editarStock(nombre, shangrila, departamento)
     setSaving(false)
     setEditingNombre(null)
   }
@@ -37,7 +46,8 @@ export default function StockTable({ productos }: { productos: Producto[] }) {
           <tr className="text-slate-400 border-b border-slate-800">
             <th className="text-left py-2 pr-4">Marca</th>
             <th className="text-left py-2 pr-4">Producto</th>
-            <th className="text-right py-2 pr-4">Stock</th>
+            <th className="text-right py-2 pr-3">🏠 Shangrila</th>
+            <th className="text-right py-2 pr-4">🏢 Depto</th>
             <th className="py-2"></th>
           </tr>
         </thead>
@@ -50,13 +60,22 @@ export default function StockTable({ productos }: { productos: Producto[] }) {
                 <tr key={p.nombre} className="border-b border-slate-700 bg-slate-800/60">
                   <td className="py-2 pr-4 text-slate-400">{p.marca}</td>
                   <td className="py-2 pr-4 text-white">{p.nombre}</td>
+                  <td className="py-2 pr-3 text-right">
+                    <input
+                      type="number"
+                      min={0}
+                      value={shangrila}
+                      onChange={e => setShangrila(Number(e.target.value))}
+                      className="bg-slate-700 text-white rounded px-1.5 py-0.5 text-xs w-16 border border-slate-600 text-right"
+                    />
+                  </td>
                   <td className="py-2 pr-4 text-right">
                     <input
                       type="number"
                       min={0}
-                      value={stockValue}
-                      onChange={e => setStockValue(Number(e.target.value))}
-                      className="bg-slate-700 text-white rounded px-1.5 py-0.5 text-xs w-20 border border-slate-600 text-right"
+                      value={departamento}
+                      onChange={e => setDepartamento(Number(e.target.value))}
+                      className="bg-slate-700 text-white rounded px-1.5 py-0.5 text-xs w-16 border border-slate-600 text-right"
                     />
                   </td>
                   <td className="py-2 whitespace-nowrap">
@@ -78,20 +97,15 @@ export default function StockTable({ productos }: { productos: Producto[] }) {
               )
             }
 
-            const bajo = p.stock_actual <= 2
-            const sinStock = p.stock_actual <= 0
             return (
               <tr key={p.nombre} className="border-b border-slate-800/50">
                 <td className="py-2 pr-4 text-slate-400">{p.marca}</td>
                 <td className="py-2 pr-4 text-white">{p.nombre}</td>
+                <td className="py-2 pr-3 text-right">
+                  <StockBadge value={p.stock_shangrila} />
+                </td>
                 <td className="py-2 pr-4 text-right">
-                  {sinStock ? (
-                    <span className="text-red-400 font-medium">Sin stock</span>
-                  ) : bajo ? (
-                    <span className="text-orange-400 font-medium">⚠️ {p.stock_actual}</span>
-                  ) : (
-                    <span className="text-slate-300">{p.stock_actual}</span>
-                  )}
+                  <StockBadge value={p.stock_departamento} />
                 </td>
                 <td className="py-2">
                   <button

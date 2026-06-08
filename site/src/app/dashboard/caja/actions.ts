@@ -58,10 +58,14 @@ export async function editarMovimiento(
 
 export async function editarStock(
   productoNombre: string,
-  stockActual: number
+  stockShangrila: number,
+  stockDepartamento: number
 ): Promise<void> {
   await sql`
-    UPDATE productos SET stock_actual = ${stockActual}
+    UPDATE productos SET
+      stock_shangrila    = ${stockShangrila},
+      stock_departamento = ${stockDepartamento},
+      stock_actual       = ${stockShangrila + stockDepartamento}
     WHERE nombre = ${productoNombre}
   `
   revalidatePath('/dashboard/caja')

@@ -160,7 +160,8 @@ export async function POST(req: NextRequest) {
         ${p.clienteId}::uuid, ${p.perroId}::uuid, ${p.producto},
         ${p.tamañoBolsaKg}, ${p.precio},
         ${p.gramosPorComida ?? null}, ${p.vecesAlDia ?? null},
-        ${p.fechaFin ?? null}::date, ${p.cantidad}, ${p.pagado}
+        ${p.fechaFin ?? null}::date, ${p.cantidad}, ${p.pagado},
+        ${p.casa ?? 'shangrila'}
       ) AS venta_id`
 
       await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
@@ -260,7 +261,7 @@ export async function POST(req: NextRequest) {
           await sendMessage(chatId, `⚠️ No encontré el precio de "<b>${v.producto}</b>". Esa venta no se registró — registrala por separado con el precio.`)
           continue
         }
-        await sql`SELECT registrar_venta(${clienteId}::uuid, ${perroId}::uuid, ${v.producto}, ${v.tamañoBolsaKg}, ${v.precio}, ${null}, ${null}, ${fechaFin}::date, 1, ${v.pagado})`
+        await sql`SELECT registrar_venta(${clienteId}::uuid, ${perroId}::uuid, ${v.producto}, ${v.tamañoBolsaKg}, ${v.precio}, ${null}, ${null}, ${fechaFin}::date, 1, ${v.pagado}, ${v.casa ?? 'shangrila'})`
         if (v.metodoPago) {
           const vRows = await sql`SELECT id FROM ventas WHERE cliente_id = ${clienteId} ORDER BY fecha_venta DESC LIMIT 1`
           if (vRows.length) await sql`UPDATE ventas SET metodo_pago = ${v.metodoPago} WHERE id = ${vRows[0].id as string}`
@@ -289,7 +290,7 @@ export async function POST(req: NextRequest) {
       }
       const p = estados[0].payload as any
 
-      const productoRows = await sql`SELECT id, stock_actual FROM productos WHERE lower(nombre) = lower(${p.producto}) LIMIT 1`
+      const productoRows = await sql`SELECT id, stock_shangrila, stock_departamento FROM productos WHERE lower(nombre) = lower(${p.producto}) LIMIT 1`
       await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
 
       if (!productoRows.length) {
@@ -297,9 +298,16 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true })
       }
 
-      const nuevoStock = (productoRows[0].stock_actual as number) + p.cantidad
-      await sql`UPDATE productos SET stock_actual = ${nuevoStock} WHERE id = ${productoRows[0].id as string}`
-      await sendMessage(chatId, `✅ Stock actualizado.\n📦 <b>${p.producto}</b>: ${nuevoStock} bolsas en stock.`)
+      const casaLabel = p.casa === 'departamento' ? '🏢 Departamento' : '🏠 Shangrila'
+      if (p.casa === 'departamento') {
+        const nuevo = (productoRows[0].stock_departamento as number) + p.cantidad
+        await sql`UPDATE productos SET stock_departamento = ${nuevo}, stock_actual = stock_shangrila + ${nuevo} WHERE id = ${productoRows[0].id as string}`
+        await sendMessage(chatId, `✅ Stock actualizado.\n📦 <b>${p.producto}</b> en ${casaLabel}: ${nuevo} bolsas.`)
+      } else {
+        const nuevo = (productoRows[0].stock_shangrila as number) + p.cantidad
+        await sql`UPDATE productos SET stock_shangrila = ${nuevo}, stock_actual = ${nuevo} + stock_departamento WHERE id = ${productoRows[0].id as string}`
+        await sendMessage(chatId, `✅ Stock actualizado.\n📦 <b>${p.producto}</b> en ${casaLabel}: ${nuevo} bolsas.`)
+      }
 
     // ── cancelar_compra_stock ────────────────────────────────────────
     } else if (accion === 'cancelar_compra_stock') {
@@ -507,15 +515,17 @@ export async function POST(req: NextRequest) {
 
     if (resultado.tipo === 'compra_stock') {
       const d = resultado.data as CompraStockData
-      const payloadStr = JSON.stringify({ producto: d.producto, cantidad: d.cantidad, precio: d.precio })
+      const casaNormalizada = d.casa ?? 'shangrila'
+      const payloadStr = JSON.stringify({ producto: d.producto, cantidad: d.cantidad, precio: d.precio, casa: casaNormalizada })
       await sql`
         INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
         VALUES (${chatId}, 'confirmando_compra_stock', null, ${payloadStr}, now())
         ON CONFLICT (chat_id) DO UPDATE SET estado = 'confirmando_compra_stock', venta_id = null, payload = ${payloadStr}, updated_at = now()
       `
       const precioLinea = d.precio ? `\n💵 Precio compra: $${d.precio}/bolsa` : ''
+      const casaLabel = casaNormalizada === 'departamento' ? '🏢 Departamento' : '🏠 Shangrila'
       await sendMessageWithButtons(chatId,
-        `📥 <b>Compra de stock</b>\n\n🛍 Producto: ${d.producto}\n📦 Cantidad: ${d.cantidad} bolsa${d.cantidad > 1 ? 's' : ''}${precioLinea}\n\n¿Confirmar?`,
+        `📥 <b>Compra de stock</b>\n\n🛍 Producto: ${d.producto}\n📦 Cantidad: ${d.cantidad} bolsa${d.cantidad > 1 ? 's' : ''}\n🏠 Casa: ${casaLabel}${precioLinea}\n\n¿Confirmar?`,
         [{ text: '✅ Confirmar', callback_data: 'confirmar_compra_stock' }, { text: '❌ Cancelar', callback_data: 'cancelar_compra_stock' }]
       )
       return NextResponse.json({ ok: true })
@@ -716,9 +726,12 @@ async function procesarVentaConProducto(chatId: string, d: VentaData, dataExtraI
     fechaFin = calcularFechaFinGato(fechaHoyUruguay(), d.intervaloDiasGato).toISOString().split('T')[0]
   }
 
-  const stockRows = await sql`SELECT stock_actual FROM productos WHERE lower(nombre) = lower(${d.producto}) LIMIT 1`
-  const stockWarning = (stockRows.length && (stockRows[0].stock_actual as number) < d.cantidad)
-    ? `\n⚠️ Solo hay ${stockRows[0].stock_actual} bolsa${stockRows[0].stock_actual !== 1 ? 's' : ''} en stock`
+  const casaNormalizada = d.casa ?? 'shangrila'
+  const stockRows = await sql`SELECT stock_actual, stock_shangrila, stock_departamento FROM productos WHERE lower(nombre) = lower(${d.producto}) LIMIT 1`
+  const stockCasa = stockRows.length ? (casaNormalizada === 'departamento' ? stockRows[0].stock_departamento as number : stockRows[0].stock_shangrila as number) : 0
+  const casaLabel = casaNormalizada === 'departamento' ? '🏢 Departamento' : '🏠 Shangrila'
+  const stockWarning = (stockRows.length && stockCasa < d.cantidad)
+    ? `\n⚠️ Solo hay ${stockCasa} bolsa${stockCasa !== 1 ? 's' : ''} en ${casaLabel}`
     : ''
 
   const payload = {
@@ -729,6 +742,7 @@ async function procesarVentaConProducto(chatId: string, d: VentaData, dataExtraI
     clienteNombre: d.clienteNombre, clienteTelefono: d.clienteTelefono,
     clienteDireccion: d.clienteDireccion, mascotaNombre: d.mascotaNombre,
     especie: d.especie, tipoPerro: d.tipoPerro, pesoKg: d.pesoKg,
+    casa: casaNormalizada,
     dataExtraInline,
   }
 
@@ -746,7 +760,7 @@ async function procesarVentaConProducto(chatId: string, d: VentaData, dataExtraI
   const direccionTexto = d.clienteDireccion ? `\n📍 Dirección: ${d.clienteDireccion}` : ''
 
   await sendMessageWithButtons(chatId,
-    `📦 <b>Nueva venta</b>\n\n👤 Cliente: ${d.clienteNombre}${direccionTexto}\n🐾 Mascota: ${d.mascotaNombre} (${d.especie}${pesoTexto})\n🛍 Producto: ${d.producto}${cantidadTexto}\n💰 Precio: $${d.precio}${totalTexto}\n💳 Pago: ${pagoTexto}${stockWarning}\n\n¿Confirmar?`,
+    `📦 <b>Nueva venta</b>\n\n👤 Cliente: ${d.clienteNombre}${direccionTexto}\n🐾 Mascota: ${d.mascotaNombre} (${d.especie}${pesoTexto})\n🛍 Producto: ${d.producto}${cantidadTexto}\n💰 Precio: $${d.precio}${totalTexto}\n💳 Pago: ${pagoTexto}\n${casaLabel} Stock: baja de ${casaLabel}${stockWarning}\n\n¿Confirmar?`,
     [{ text: '✅ Confirmar', callback_data: 'confirmar_venta' }, { text: '❌ Cancelar', callback_data: 'cancelar_venta' }]
   )
 }

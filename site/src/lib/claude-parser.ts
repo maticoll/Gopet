@@ -37,7 +37,8 @@ Para tipo "venta":
     "intervaloDiasGato": number | null,
     "clienteDireccion": "string" | null,
     "clienteTelefono": "string" | null,
-    "registrarSinPreguntar": boolean
+    "registrarSinPreguntar": boolean,
+    "casa": "shangrila" | "departamento" | null
   },
   "faltantes": [],
   "faltanteProducto": {
@@ -72,7 +73,8 @@ Para tipo "ventas_multiples":
       "intervaloDiasGato": number | null,
       "clienteDireccion": "string" | null,
       "clienteTelefono": "string" | null,
-      "registrarSinPreguntar": true
+      "registrarSinPreguntar": true,
+      "casa": "shangrila" | "departamento" | null
     }
   ]
 }
@@ -87,9 +89,11 @@ Para tipo "compra_stock":
   "data": {
     "producto": "string normalizado del catálogo",
     "cantidad": number,
-    "precio": number | null
+    "precio": number | null,
+    "casa": "shangrila" | "departamento" | null
   }
 }
+- casa: inferirla del mensaje de forma natural. "shangrila", "shangri-la", "la casa", "aca", "acá", "casa" → "shangrila". "departamento", "depa", "el depa", "el departamento", "dto" → "departamento". Si no se menciona → null.
 
 Para tipo "actualizar_cliente":
 {
@@ -160,6 +164,7 @@ Reglas para ventas:
 - intervaloDiasGato: SIEMPRE null. NUNCA incluir "intervaloDiasGato" en faltantes — se calcula automáticamente en la segunda compra.
 - cantidad: número de bolsas vendidas (default 1 si no se menciona)
 - registrarSinPreguntar: true si el usuario dice "anotalo así" / "dejalo así" / "registralo así" / "guardalo así" / "así está bien" / "sin más datos" / "solo eso". False en caso contrario.
+- casa: de qué casa se baja el stock. "shangrila", "shangri-la", "la casa", "aca", "acá" → "shangrila". "departamento", "depa", "el depa", "dto" → "departamento". Si no se menciona → null.
 
 Reglas para actualizar_cliente:
 - Detectar mensajes como "el teléfono de [cliente] es [número]" o "la dirección de [cliente] es [dirección]"
@@ -218,6 +223,7 @@ export interface VentaData {
   clienteDireccion: string | null
   clienteTelefono: string | null
   registrarSinPreguntar: boolean
+  casa: 'shangrila' | 'departamento' | null
 }
 
 export interface FaltanteProducto {
@@ -232,6 +238,7 @@ export interface CompraStockData {
   producto: string
   cantidad: number
   precio: number | null
+  casa: 'shangrila' | 'departamento' | null
 }
 
 export interface ActualizarClienteData {

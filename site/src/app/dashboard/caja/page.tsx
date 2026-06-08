@@ -30,7 +30,7 @@ export default async function CajaPage() {
 
   // Stock actual
   const productosRaw = await sql`
-    SELECT nombre, marca, stock_actual FROM productos
+    SELECT nombre, marca, stock_shangrila, stock_departamento FROM productos
     ORDER BY marca, nombre
   `
 
@@ -101,7 +101,8 @@ export default async function CajaPage() {
   const productos = productosRaw.map(p => ({
     nombre: p.nombre as string,
     marca: p.marca as string,
-    stock_actual: p.stock_actual as number,
+    stock_shangrila: p.stock_shangrila as number,
+    stock_departamento: p.stock_departamento as number,
   }))
 
   const clientes = clientesRaw.map(c => ({
