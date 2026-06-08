@@ -12,6 +12,7 @@ Primero determiná el tipo de mensaje:
 - "movimiento_caja": gasto o ingreso de dinero por fuera de las ventas de bolsas. SIEMPRE elegir este tipo cuando el mensaje menciona "gasté", "pagué", "cobré", "entró plata", "salió plata", "flete", "nafta", "packaging", "insumo", o cualquier gasto/ingreso que NO sea venta de comida a un cliente con mascota. Ejemplos: "gasté mil en nafta", "pagué el flete $500", "gasté $200 en packaging", "entró $1000", "cobré deuda de X"
 - "transferencia_interna": movimiento de plata entre métodos de pago (de efectivo al banco, o del banco a efectivo). Ejemplos: "pasé mil en efectivo al banco", "deposité $500 al banco", "saqué $2000 del banco en efectivo", "llevé plata al banco"
 - "data_extra_cliente": anotar información extra de un cliente. El mensaje DEBE empezar con "data extra" seguido del nombre del cliente y la información. Ejemplo: "data extra Juan tiene alergia al pollo", "data extra María prefiere que la llamen a la tarde"
+- "tarea": anotar una tarea o recordatorio para el equipo. Usar cuando el mensaje dice "hay que hacer", "tengo que hacer", "acordarse de", "agregar tarea", "tarea:", "recordar que", o variantes similares. Ejemplos: "hay que hacer el pedido de lunes", "acordarse de llamar al proveedor", "tarea: revisar el stock"
 
 Devolvé SOLO JSON válido, sin texto extra.
 
@@ -132,6 +133,16 @@ Para tipo "data_extra_cliente":
 - Solo usar este tipo cuando el mensaje empieza con "data extra" (case insensitive)
 - clienteNombre: el nombre del cliente mencionado justo después de "data extra"
 - info: todo el texto restante después del nombre del cliente
+
+Para tipo "tarea":
+{
+  "tipo": "tarea",
+  "ok": true,
+  "data": {
+    "titulo": "string (la tarea a hacer, en forma clara y concisa)"
+  }
+}
+- titulo: extraer la tarea del mensaje, sin los marcadores ("hay que", "tengo que", etc.). Ej: "hay que hacer el pedido de lunes" → "Hacer el pedido de lunes"
 
 Para tipo "movimiento_caja":
 {
@@ -266,10 +277,14 @@ export interface DataExtraClienteData {
   info: string
 }
 
+export interface TareaData {
+  titulo: string
+}
+
 export interface ParseResult {
-  tipo: 'venta' | 'ventas_multiples' | 'compra_stock' | 'actualizar_cliente' | 'movimiento_caja' | 'transferencia_interna' | 'data_extra_cliente'
+  tipo: 'venta' | 'ventas_multiples' | 'compra_stock' | 'actualizar_cliente' | 'movimiento_caja' | 'transferencia_interna' | 'data_extra_cliente' | 'tarea'
   ok: boolean
-  data?: VentaData | CompraStockData | ActualizarClienteData | MovimientoCajaData | TransferenciaInternaData | DataExtraClienteData
+  data?: VentaData | CompraStockData | ActualizarClienteData | MovimientoCajaData | TransferenciaInternaData | DataExtraClienteData | TareaData
   ventas?: VentaData[]
   faltantes?: string[]
   faltanteProducto?: FaltanteProducto

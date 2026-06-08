@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { parsearMensaje, type VentaData, type CompraStockData, type ActualizarClienteData, type MovimientoCajaData, type TransferenciaInternaData, type DataExtraClienteData, type FaltanteProducto, type ParseResult } from '@/lib/claude-parser'
+import { parsearMensaje, type VentaData, type CompraStockData, type ActualizarClienteData, type MovimientoCajaData, type TransferenciaInternaData, type DataExtraClienteData, type TareaData, type FaltanteProducto, type ParseResult } from '@/lib/claude-parser'
 import { sendMessage, sendMessageWithButtons, answerCallbackQuery, deleteMessage, getFile, downloadFile, transcribeAudioWithClaude, getAuthorizedChatIds } from '@/lib/telegram'
 import { appendVentaToSheet } from '@/lib/google-sheets'
 import { sql } from '@/lib/db'
@@ -528,6 +528,13 @@ export async function POST(req: NextRequest) {
         `📥 <b>Compra de stock</b>\n\n🛍 Producto: ${d.producto}\n📦 Cantidad: ${d.cantidad} bolsa${d.cantidad > 1 ? 's' : ''}\n🏠 Casa: ${casaLabel}${precioLinea}\n\n¿Confirmar?`,
         [{ text: '✅ Confirmar', callback_data: 'confirmar_compra_stock' }, { text: '❌ Cancelar', callback_data: 'cancelar_compra_stock' }]
       )
+      return NextResponse.json({ ok: true })
+    }
+
+    if (resultado.tipo === 'tarea') {
+      const d = resultado.data as TareaData
+      await sql`INSERT INTO tareas (titulo) VALUES (${d.titulo})`
+      await sendMessage(chatId, `✅ <b>Tarea anotada:</b>\n📝 ${d.titulo}`)
       return NextResponse.json({ ok: true })
     }
 

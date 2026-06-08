@@ -9,6 +9,7 @@ const navLinks = [
   { href: '/dashboard', label: '📊 Dashboard' },
   { href: '/dashboard/caja', label: '💰 Caja' },
   { href: '/dashboard/stock', label: '📦 Stock' },
+  { href: '/dashboard/tareas', label: '✅ Tareas' },
   { href: '/dashboard/info', label: '📈 Info' },
   { href: '/ideas', label: '💡 Ideas' },
   { href: '/agente-meta', label: '📈 Meta' },
