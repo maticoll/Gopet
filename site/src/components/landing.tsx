@@ -476,7 +476,7 @@ export default function Landing() {
   return (
     <>
       {/* ══ NAVBAR ══ */}
-      <header className="fixed top-0 left-0 right-0 z-50 text-white" style={{ backgroundColor:"#3D2010", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
+      <header className="fixed top-0 left-0 right-0 z-50 text-white" style={{ backgroundColor:"#8B0000", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <a href="/" className="flex items-center">
             <Image src="/images/logo gopet sin fondo.png" alt="GoPet" width={110} height={44} className="object-contain" priority />
@@ -507,7 +507,7 @@ export default function Landing() {
         <AnimatePresence>
           {mobileOpen && (
             <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:"auto" }} exit={{ opacity:0, height:0 }}
-                        className="md:hidden overflow-hidden" style={{ backgroundColor:"#3D2010", borderTop:"1px solid rgba(255,255,255,0.08)" }}>
+                        className="md:hidden overflow-hidden" style={{ backgroundColor:"#8B0000", borderTop:"1px solid rgba(255,255,255,0.08)" }}>
               <div className="px-6 py-4 flex flex-col gap-4">
                 <a href="#como-funciona" onClick={()=>setMobileOpen(false)} className="text-white/70 hover:text-white text-sm font-medium">Cómo funciona</a>
                 <a href="#productos"     onClick={()=>setMobileOpen(false)} className="text-white/70 hover:text-white text-sm font-medium">Productos</a>
