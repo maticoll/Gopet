@@ -478,10 +478,8 @@ export default function Landing() {
       {/* ══ NAVBAR ══ */}
       <header className="fixed top-0 left-0 right-0 z-50 text-white" style={{ backgroundColor:"#3D2010", borderBottom:"1px solid rgba(255,255,255,0.08)" }}>
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <a href="/" className="flex items-center gap-1.5 font-heading font-black text-xl tracking-tight">
-            <span style={{ color:"#FFB347" }}>Go</span>
-            <span style={{ color:"#FF6B6B" }}>Pet</span>
-            <PawPrint className="w-4 h-4" style={{ color:"#FF6B6B" }}/>
+          <a href="/" className="flex items-center">
+            <Image src="/images/logo gopet sin fondo.png" alt="GoPet" width={110} height={44} className="object-contain" priority />
           </a>
 
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-white/60">
