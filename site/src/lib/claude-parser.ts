@@ -9,6 +9,7 @@ Primero determiná el tipo de mensaje:
 - "venta": se vendió UN solo producto (o varias bolsas del mismo producto) a un cliente
 - "compras_stock_multiples": llegó mercadería / se compró stock de DOS O MÁS productos DISTINTOS (distintas marcas o tamaños) en un mismo mensaje. Ejemplo: "compramos 15 de maxine adulto y 4 de lager adulto"
 - "compra_stock": llegó mercadería / se compró stock de UN solo producto para revender (sin cliente específico)
+- "editar_venta": CORRECCIÓN o agregado sobre una venta YA registrada de un cliente existente, SIN mencionar un producto/bolsa nuevo. Se usa cuando el mensaje solo aporta datos de PAGO, PRECIO o CANTIDAD de una venta previa. SIEMPRE elegir este tipo (y NO "venta") cuando el mensaje menciona un cliente + info de pago pero NO menciona ninguna bolsa/producto/kg. Ejemplos: "Raquel Fleitas pagó en efectivo", "Juan ya pagó", "lo de María fue con transferencia", "Pedro pagó", "la venta de Ana salió 1850", "fueron 2 bolsas lo de Pablo", "marcá como pagado lo de Selva"
 - "actualizar_cliente": actualizar datos de un cliente existente (teléfono, dirección)
 - "movimiento_caja": gasto o ingreso de dinero por fuera de las ventas de bolsas. SIEMPRE elegir este tipo cuando el mensaje menciona "gasté", "pagué", "cobré", "entró plata", "salió plata", "flete", "nafta", "packaging", "insumo", o cualquier gasto/ingreso que NO sea venta de comida a un cliente con mascota. Ejemplos: "gasté mil en nafta", "pagué el flete $500", "gasté $200 en packaging", "entró $1000", "cobré deuda de X"
 - "transferencia_interna": movimiento de plata entre métodos de pago (de efectivo al banco, o del banco a efectivo). Ejemplos: "pasé mil en efectivo al banco", "deposité $500 al banco", "saqué $2000 del banco en efectivo", "llevé plata al banco"
@@ -145,6 +146,25 @@ Para tipo "actualizar_cliente":
     "direccion": "string" | null
   }
 }
+
+Para tipo "editar_venta":
+{
+  "tipo": "editar_venta",
+  "ok": true,
+  "data": {
+    "clienteNombre": "string",
+    "pagado": boolean | null,
+    "metodoPago": "efectivo" | "transferencia" | null,
+    "precio": number | null,
+    "cantidad": number | null
+  }
+}
+- clienteNombre: SIEMPRE obligatorio. El nombre del cliente cuya venta se quiere editar.
+- pagado: true si el mensaje dice que pagó ("pagó", "ya pagó", "abonó", "saldó", "marcá como pagado"). null si el mensaje no habla del estado de pago.
+- metodoPago: "efectivo" si dice "efectivo" / "en mano" / "cash"; "transferencia" si dice "transferencia" / "transfer" / "banco" / "bizum" / "mercadopago"; null si no se menciona. Si menciona método de pago, asumí también pagado: true.
+- precio: número si el mensaje corrige el precio ("salió 1850", "fue 2330", "el precio era 1500"). null si no.
+- cantidad: número si el mensaje corrige la cantidad de bolsas ("fueron 2 bolsas", "eran 3"). null si no.
+- IMPORTANTE: si el mensaje menciona un producto/bolsa/kg NUEVO, NO es editar_venta, es "venta". editar_venta es SOLO para ajustar pago/precio/cantidad de una venta que ya existe.
 
 Para tipo "transferencia_interna":
 {
@@ -314,6 +334,14 @@ export interface ActualizarClienteData {
   direccion: string | null
 }
 
+export interface EditarVentaData {
+  clienteNombre: string
+  pagado: boolean | null
+  metodoPago: 'efectivo' | 'transferencia' | null
+  precio: number | null
+  cantidad: number | null
+}
+
 export interface TransferenciaInternaData {
   monto: number
   de: 'efectivo' | 'transferencia'
@@ -338,9 +366,9 @@ export interface TareaData {
 }
 
 export interface ParseResult {
-  tipo: 'venta' | 'ventas_multiples' | 'compra_stock' | 'compras_stock_multiples' | 'actualizar_cliente' | 'movimiento_caja' | 'transferencia_interna' | 'data_extra_cliente' | 'tarea'
+  tipo: 'venta' | 'ventas_multiples' | 'compra_stock' | 'compras_stock_multiples' | 'actualizar_cliente' | 'editar_venta' | 'movimiento_caja' | 'transferencia_interna' | 'data_extra_cliente' | 'tarea'
   ok: boolean
-  data?: VentaData | CompraStockData | ActualizarClienteData | MovimientoCajaData | TransferenciaInternaData | DataExtraClienteData | TareaData
+  data?: VentaData | CompraStockData | ActualizarClienteData | EditarVentaData | MovimientoCajaData | TransferenciaInternaData | DataExtraClienteData | TareaData
   ventas?: VentaData[]
   compras?: CompraStockData[]
   faltantes?: string[]

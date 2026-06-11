@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { parsearMensaje, type VentaData, type CompraStockData, type ActualizarClienteData, type MovimientoCajaData, type TransferenciaInternaData, type DataExtraClienteData, type TareaData, type FaltanteProducto, type ParseResult } from '@/lib/claude-parser'
+import { parsearMensaje, type VentaData, type CompraStockData, type ActualizarClienteData, type EditarVentaData, type MovimientoCajaData, type TransferenciaInternaData, type DataExtraClienteData, type TareaData, type FaltanteProducto, type ParseResult } from '@/lib/claude-parser'
 import { sendMessage, sendMessageWithButtons, answerCallbackQuery, deleteMessage, getFile, downloadFile, transcribeAudioWithClaude, getAuthorizedChatIds } from '@/lib/telegram'
 import { appendVentaToSheet } from '@/lib/google-sheets'
 import { sql } from '@/lib/db'
@@ -618,6 +618,55 @@ export async function POST(req: NextRequest) {
         { text: '✅ Confirmar todo', callback_data: 'confirmar_ventas_multiples' },
         { text: '❌ Cancelar', callback_data: 'cancelar_venta' },
       ])
+      return NextResponse.json({ ok: true })
+    }
+
+    if (resultado.tipo === 'editar_venta') {
+      const d = resultado.data as EditarVentaData
+      const clienteRows = await sql`SELECT id, nombre FROM clientes WHERE lower(nombre) LIKE lower(${'%' + d.clienteNombre + '%'}) ORDER BY activo DESC LIMIT 1`
+      if (!clienteRows.length) {
+        await sendMessage(chatId, `❌ No encontré un cliente con el nombre "${d.clienteNombre}".`)
+        return NextResponse.json({ ok: true })
+      }
+      const cId = clienteRows[0].id as string
+      const cNombre = clienteRows[0].nombre as string
+
+      // Última venta del cliente
+      const ventaRows = await sql`SELECT id, producto, precio, cantidad, pagado, metodo_pago FROM ventas WHERE cliente_id = ${cId} ORDER BY fecha_venta DESC, created_at DESC LIMIT 1`
+      if (!ventaRows.length) {
+        await sendMessage(chatId, `❌ ${cNombre} no tiene ventas registradas para editar.`)
+        return NextResponse.json({ ok: true })
+      }
+      const vId = ventaRows[0].id as string
+
+      // Construir cambios
+      const cambios: string[] = []
+      // Si menciona método de pago, asumir pagado=true también
+      const nuevoPagado = d.pagado === true || d.metodoPago !== null ? true : (d.pagado === false ? false : null)
+
+      if (nuevoPagado !== null) {
+        await sql`UPDATE ventas SET pagado = ${nuevoPagado} WHERE id = ${vId}`
+        cambios.push(nuevoPagado ? '💳 ✅ Pagado' : '💳 ⏳ Pendiente')
+      }
+      if (d.metodoPago !== null) {
+        await sql`UPDATE ventas SET metodo_pago = ${d.metodoPago} WHERE id = ${vId}`
+        cambios.push(d.metodoPago === 'efectivo' ? '💵 Efectivo' : '🏦 Transferencia')
+      }
+      if (d.precio !== null && d.precio !== undefined) {
+        await sql`UPDATE ventas SET precio = ${d.precio} WHERE id = ${vId}`
+        cambios.push(`💰 Precio: $${d.precio.toLocaleString('es-UY')}`)
+      }
+      if (d.cantidad !== null && d.cantidad !== undefined) {
+        await sql`UPDATE ventas SET cantidad = ${d.cantidad} WHERE id = ${vId}`
+        cambios.push(`📦 Cantidad: ${d.cantidad}`)
+      }
+
+      if (cambios.length === 0) {
+        await sendMessage(chatId, `⚠️ No entendí qué editar de la venta de ${cNombre}. Probá: "${cNombre} pagó en efectivo".`)
+        return NextResponse.json({ ok: true })
+      }
+
+      await sendMessage(chatId, `✏️ <b>Venta de ${cNombre} actualizada</b>\n🛍 ${ventaRows[0].producto}\n${cambios.join('\n')}`)
       return NextResponse.json({ ok: true })
     }
 
