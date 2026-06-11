@@ -298,16 +298,24 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true })
       }
 
-      const casaLabel = p.casa === 'departamento' ? '🏢 Departamento' : '🏠 Shangrila'
-      if (p.casa === 'departamento') {
-        const nuevo = (productoRows[0].stock_departamento as number) + p.cantidad
-        await sql`UPDATE productos SET stock_departamento = ${nuevo}, stock_actual = stock_shangrila + ${nuevo} WHERE id = ${productoRows[0].id as string}`
-        await sendMessage(chatId, `✅ Stock actualizado.\n📦 <b>${p.producto}</b> en ${casaLabel}: ${nuevo} bolsas.`)
-      } else {
-        const nuevo = (productoRows[0].stock_shangrila as number) + p.cantidad
-        await sql`UPDATE productos SET stock_shangrila = ${nuevo}, stock_actual = ${nuevo} + stock_departamento WHERE id = ${productoRows[0].id as string}`
-        await sendMessage(chatId, `✅ Stock actualizado.\n📦 <b>${p.producto}</b> en ${casaLabel}: ${nuevo} bolsas.`)
+      // Compat: payloads viejos traían { casa, cantidad }; los nuevos traen { distribucion: [{casa, cantidad}] }
+      const distribucion: { casa: string; cantidad: number }[] =
+        Array.isArray(p.distribucion) && p.distribucion.length > 0
+          ? p.distribucion
+          : [{ casa: p.casa === 'departamento' ? 'departamento' : 'shangrila', cantidad: p.cantidad }]
+
+      let stockShangrila = productoRows[0].stock_shangrila as number
+      let stockDepartamento = productoRows[0].stock_departamento as number
+      for (const x of distribucion) {
+        if (x.casa === 'departamento') stockDepartamento += x.cantidad
+        else stockShangrila += x.cantidad
       }
+      await sql`UPDATE productos SET stock_shangrila = ${stockShangrila}, stock_departamento = ${stockDepartamento}, stock_actual = ${stockShangrila} + ${stockDepartamento} WHERE id = ${productoRows[0].id as string}`
+
+      const resumen = distribucion
+        .map(x => `${x.casa === 'departamento' ? '🏢 Departamento' : '🏠 Shangrila'}: ${x.casa === 'departamento' ? stockDepartamento : stockShangrila} bolsas`)
+        .join('\n')
+      await sendMessage(chatId, `✅ Stock actualizado.\n📦 <b>${p.producto}</b>\n${resumen}`)
 
     // ── cancelar_compra_stock ────────────────────────────────────────
     } else if (accion === 'cancelar_compra_stock') {
@@ -515,17 +523,33 @@ export async function POST(req: NextRequest) {
 
     if (resultado.tipo === 'compra_stock') {
       const d = resultado.data as CompraStockData
-      const casaNormalizada = d.casa ?? 'shangrila'
-      const payloadStr = JSON.stringify({ producto: d.producto, cantidad: d.cantidad, precio: d.precio, casa: casaNormalizada })
+
+      // Normalizar la distribución: si vino reparto entre casas, usarlo; si no, una sola casa.
+      const distribucionValida =
+        Array.isArray(d.distribucion) && d.distribucion.length > 0
+          ? d.distribucion.filter(x => x && (x.cantidad as number) > 0)
+          : null
+      const distribucion = distribucionValida && distribucionValida.length > 0
+        ? distribucionValida.map(x => ({
+            casa: x.casa === 'departamento' ? 'departamento' : 'shangrila',
+            cantidad: x.cantidad,
+          }))
+        : [{ casa: d.casa === 'departamento' ? 'departamento' : 'shangrila', cantidad: d.cantidad }]
+
+      const cantidadTotal = distribucion.reduce((sum, x) => sum + (x.cantidad as number), 0)
+
+      const payloadStr = JSON.stringify({ producto: d.producto, precio: d.precio, distribucion })
       await sql`
         INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
         VALUES (${chatId}, 'confirmando_compra_stock', null, ${payloadStr}, now())
         ON CONFLICT (chat_id) DO UPDATE SET estado = 'confirmando_compra_stock', venta_id = null, payload = ${payloadStr}, updated_at = now()
       `
       const precioLinea = d.precio ? `\n💵 Precio compra: $${d.precio}/bolsa` : ''
-      const casaLabel = casaNormalizada === 'departamento' ? '🏢 Departamento' : '🏠 Shangrila'
+      const casaLineas = distribucion
+        .map(x => `${x.casa === 'departamento' ? '🏢 Departamento' : '🏠 Shangrila'}: ${x.cantidad} bolsa${x.cantidad > 1 ? 's' : ''}`)
+        .join('\n')
       await sendMessageWithButtons(chatId,
-        `📥 <b>Compra de stock</b>\n\n🛍 Producto: ${d.producto}\n📦 Cantidad: ${d.cantidad} bolsa${d.cantidad > 1 ? 's' : ''}\n🏠 Casa: ${casaLabel}${precioLinea}\n\n¿Confirmar?`,
+        `📥 <b>Compra de stock</b>\n\n🛍 Producto: ${d.producto}\n📦 Cantidad: ${cantidadTotal} bolsa${cantidadTotal > 1 ? 's' : ''}\n${casaLineas}${precioLinea}\n\n¿Confirmar?`,
         [{ text: '✅ Confirmar', callback_data: 'confirmar_compra_stock' }, { text: '❌ Cancelar', callback_data: 'cancelar_compra_stock' }]
       )
       return NextResponse.json({ ok: true })

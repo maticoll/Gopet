@@ -91,10 +91,14 @@ Para tipo "compra_stock":
     "producto": "string normalizado del catálogo",
     "cantidad": number,
     "precio": number | null,
-    "casa": "shangrila" | "departamento" | null
+    "casa": "shangrila" | "departamento" | null,
+    "distribucion": [ { "casa": "shangrila" | "departamento", "cantidad": number } ] | null
   }
 }
+- producto: SIEMPRE obligatorio. Normalizar al catálogo (ej "maxine adulto 25kg" → "Maxine Adulto 21+4 kg").
+- cantidad: SIEMPRE el TOTAL de bolsas compradas (ej "compramos 12 bolsas" → 12).
 - casa: inferirla del mensaje de forma natural. "shangrila", "shangri-la", "la casa", "aca", "acá", "casa" → "shangrila". "departamento", "depa", "el depa", "el departamento", "dto" → "departamento". Si no se menciona → null.
+- distribucion: SOLO si la compra se reparte entre las DOS casas (ej "6 fueron para shangrila y 6 para el departamento"). En ese caso poner una entrada por casa con su cantidad, y "cantidad" = suma total (12). Si toda la compra va a una sola casa (o no se especifica), poner distribucion = null y usar "casa".
 
 Para tipo "actualizar_cliente":
 {
@@ -250,6 +254,7 @@ export interface CompraStockData {
   cantidad: number
   precio: number | null
   casa: 'shangrila' | 'departamento' | null
+  distribucion: { casa: 'shangrila' | 'departamento'; cantidad: number }[] | null
 }
 
 export interface ActualizarClienteData {
