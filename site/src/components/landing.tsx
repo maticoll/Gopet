@@ -490,7 +490,8 @@ export default function Landing() {
 
           <div className="hidden md:flex items-center gap-3">
             <a href={igURL} target="_blank" rel="noopener noreferrer"
-               className="flex items-center gap-2 text-sm font-medium text-black/50 hover:text-black transition-colors">
+               className="flex items-center gap-2 px-4 py-2 rounded-full text-white text-sm font-heading font-bold hover:opacity-90 transition-opacity cursor-pointer"
+               style={{ background:"linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)" }}>
               <IgIcon className="w-4 h-4"/> @{IG_HANDLE}
             </a>
             <a href={generalWA} target="_blank" rel="noopener noreferrer"
