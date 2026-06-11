@@ -50,7 +50,7 @@ export function CrmTable({ clientes }: { clientes: ClienteRow[] }) {
 
   const handleDelete = (clienteId: string) => {
     startTransition(async () => {
-      const result = await eliminarClienteConVentas(clienteId, '')
+      const result = await eliminarClienteConVentas(clienteId)
       if (result.success) {
         setDeletingId(null)
         router.refresh()
