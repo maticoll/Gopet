@@ -9,10 +9,10 @@ export default async function StockPage() {
     SELECT nombre, marca, stock_shangrila, stock_departamento FROM productos
     ORDER BY
       CASE marca
-        WHEN 'Maxiene' THEN 1
-        WHEN 'Lager'   THEN 2
-        WHEN 'Connie'  THEN 3
-        WHEN 'Wits'    THEN 4
+        WHEN 'Maxine' THEN 1
+        WHEN 'Lager'  THEN 2
+        WHEN 'Connie' THEN 3
+        WHEN 'Wits'   THEN 4
         ELSE 5
       END,
       nombre
