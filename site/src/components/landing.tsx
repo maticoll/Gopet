@@ -527,7 +527,12 @@ export default function Landing() {
             Guardar imagen en: site/public/images/hero-bg.jpg
         ══════════════════════════════════════════════════════ */}
         <section className="order-1 sm:order-none relative min-h-screen text-white overflow-hidden flex flex-col items-center justify-center"
-                 style={{ backgroundImage:"url('/images/fondo%201.png')", backgroundSize:"cover", backgroundPosition:"center center", backgroundColor:"#2a4a1a" }}>
+                 style={{ backgroundColor:"#2a4a1a" }}>
+          {/* Fondo mobile (portrait) */}
+          <div className="absolute inset-0 sm:hidden" style={{ backgroundImage:"url('/images/fondo%201%20celular.PNG')", backgroundSize:"cover", backgroundPosition:"center center" }}/>
+          {/* Fondo desktop (landscape) */}
+          <div className="absolute inset-0 hidden sm:block" style={{ backgroundImage:"url('/images/fondo%201%20computadora.png')", backgroundSize:"cover", backgroundPosition:"center center" }}/>
+
           {/* Overlay: más oscuro arriba (cielo claro), transparente al centro, sutil abajo */}
           <div className="absolute inset-0 pointer-events-none" style={{
             background:"linear-gradient(to bottom, rgba(20,40,10,0.72) 0%, rgba(20,40,10,0.35) 40%, rgba(20,40,10,0.55) 70%, rgba(20,40,10,0.80) 100%)"
