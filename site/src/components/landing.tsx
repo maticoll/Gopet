@@ -4,7 +4,6 @@ import { useState } from "react";
 import Image from "next/image";
 import { PawPrint, Truck, Tag, Heart, Headphones, ChevronRight, Menu, X, Zap, ShieldCheck, Leaf } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import DogGame from "@/components/DogGame";
 
 const WA_NUMBER = "59892262052";
 const IG_HANDLE = "gopet_uy";
@@ -527,41 +526,42 @@ export default function Landing() {
             HERO — imagen de fondo full-screen
             Guardar imagen en: site/public/images/hero-bg.jpg
         ══════════════════════════════════════════════════════ */}
-        <section className="order-1 sm:order-none relative min-h-screen text-white overflow-hidden flex flex-col justify-end"
-                 style={{ backgroundImage:"url('/images/hero-bg.jpg')", backgroundSize:"cover", backgroundPosition:"center bottom", backgroundColor:"#3D2010" }}>
+        <section className="order-1 sm:order-none relative min-h-screen text-white overflow-hidden flex flex-col items-center justify-center"
+                 style={{ backgroundImage:"url('/images/fondo%201.png')", backgroundSize:"cover", backgroundPosition:"center center", backgroundColor:"#2a4a1a" }}>
+          {/* Overlay: más oscuro arriba (cielo claro), transparente al centro, sutil abajo */}
           <div className="absolute inset-0 pointer-events-none" style={{
-            background:"linear-gradient(to bottom, rgba(61,32,16,0.3) 0%, rgba(61,32,16,0.05) 35%, rgba(61,32,16,0.55) 65%, rgba(61,32,16,0.96) 100%)"
+            background:"linear-gradient(to bottom, rgba(20,40,10,0.72) 0%, rgba(20,40,10,0.35) 40%, rgba(20,40,10,0.55) 70%, rgba(20,40,10,0.80) 100%)"
           }}/>
 
-          <div className="relative z-10 max-w-6xl mx-auto w-full px-6 pb-20 pt-32">
-            <motion.div initial={{ opacity:0, y:24 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.7, ease:[0.25,1,0.5,1] }} className="max-w-2xl">
-              <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full text-xs text-white/70"
-                   style={{ border:"1px solid rgba(255,255,255,0.2)", backgroundColor:"rgba(0,0,0,0.25)", backdropFilter:"blur(8px)" }}>
+          <div className="relative z-10 max-w-4xl mx-auto w-full px-6 py-32 flex flex-col items-center text-center">
+            <motion.div initial={{ opacity:0, y:24 }} animate={{ opacity:1, y:0 }} transition={{ duration:0.7, ease:[0.25,1,0.5,1] }} className="flex flex-col items-center">
+              <div className="inline-flex items-center gap-2 mb-7 px-4 py-2 rounded-full text-xs text-white/80"
+                   style={{ border:"1px solid rgba(255,255,255,0.25)", backgroundColor:"rgba(0,0,0,0.3)", backdropFilter:"blur(10px)" }}>
                 <span className="w-1.5 h-1.5 rounded-full bg-[#25D366]"/>
                 Uruguay · Envío gratis a domicilio
               </div>
 
-              <h1 className="font-heading font-black leading-[0.88] tracking-tighter mb-5 text-[clamp(2.4rem,8vw,6.5rem)]">
-                La Ración<br/>Que Tu<br/>
-                Mascota<br/>
-                <span style={{ color:"#FFB347" }}>Merece.</span>
+              <h1 className="font-heading font-black leading-[0.88] tracking-tighter mb-6 text-[clamp(2.8rem,9vw,7rem)]">
+                La Ración Que<br/>
+                Tu Mascota<br/>
+                <span style={{ color:"#FFD166" }}>Merece.</span>
               </h1>
 
-              <p className="text-white/65 text-base sm:text-lg max-w-md mb-8 leading-relaxed">
-                Alimento premium Maxine y Lager — Agrofeed Uruguay. Envío gratis a domicilio. Todo por WhatsApp.
+              <p className="text-white/75 text-base sm:text-xl max-w-lg mb-10 leading-relaxed">
+                Alimento premium Maxine y Lager — Agrofeed Uruguay.<br className="hidden sm:block"/>
+                Envío gratis a domicilio. Todo por WhatsApp.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-3 mb-10">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <a href={generalWA} target="_blank" rel="noopener noreferrer"
-                   className="inline-flex items-center justify-center gap-2.5 px-7 py-4 rounded-full bg-[#25D366] text-white font-heading font-bold text-base hover:bg-[#1eba58] transition-colors cursor-pointer shadow-lg shadow-black/30">
+                   className="inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-full bg-[#25D366] text-white font-heading font-bold text-base hover:bg-[#1eba58] transition-colors cursor-pointer shadow-xl shadow-black/40">
                   <WaIcon className="w-5 h-5"/> Hacer un pedido
                 </a>
                 <a href="#productos"
-                   className="inline-flex items-center justify-center gap-2 px-7 py-4 rounded-full border border-white/25 bg-black/20 text-white font-heading font-bold text-base hover:bg-black/40 transition-colors cursor-pointer" style={{ backdropFilter:"blur(8px)" }}>
+                   className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full border border-white/30 bg-white/10 text-white font-heading font-bold text-base hover:bg-white/20 transition-colors cursor-pointer" style={{ backdropFilter:"blur(8px)" }}>
                   Ver productos <ChevronRight className="w-4 h-4"/>
                 </a>
               </div>
-
             </motion.div>
           </div>
 
@@ -909,33 +909,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <div className="hidden sm:block"><SectionDivider fromColor="#F0FFF6" toColor="#FEF9E7"/></div>
-
-        {/* ══════════════════════════════════════════════════════
-            MINIJUEGO — perro come raciones
-        ══════════════════════════════════════════════════════ */}
-        <section className="order-8 sm:order-none py-24 px-6" style={{ backgroundColor:"#FEF9E7" }}>
-          <div className="max-w-6xl mx-auto">
-            <motion.div initial={{ opacity:0, y:16 }} whileInView={{ opacity:1, y:0 }}
-                        viewport={{ once:true }} transition={{ duration:0.55 }}
-                        className="text-center mb-10">
-              <span className="inline-flex items-center gap-3 text-[11px] font-medium tracking-[0.2em] uppercase mb-5" style={{ color:"#C4804A" }}>
-                <span className="w-10 h-px inline-block" style={{ backgroundColor:"#E8C8A8" }}/>
-                Mini juego
-                <span className="w-10 h-px inline-block" style={{ backgroundColor:"#E8C8A8" }}/>
-              </span>
-              <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter mb-2" style={{ color:"#3D2010" }}>
-                ¿Aburrido esperando <span style={{ color:"#E87010" }}>el delivery?</span> 🐶
-              </h2>
-              <p style={{ color:"#9C7050" }}>Ayudá al perro a comer sus raciones. Flechas del teclado o deslizá.</p>
-            </motion.div>
-            <div className="flex justify-center">
-              <DogGame />
-            </div>
-          </div>
-        </section>
-
-        <div className="hidden sm:block"><SectionDivider fromColor="#FEF9E7" toColor="#E87010"/></div>
+        <div className="hidden sm:block"><SectionDivider fromColor="#F0FFF6" toColor="#E87010"/></div>
 
         {/* ══════════════════════════════════════════════════════
             CTA FINAL — naranja cálido y juguetón
