@@ -310,7 +310,8 @@ export async function POST(req: NextRequest) {
         if (x.casa === 'departamento') stockDepartamento += x.cantidad
         else stockShangrila += x.cantidad
       }
-      await sql`UPDATE productos SET stock_shangrila = ${stockShangrila}, stock_departamento = ${stockDepartamento}, stock_actual = ${stockShangrila} + ${stockDepartamento} WHERE id = ${productoRows[0].id as string}`
+      const stockTotal = stockShangrila + stockDepartamento
+      await sql`UPDATE productos SET stock_shangrila = ${stockShangrila}, stock_departamento = ${stockDepartamento}, stock_actual = ${stockTotal} WHERE id = ${productoRows[0].id as string}`
 
       const resumen = distribucion
         .map(x => `${x.casa === 'departamento' ? '🏢 Departamento' : '🏠 Shangrila'}: ${x.casa === 'departamento' ? stockDepartamento : stockShangrila} bolsas`)
