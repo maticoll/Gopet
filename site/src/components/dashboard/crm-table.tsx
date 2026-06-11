@@ -30,8 +30,15 @@ interface ClienteRow {
   clienteId: string
   clienteNombre: string
   direccion: string | null
+  primeraCompra: string | null
+  ultimaCompra: string | null
   mascotas: MascotaRow[]
   proximosDias: number | null
+}
+
+function formatFecha(fecha: string | null): string {
+  if (!fecha) return '—'
+  return new Date(fecha + 'T12:00:00').toLocaleDateString('es-UY')
 }
 
 function colorDias(dias: number | null) {
@@ -98,6 +105,8 @@ export function CrmTable({ clientes }: { clientes: ClienteRow[] }) {
               <th className="text-left text-slate-500 font-medium py-2 px-3 text-xs uppercase tracking-wide">Cliente</th>
               <th className="text-left text-slate-500 font-medium py-2 px-3 text-xs uppercase tracking-wide hidden sm:table-cell">Mascotas</th>
               <th className="text-left text-slate-500 font-medium py-2 px-3 text-xs uppercase tracking-wide hidden lg:table-cell">Dirección</th>
+              <th className="text-left text-slate-500 font-medium py-2 px-3 text-xs uppercase tracking-wide hidden md:table-cell">1ª compra</th>
+              <th className="text-left text-slate-500 font-medium py-2 px-3 text-xs uppercase tracking-wide hidden md:table-cell">Últ. compra</th>
               <th className="text-left text-slate-500 font-medium py-2 px-3 text-xs uppercase tracking-wide">Próx. fin bolsa</th>
               <th className="text-right text-slate-500 font-medium py-2 px-3 text-xs uppercase tracking-wide w-16"></th>
             </tr>
@@ -146,6 +155,16 @@ export function CrmTable({ clientes }: { clientes: ClienteRow[] }) {
                   {/* Dirección */}
                   <td className="py-3 px-3 text-slate-400 hidden lg:table-cell">
                     {c.direccion ?? '—'}
+                  </td>
+
+                  {/* Primera compra */}
+                  <td className="py-3 px-3 text-slate-400 hidden md:table-cell">
+                    {formatFecha(c.primeraCompra)}
+                  </td>
+
+                  {/* Última compra */}
+                  <td className="py-3 px-3 text-slate-300 hidden md:table-cell">
+                    {formatFecha(c.ultimaCompra)}
                   </td>
 
                   {/* Fin de bolsa más urgente */}
@@ -201,7 +220,7 @@ export function CrmTable({ clientes }: { clientes: ClienteRow[] }) {
             })}
             {filtrados.length === 0 && (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-slate-600">
+                <td colSpan={7} className="py-8 text-center text-slate-600">
                   No se encontraron clientes
                 </td>
               </tr>

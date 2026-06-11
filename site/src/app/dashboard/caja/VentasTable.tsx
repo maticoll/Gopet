@@ -90,7 +90,7 @@ export default function VentasTable({
       <table className="w-full text-sm">
         <thead>
           <tr className="text-slate-400 border-b border-slate-800">
-            <th className="text-left py-2 pr-3">Fecha</th>
+            <th className="text-left py-2 pr-3 text-amber-400/80">Fecha compra</th>
             <th className="text-left py-2 pr-3">Cliente</th>
             <th className="text-left py-2 pr-3">Producto</th>
             <th className="text-right py-2 pr-3">P/u</th>
@@ -200,8 +200,10 @@ export default function VentasTable({
 
             return (
               <tr key={v.id} className={`border-b border-slate-800/50 ${!v.pagado ? 'bg-red-950/30' : ''}`}>
-                <td className="py-2 pr-3 text-slate-400">
-                  {new Date(v.fecha_venta + 'T12:00:00').toLocaleDateString('es-UY')}
+                <td className="py-2 pr-3 whitespace-nowrap">
+                  <span className="text-amber-300 font-semibold">
+                    {new Date(v.fecha_venta + 'T12:00:00').toLocaleDateString('es-UY')}
+                  </span>
                 </td>
                 <td className="py-2 pr-3 text-white">{v.cliente_nombre ?? '—'}</td>
                 <td className="py-2 pr-3 text-slate-300">{v.producto}</td>

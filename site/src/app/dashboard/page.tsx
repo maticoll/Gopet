@@ -13,6 +13,14 @@ export default async function DashboardPage() {
         v.fecha_estimada_fin
       FROM ventas v
       ORDER BY v.perro_id, v.fecha_venta DESC
+    ),
+    compras_cliente AS (
+      SELECT
+        v.cliente_id,
+        MIN(v.fecha_venta) AS primera_compra,
+        MAX(v.fecha_venta) AS ultima_compra
+      FROM ventas v
+      GROUP BY v.cliente_id
     )
     SELECT
       c.id          AS cliente_id,
@@ -23,10 +31,13 @@ export default async function DashboardPage() {
       p.especie,
       p.peso_kg,
       uv.producto,
-      uv.fecha_estimada_fin
+      uv.fecha_estimada_fin,
+      cc.primera_compra,
+      cc.ultima_compra
     FROM clientes c
     JOIN perros p ON p.cliente_id = c.id
     LEFT JOIN ultima_venta uv ON uv.perro_id = p.id
+    LEFT JOIN compras_cliente cc ON cc.cliente_id = c.id
     WHERE c.activo = true
     ORDER BY c.nombre ASC
   `
@@ -36,6 +47,8 @@ export default async function DashboardPage() {
     clienteId: string
     clienteNombre: string
     direccion: string | null
+    primeraCompra: string | null
+    ultimaCompra: string | null
     mascotas: {
       mascotaId: string
       mascotaNombre: string
@@ -55,6 +68,8 @@ export default async function DashboardPage() {
         clienteId: cId,
         clienteNombre: r.cliente_nombre as string,
         direccion: r.direccion as string | null,
+        primeraCompra: r.primera_compra ? String(r.primera_compra).slice(0, 10) : null,
+        ultimaCompra: r.ultima_compra ? String(r.ultima_compra).slice(0, 10) : null,
         mascotas: [],
         proximosDias: null,
       })
