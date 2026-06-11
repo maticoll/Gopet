@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import DogGame from "@/components/DogGame";
 import Image from "next/image";
 import { PawPrint, Truck, Tag, Heart, Headphones, ChevronRight, Menu, X, Zap, ShieldCheck, Leaf } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -914,7 +915,33 @@ export default function Landing() {
           </div>
         </section>
 
-        <div className="hidden sm:block"><SectionDivider fromColor="#F0FFF6" toColor="#E87010"/></div>
+        <div className="hidden sm:block"><SectionDivider fromColor="#F0FFF6" toColor="#FEF9E7"/></div>
+
+        {/* ══════════════════════════════════════════════════════
+            MINIJUEGO — perro come raciones
+        ══════════════════════════════════════════════════════ */}
+        <section className="order-8 sm:order-none py-24 px-6" style={{ backgroundColor:"#FEF9E7" }}>
+          <div className="max-w-6xl mx-auto">
+            <motion.div initial={{ opacity:0, y:16 }} whileInView={{ opacity:1, y:0 }}
+                        viewport={{ once:true }} transition={{ duration:0.55 }}
+                        className="text-center mb-10">
+              <span className="inline-flex items-center gap-3 text-[11px] font-medium tracking-[0.2em] uppercase mb-5" style={{ color:"#C4804A" }}>
+                <span className="w-10 h-px inline-block" style={{ backgroundColor:"#E8C8A8" }}/>
+                Mini juego
+                <span className="w-10 h-px inline-block" style={{ backgroundColor:"#E8C8A8" }}/>
+              </span>
+              <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter mb-2" style={{ color:"#3D2010" }}>
+                ¿Aburrido esperando <span style={{ color:"#E87010" }}>el delivery?</span> 🐶
+              </h2>
+              <p style={{ color:"#9C7050" }}>Ayudá al perro a comer sus raciones. Flechas del teclado o deslizá.</p>
+            </motion.div>
+            <div className="flex justify-center">
+              <DogGame />
+            </div>
+          </div>
+        </section>
+
+        <div className="hidden sm:block"><SectionDivider fromColor="#FEF9E7" toColor="#E87010"/></div>
 
         {/* ══════════════════════════════════════════════════════
             CTA FINAL — naranja cálido y juguetón
