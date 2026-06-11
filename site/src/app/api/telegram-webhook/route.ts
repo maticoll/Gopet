@@ -289,50 +289,30 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true })
       }
       const p = estados[0].payload as any
-
-      const productoRows = await sql`SELECT id, stock_shangrila, stock_departamento FROM productos WHERE lower(nombre) = lower(${p.producto}) LIMIT 1`
       await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
 
-      if (!productoRows.length) {
-        await sendMessage(chatId, `⚠️ Producto "<b>${p.producto}</b>" no encontrado en el catálogo.`)
+      const res = await aplicarCompraStock(p)
+      await sendMessage(chatId, res.ok ? `✅ Stock actualizado.\n${res.resumen}` : res.resumen)
+
+    // ── confirmar_compras_stock_multiples ────────────────────────────
+    } else if (accion === 'confirmar_compras_stock_multiples') {
+      if (messageId) await deleteMessage(chatId, messageId)
+
+      const estados = await sql`SELECT payload FROM telegram_estados WHERE chat_id = ${chatId}`
+      if (!estados.length || !estados[0].payload) {
+        await sendMessage(chatId, '⚠️ No hay compra pendiente de confirmación.')
         return NextResponse.json({ ok: true })
       }
+      const p = estados[0].payload as any
+      await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
 
-      // Compat: payloads viejos traían { casa, cantidad }; los nuevos traen { distribucion: [{casa, cantidad}] }
-      const distribucion: { casa: string; cantidad: number }[] =
-        Array.isArray(p.distribucion) && p.distribucion.length > 0
-          ? p.distribucion
-          : [{ casa: p.casa === 'departamento' ? 'departamento' : 'shangrila', cantidad: p.cantidad }]
-
-      let stockShangrila = productoRows[0].stock_shangrila as number
-      let stockDepartamento = productoRows[0].stock_departamento as number
-      for (const x of distribucion) {
-        if (x.casa === 'departamento') stockDepartamento += x.cantidad
-        else stockShangrila += x.cantidad
+      const compras = (p.compras as any[]) ?? []
+      const lineas: string[] = []
+      for (const c of compras) {
+        const res = await aplicarCompraStock(c)
+        lineas.push(res.resumen)
       }
-      const stockTotal = stockShangrila + stockDepartamento
-      await sql`UPDATE productos SET stock_shangrila = ${stockShangrila}, stock_departamento = ${stockDepartamento}, stock_actual = ${stockTotal} WHERE id = ${productoRows[0].id as string}`
-
-      // Registrar el gasto en caja (solo si hay un costo)
-      let gastoLinea = ''
-      const costoTotal = p.costoTotal as number | null
-      if (costoTotal && costoTotal > 0) {
-        const cantidadTotal = (p.cantidadTotal as number) ?? distribucion.reduce((s, x) => s + x.cantidad, 0)
-        const pagado = p.pagado !== false
-        const descripcion = `Compra stock: ${p.producto} ×${cantidadTotal}`
-        await sql`
-          INSERT INTO movimientos_caja (descripcion, monto, categoria, metodo_pago, etiqueta, pagado, fecha_limite_pago)
-          VALUES (${descripcion}, ${costoTotal}, ${'egreso'}, ${p.metodoPago ?? null}, ${'Compra stock'}, ${pagado}, ${p.fechaLimitePago ?? null}::date)
-        `
-        gastoLinea = pagado
-          ? `\n💸 Gasto registrado en caja: $${costoTotal.toLocaleString('es-UY')} (✅ pagado)`
-          : `\n💸 Gasto registrado en caja: $${costoTotal.toLocaleString('es-UY')} (⏳ NO pagado${p.fechaLimitePago ? ` · vence ${new Date(p.fechaLimitePago + 'T12:00:00').toLocaleDateString('es-UY')}` : ''})`
-      }
-
-      const resumen = distribucion
-        .map(x => `${x.casa === 'departamento' ? '🏢 Departamento' : '🏠 Shangrila'}: ${x.casa === 'departamento' ? stockDepartamento : stockShangrila} bolsas`)
-        .join('\n')
-      await sendMessage(chatId, `✅ Stock actualizado.\n📦 <b>${p.producto}</b>\n${resumen}${gastoLinea}`)
+      await sendMessage(chatId, `✅ Stock actualizado (${compras.length} productos).\n\n${lineas.join('\n')}`)
 
     // ── cancelar_compra_stock ────────────────────────────────────────
     } else if (accion === 'cancelar_compra_stock') {
@@ -539,59 +519,41 @@ export async function POST(req: NextRequest) {
     }
 
     if (resultado.tipo === 'compra_stock') {
-      const d = resultado.data as CompraStockData
+      const c = normalizarCompraStock(resultado.data as CompraStockData)
 
-      // Normalizar la distribución: si vino reparto entre casas, usarlo; si no, una sola casa.
-      const distribucionValida =
-        Array.isArray(d.distribucion) && d.distribucion.length > 0
-          ? d.distribucion.filter(x => x && (x.cantidad as number) > 0)
-          : null
-      const distribucion = distribucionValida && distribucionValida.length > 0
-        ? distribucionValida.map(x => ({
-            casa: x.casa === 'departamento' ? 'departamento' : 'shangrila',
-            cantidad: x.cantidad,
-          }))
-        : [{ casa: d.casa === 'departamento' ? 'departamento' : 'shangrila', cantidad: d.cantidad }]
-
-      const cantidadTotal = distribucion.reduce((sum, x) => sum + (x.cantidad as number), 0)
-
-      // Costo total del gasto: lo que dijo el usuario, o precio/bolsa × cantidad
-      const costoTotal = (d.costoTotal && d.costoTotal > 0)
-        ? d.costoTotal
-        : (d.precio && d.precio > 0 ? d.precio * cantidadTotal : null)
-      const pagado = d.pagado !== false   // default true salvo que diga explícitamente que no pagó
-      const metodoPago = d.metodoPago ?? null
-
-      // Fecha límite de pago: fecha absoluta si la dio, o hoy + diasParaPago
-      let fechaLimitePago: string | null = null
-      if (d.fechaLimitePago) {
-        fechaLimitePago = d.fechaLimitePago
-      } else if (d.diasParaPago && d.diasParaPago > 0) {
-        const limite = fechaHoyUruguay()
-        limite.setDate(limite.getDate() + d.diasParaPago)
-        fechaLimitePago = limite.toISOString().split('T')[0]
-      }
-
-      const payloadStr = JSON.stringify({ producto: d.producto, precio: d.precio, distribucion, costoTotal, pagado, metodoPago, fechaLimitePago, cantidadTotal })
+      const payloadStr = JSON.stringify(c)
       await sql`
         INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
         VALUES (${chatId}, 'confirmando_compra_stock', null, ${payloadStr}, now())
         ON CONFLICT (chat_id) DO UPDATE SET estado = 'confirmando_compra_stock', venta_id = null, payload = ${payloadStr}, updated_at = now()
       `
-      const precioLinea = d.precio ? `\n💵 Precio compra: $${d.precio}/bolsa` : ''
-      const costoLinea = costoTotal ? `\n💸 Costo total: $${costoTotal.toLocaleString('es-UY')}` : ''
-      const metodoLinea = metodoPago ? ` (${metodoPago === 'transferencia' ? '🏦 transferencia' : '💵 efectivo'})` : ''
-      const pagoLinea = costoTotal
-        ? (pagado
-            ? `\n💳 Pago: ✅ Pagado${metodoLinea}`
-            : `\n💳 Pago: ⏳ NO pagado${fechaLimitePago ? ` · vence ${new Date(fechaLimitePago + 'T12:00:00').toLocaleDateString('es-UY')}` : ''}`)
-        : ''
-      const casaLineas = distribucion
-        .map(x => `${x.casa === 'departamento' ? '🏢 Departamento' : '🏠 Shangrila'}: ${x.cantidad} bolsa${x.cantidad > 1 ? 's' : ''}`)
-        .join('\n')
       await sendMessageWithButtons(chatId,
-        `📥 <b>Compra de stock</b>\n\n🛍 Producto: ${d.producto}\n📦 Cantidad: ${cantidadTotal} bolsa${cantidadTotal > 1 ? 's' : ''}\n${casaLineas}${precioLinea}${costoLinea}${pagoLinea}\n\n¿Confirmar?`,
+        `📥 <b>Compra de stock</b>\n\n${bloqueCompraTexto(c)}\n\n¿Confirmar?`,
         [{ text: '✅ Confirmar', callback_data: 'confirmar_compra_stock' }, { text: '❌ Cancelar', callback_data: 'cancelar_compra_stock' }]
+      )
+      return NextResponse.json({ ok: true })
+    }
+
+    if (resultado.tipo === 'compras_stock_multiples') {
+      const comprasRaw = resultado.compras ?? []
+      const compras = comprasRaw.map(normalizarCompraStock)
+      if (compras.length === 0) {
+        await sendMessage(chatId, 'No pude entender qué productos se compraron. Intentá de nuevo.')
+        return NextResponse.json({ ok: true })
+      }
+
+      const payloadStr = JSON.stringify({ compras })
+      await sql`
+        INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
+        VALUES (${chatId}, 'confirmando_compras_stock_multiples', null, ${payloadStr}, now())
+        ON CONFLICT (chat_id) DO UPDATE SET estado = 'confirmando_compras_stock_multiples', venta_id = null, payload = ${payloadStr}, updated_at = now()
+      `
+      const bloques = compras.map((c, i) => `<b>${i + 1}.</b> ${bloqueCompraTexto(c)}`).join('\n\n')
+      const totalGasto = compras.reduce((s, c) => s + (c.costoTotal ?? 0), 0)
+      const totalLinea = totalGasto > 0 ? `\n\n💰 <b>Gasto total: $${totalGasto.toLocaleString('es-UY')}</b>` : ''
+      await sendMessageWithButtons(chatId,
+        `📥 <b>Compra de stock (${compras.length} productos)</b>\n\n${bloques}${totalLinea}\n\n¿Confirmar?`,
+        [{ text: '✅ Confirmar todo', callback_data: 'confirmar_compras_stock_multiples' }, { text: '❌ Cancelar', callback_data: 'cancelar_compra_stock' }]
       )
       return NextResponse.json({ ok: true })
     }
@@ -741,6 +703,104 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ ok: true })
+}
+
+// ── Helpers compra de stock ─────────────────────────────────────────────────
+
+type CompraNormalizada = {
+  producto: string
+  distribucion: { casa: string; cantidad: number }[]
+  cantidadTotal: number
+  costoTotal: number | null
+  pagado: boolean
+  metodoPago: string | null
+  fechaLimitePago: string | null
+}
+
+// Normaliza una compra parseada: arma distribución entre casas, costo total y datos de pago.
+function normalizarCompraStock(d: CompraStockData): CompraNormalizada {
+  const distribucionValida =
+    Array.isArray(d.distribucion) && d.distribucion.length > 0
+      ? d.distribucion.filter(x => x && (x.cantidad as number) > 0)
+      : null
+  const distribucion = distribucionValida && distribucionValida.length > 0
+    ? distribucionValida.map(x => ({
+        casa: x.casa === 'departamento' ? 'departamento' : 'shangrila',
+        cantidad: x.cantidad,
+      }))
+    : [{ casa: d.casa === 'departamento' ? 'departamento' : 'shangrila', cantidad: d.cantidad }]
+
+  const cantidadTotal = distribucion.reduce((sum, x) => sum + (x.cantidad as number), 0)
+  const costoTotal = (d.costoTotal && d.costoTotal > 0)
+    ? d.costoTotal
+    : (d.precio && d.precio > 0 ? d.precio * cantidadTotal : null)
+  const pagado = d.pagado !== false
+  const metodoPago = d.metodoPago ?? null
+
+  let fechaLimitePago: string | null = null
+  if (d.fechaLimitePago) {
+    fechaLimitePago = d.fechaLimitePago
+  } else if (d.diasParaPago && d.diasParaPago > 0) {
+    const limite = fechaHoyUruguay()
+    limite.setDate(limite.getDate() + d.diasParaPago)
+    fechaLimitePago = limite.toISOString().split('T')[0]
+  }
+
+  return { producto: d.producto, distribucion, cantidadTotal, costoTotal, pagado, metodoPago, fechaLimitePago }
+}
+
+// Texto del bloque de confirmación de una compra.
+function bloqueCompraTexto(c: CompraNormalizada): string {
+  const casaLineas = c.distribucion
+    .map(x => `${x.casa === 'departamento' ? '🏢 Departamento' : '🏠 Shangrila'}: ${x.cantidad} bolsa${x.cantidad > 1 ? 's' : ''}`)
+    .join('\n')
+  const costoLinea = c.costoTotal ? `\n💸 Costo: $${c.costoTotal.toLocaleString('es-UY')}` : ''
+  const metodoLinea = c.metodoPago ? ` (${c.metodoPago === 'transferencia' ? '🏦 transferencia' : '💵 efectivo'})` : ''
+  const pagoLinea = c.costoTotal
+    ? (c.pagado
+        ? `\n💳 ✅ Pagado${metodoLinea}`
+        : `\n💳 ⏳ NO pagado${c.fechaLimitePago ? ` · vence ${new Date(c.fechaLimitePago + 'T12:00:00').toLocaleDateString('es-UY')}` : ''}`)
+    : ''
+  return `🛍 <b>${c.producto}</b> — ${c.cantidadTotal} bolsa${c.cantidadTotal > 1 ? 's' : ''}\n${casaLineas}${costoLinea}${pagoLinea}`
+}
+
+// Aplica una compra: suma stock por casa y registra el gasto en caja. Devuelve resumen.
+async function aplicarCompraStock(c: any): Promise<{ ok: boolean; resumen: string }> {
+  const distribucion: { casa: string; cantidad: number }[] =
+    Array.isArray(c.distribucion) && c.distribucion.length > 0
+      ? c.distribucion
+      : [{ casa: c.casa === 'departamento' ? 'departamento' : 'shangrila', cantidad: c.cantidad }]
+  const cantidadTotal = (c.cantidadTotal as number) ?? distribucion.reduce((s, x) => s + x.cantidad, 0)
+
+  const productoRows = await sql`SELECT id, stock_shangrila, stock_departamento FROM productos WHERE lower(nombre) = lower(${c.producto}) LIMIT 1`
+  if (!productoRows.length) {
+    return { ok: false, resumen: `⚠️ "<b>${c.producto}</b>" no encontrado en el catálogo.` }
+  }
+
+  let stockShangrila = productoRows[0].stock_shangrila as number
+  let stockDepartamento = productoRows[0].stock_departamento as number
+  for (const x of distribucion) {
+    if (x.casa === 'departamento') stockDepartamento += x.cantidad
+    else stockShangrila += x.cantidad
+  }
+  const stockTotal = stockShangrila + stockDepartamento
+  await sql`UPDATE productos SET stock_shangrila = ${stockShangrila}, stock_departamento = ${stockDepartamento}, stock_actual = ${stockTotal} WHERE id = ${productoRows[0].id as string}`
+
+  let gastoLinea = ''
+  const costoTotal = c.costoTotal as number | null
+  if (costoTotal && costoTotal > 0) {
+    const pagado = c.pagado !== false
+    const descripcion = `Compra stock: ${c.producto} ×${cantidadTotal}`
+    await sql`
+      INSERT INTO movimientos_caja (descripcion, monto, categoria, metodo_pago, etiqueta, pagado, fecha_limite_pago)
+      VALUES (${descripcion}, ${costoTotal}, ${'egreso'}, ${c.metodoPago ?? null}, ${'Compra stock'}, ${pagado}, ${c.fechaLimitePago ?? null}::date)
+    `
+    gastoLinea = pagado
+      ? ` · 💸 $${costoTotal.toLocaleString('es-UY')} (✅ pagado)`
+      : ` · 💸 $${costoTotal.toLocaleString('es-UY')} (⏳ no pagado${c.fechaLimitePago ? `, vence ${new Date(c.fechaLimitePago + 'T12:00:00').toLocaleDateString('es-UY')}` : ''})`
+  }
+
+  return { ok: true, resumen: `📦 <b>${c.producto}</b> → 🏠 ${stockShangrila} / 🏢 ${stockDepartamento}${gastoLinea}` }
 }
 
 // ── procesarVentaConProducto ───────────────────────────────────────────────

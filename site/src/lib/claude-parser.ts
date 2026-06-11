@@ -7,7 +7,8 @@ const SYSTEM_PROMPT = `Sos un asistente que procesa mensajes sobre ventas y stoc
 Primero determiná el tipo de mensaje:
 - "ventas_multiples": se vendieron DOS O MÁS productos DISTINTOS al mismo cliente en un solo mensaje (distintos tamaños o distintas marcas). Ejemplo: "vendí a Pablo una de 25kg y una de 7,5kg"
 - "venta": se vendió UN solo producto (o varias bolsas del mismo producto) a un cliente
-- "compra_stock": llegó mercadería / se compró stock para revender (sin cliente específico)
+- "compras_stock_multiples": llegó mercadería / se compró stock de DOS O MÁS productos DISTINTOS (distintas marcas o tamaños) en un mismo mensaje. Ejemplo: "compramos 15 de maxine adulto y 4 de lager adulto"
+- "compra_stock": llegó mercadería / se compró stock de UN solo producto para revender (sin cliente específico)
 - "actualizar_cliente": actualizar datos de un cliente existente (teléfono, dirección)
 - "movimiento_caja": gasto o ingreso de dinero por fuera de las ventas de bolsas. SIEMPRE elegir este tipo cuando el mensaje menciona "gasté", "pagué", "cobré", "entró plata", "salió plata", "flete", "nafta", "packaging", "insumo", o cualquier gasto/ingreso que NO sea venta de comida a un cliente con mascota. Ejemplos: "gasté mil en nafta", "pagué el flete $500", "gasté $200 en packaging", "entró $1000", "cobré deuda de X"
 - "transferencia_interna": movimiento de plata entre métodos de pago (de efectivo al banco, o del banco a efectivo). Ejemplos: "pasé mil en efectivo al banco", "deposité $500 al banco", "saqué $2000 del banco en efectivo", "llevé plata al banco"
@@ -110,6 +111,29 @@ Para tipo "compra_stock":
 - metodoPago: "efectivo" o "transferencia" si lo menciona ("pagamos en transferencia" → "transferencia"), sino null.
 - diasParaPago: si dice "lo pago en 30 días", "a 30 días", "pago en una semana" (7) → el número de días. Si no → null.
 - fechaLimitePago: si da una fecha absoluta para pagar ("tengo que pagarlo antes del 20 de julio") → en formato YYYY-MM-DD. Si no → null. Preferí diasParaPago para plazos relativos.
+
+Para tipo "compras_stock_multiples" (DOS O MÁS productos DISTINTOS comprados como stock en un mismo mensaje):
+{
+  "tipo": "compras_stock_multiples",
+  "ok": true,
+  "compras": [
+    {
+      "producto": "string normalizado del catálogo",
+      "cantidad": number,
+      "precio": number | null,
+      "casa": "shangrila" | "departamento" | null,
+      "distribucion": [ { "casa": "shangrila" | "departamento", "cantidad": number } ] | null,
+      "costoTotal": number | null,
+      "pagado": boolean,
+      "metodoPago": "efectivo" | "transferencia" | null,
+      "diasParaPago": number | null,
+      "fechaLimitePago": "YYYY-MM-DD" | null
+    }
+  ]
+}
+- Usar este tipo cuando se compran DOS O MÁS productos distintos (distintas marcas o tamaños) como stock en un solo mensaje. Ejemplo: "compramos 15 de maxine adulto y 4 de lager adulto".
+- Cada entrada del array sigue EXACTAMENTE las mismas reglas que "compra_stock" (producto, cantidad, distribucion, costoTotal, pagado, metodoPago, diasParaPago, fechaLimitePago). Cada producto tiene su propio costo, reparto entre casas y estado de pago.
+- "la mitad al departamento y la otra mitad a shangrila" → distribucion con cantidad/2 en cada casa.
 
 Para tipo "actualizar_cliente":
 {
@@ -303,10 +327,11 @@ export interface TareaData {
 }
 
 export interface ParseResult {
-  tipo: 'venta' | 'ventas_multiples' | 'compra_stock' | 'actualizar_cliente' | 'movimiento_caja' | 'transferencia_interna' | 'data_extra_cliente' | 'tarea'
+  tipo: 'venta' | 'ventas_multiples' | 'compra_stock' | 'compras_stock_multiples' | 'actualizar_cliente' | 'movimiento_caja' | 'transferencia_interna' | 'data_extra_cliente' | 'tarea'
   ok: boolean
   data?: VentaData | CompraStockData | ActualizarClienteData | MovimientoCajaData | TransferenciaInternaData | DataExtraClienteData | TareaData
   ventas?: VentaData[]
+  compras?: CompraStockData[]
   faltantes?: string[]
   faltanteProducto?: FaltanteProducto
   mensajeRespuesta?: string
