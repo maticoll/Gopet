@@ -207,7 +207,7 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
                 }
 
                 const esEgreso = m.categoria === 'egreso'
-                const metodo = m.metodo_pago === 'efectivo' ? '💵 Efectivo' : m.metodo_pago === 'transferencia' ? '🏦 Transfer' : '—'
+                const metodo = m.metodo_pago === 'efectivo' ? '💵 Efectivo' : '🏦 Transfer'
                 return (
                   <tr key={m.id} className="border-b border-slate-800/50">
                     <td className="py-2 pr-4 text-slate-400">
