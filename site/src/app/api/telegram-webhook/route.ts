@@ -313,10 +313,26 @@ export async function POST(req: NextRequest) {
       const stockTotal = stockShangrila + stockDepartamento
       await sql`UPDATE productos SET stock_shangrila = ${stockShangrila}, stock_departamento = ${stockDepartamento}, stock_actual = ${stockTotal} WHERE id = ${productoRows[0].id as string}`
 
+      // Registrar el gasto en caja (solo si hay un costo)
+      let gastoLinea = ''
+      const costoTotal = p.costoTotal as number | null
+      if (costoTotal && costoTotal > 0) {
+        const cantidadTotal = (p.cantidadTotal as number) ?? distribucion.reduce((s, x) => s + x.cantidad, 0)
+        const pagado = p.pagado !== false
+        const descripcion = `Compra stock: ${p.producto} ×${cantidadTotal}`
+        await sql`
+          INSERT INTO movimientos_caja (descripcion, monto, categoria, metodo_pago, etiqueta, pagado, fecha_limite_pago)
+          VALUES (${descripcion}, ${costoTotal}, ${'egreso'}, ${p.metodoPago ?? null}, ${'Compra stock'}, ${pagado}, ${p.fechaLimitePago ?? null}::date)
+        `
+        gastoLinea = pagado
+          ? `\n💸 Gasto registrado en caja: $${costoTotal.toLocaleString('es-UY')} (✅ pagado)`
+          : `\n💸 Gasto registrado en caja: $${costoTotal.toLocaleString('es-UY')} (⏳ NO pagado${p.fechaLimitePago ? ` · vence ${new Date(p.fechaLimitePago + 'T12:00:00').toLocaleDateString('es-UY')}` : ''})`
+      }
+
       const resumen = distribucion
         .map(x => `${x.casa === 'departamento' ? '🏢 Departamento' : '🏠 Shangrila'}: ${x.casa === 'departamento' ? stockDepartamento : stockShangrila} bolsas`)
         .join('\n')
-      await sendMessage(chatId, `✅ Stock actualizado.\n📦 <b>${p.producto}</b>\n${resumen}`)
+      await sendMessage(chatId, `✅ Stock actualizado.\n📦 <b>${p.producto}</b>\n${resumen}${gastoLinea}`)
 
     // ── cancelar_compra_stock ────────────────────────────────────────
     } else if (accion === 'cancelar_compra_stock') {
@@ -539,18 +555,42 @@ export async function POST(req: NextRequest) {
 
       const cantidadTotal = distribucion.reduce((sum, x) => sum + (x.cantidad as number), 0)
 
-      const payloadStr = JSON.stringify({ producto: d.producto, precio: d.precio, distribucion })
+      // Costo total del gasto: lo que dijo el usuario, o precio/bolsa × cantidad
+      const costoTotal = (d.costoTotal && d.costoTotal > 0)
+        ? d.costoTotal
+        : (d.precio && d.precio > 0 ? d.precio * cantidadTotal : null)
+      const pagado = d.pagado !== false   // default true salvo que diga explícitamente que no pagó
+      const metodoPago = d.metodoPago ?? null
+
+      // Fecha límite de pago: fecha absoluta si la dio, o hoy + diasParaPago
+      let fechaLimitePago: string | null = null
+      if (d.fechaLimitePago) {
+        fechaLimitePago = d.fechaLimitePago
+      } else if (d.diasParaPago && d.diasParaPago > 0) {
+        const limite = fechaHoyUruguay()
+        limite.setDate(limite.getDate() + d.diasParaPago)
+        fechaLimitePago = limite.toISOString().split('T')[0]
+      }
+
+      const payloadStr = JSON.stringify({ producto: d.producto, precio: d.precio, distribucion, costoTotal, pagado, metodoPago, fechaLimitePago, cantidadTotal })
       await sql`
         INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
         VALUES (${chatId}, 'confirmando_compra_stock', null, ${payloadStr}, now())
         ON CONFLICT (chat_id) DO UPDATE SET estado = 'confirmando_compra_stock', venta_id = null, payload = ${payloadStr}, updated_at = now()
       `
       const precioLinea = d.precio ? `\n💵 Precio compra: $${d.precio}/bolsa` : ''
+      const costoLinea = costoTotal ? `\n💸 Costo total: $${costoTotal.toLocaleString('es-UY')}` : ''
+      const metodoLinea = metodoPago ? ` (${metodoPago === 'transferencia' ? '🏦 transferencia' : '💵 efectivo'})` : ''
+      const pagoLinea = costoTotal
+        ? (pagado
+            ? `\n💳 Pago: ✅ Pagado${metodoLinea}`
+            : `\n💳 Pago: ⏳ NO pagado${fechaLimitePago ? ` · vence ${new Date(fechaLimitePago + 'T12:00:00').toLocaleDateString('es-UY')}` : ''}`)
+        : ''
       const casaLineas = distribucion
         .map(x => `${x.casa === 'departamento' ? '🏢 Departamento' : '🏠 Shangrila'}: ${x.cantidad} bolsa${x.cantidad > 1 ? 's' : ''}`)
         .join('\n')
       await sendMessageWithButtons(chatId,
-        `📥 <b>Compra de stock</b>\n\n🛍 Producto: ${d.producto}\n📦 Cantidad: ${cantidadTotal} bolsa${cantidadTotal > 1 ? 's' : ''}\n${casaLineas}${precioLinea}\n\n¿Confirmar?`,
+        `📥 <b>Compra de stock</b>\n\n🛍 Producto: ${d.producto}\n📦 Cantidad: ${cantidadTotal} bolsa${cantidadTotal > 1 ? 's' : ''}\n${casaLineas}${precioLinea}${costoLinea}${pagoLinea}\n\n¿Confirmar?`,
         [{ text: '✅ Confirmar', callback_data: 'confirmar_compra_stock' }, { text: '❌ Cancelar', callback_data: 'cancelar_compra_stock' }]
       )
       return NextResponse.json({ ok: true })

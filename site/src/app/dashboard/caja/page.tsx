@@ -21,7 +21,7 @@ export default async function CajaPage() {
 
   // Movimientos de caja (últimos 30)
   const movimientosRaw = await sql`
-    SELECT id, descripcion, monto, categoria, metodo_pago, etiqueta, created_at
+    SELECT id, descripcion, monto, categoria, metodo_pago, etiqueta, pagado, fecha_limite_pago, created_at
     FROM movimientos_caja
     ORDER BY created_at DESC
     LIMIT 30
@@ -56,12 +56,12 @@ export default async function CajaPage() {
     .filter(v => v.metodo_pago === 'transferencia')
     .reduce((sum, v) => sum + (v.precio as number) * ((v.cantidad as number) ?? 1), 0)
 
-  // Movimientos por método
+  // Movimientos por método — solo los pagados afectan el saldo (gastos no pagados aún no salieron)
   const movEfectivo = movimientosRaw
-    .filter(m => m.metodo_pago === 'efectivo')
+    .filter(m => m.metodo_pago === 'efectivo' && m.pagado !== false)
     .reduce((sum, m) => sum + (m.categoria === 'egreso' ? -(m.monto as number) : (m.monto as number)), 0)
   const movTransferencia = movimientosRaw
-    .filter(m => m.metodo_pago === 'transferencia')
+    .filter(m => m.metodo_pago === 'transferencia' && m.pagado !== false)
     .reduce((sum, m) => sum + (m.categoria === 'egreso' ? -(m.monto as number) : (m.monto as number)), 0)
 
   const saldoEfectivo = totalEfectivo + movEfectivo
@@ -88,6 +88,12 @@ export default async function CajaPage() {
     categoria: m.categoria as string,
     metodo_pago: m.metodo_pago as string | null,
     etiqueta: m.etiqueta as string | null,
+    pagado: m.pagado as boolean,
+    fecha_limite_pago: m.fecha_limite_pago
+      ? (m.fecha_limite_pago instanceof Date
+          ? m.fecha_limite_pago.toISOString().substring(0, 10)
+          : String(m.fecha_limite_pago).substring(0, 10))
+      : null,
     created_at: m.created_at as string,
   }))
 

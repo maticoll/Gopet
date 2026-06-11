@@ -92,13 +92,24 @@ Para tipo "compra_stock":
     "cantidad": number,
     "precio": number | null,
     "casa": "shangrila" | "departamento" | null,
-    "distribucion": [ { "casa": "shangrila" | "departamento", "cantidad": number } ] | null
+    "distribucion": [ { "casa": "shangrila" | "departamento", "cantidad": number } ] | null,
+    "costoTotal": number | null,
+    "pagado": boolean,
+    "metodoPago": "efectivo" | "transferencia" | null,
+    "diasParaPago": number | null,
+    "fechaLimitePago": "YYYY-MM-DD" | null
   }
 }
 - producto: SIEMPRE obligatorio. Normalizar al catálogo (ej "maxine adulto 25kg" → "Maxine Adulto 21+4 kg").
 - cantidad: SIEMPRE el TOTAL de bolsas compradas (ej "compramos 12 bolsas" → 12).
 - casa: inferirla del mensaje de forma natural. "shangrila", "shangri-la", "la casa", "aca", "acá", "casa" → "shangrila". "departamento", "depa", "el depa", "el departamento", "dto" → "departamento". Si no se menciona → null.
 - distribucion: SOLO si la compra se reparte entre las DOS casas (ej "6 fueron para shangrila y 6 para el departamento"). En ese caso poner una entrada por casa con su cantidad, y "cantidad" = suma total (12). Si toda la compra va a una sola casa (o no se especifica), poner distribucion = null y usar "casa".
+- costoTotal: el GASTO TOTAL de la compra (lo que se va a registrar en caja). Si dice "costo $24000", "gastamos 24000", "salió 24000", "pagamos 24000" → 24000. Si solo da precio por bolsa (ej "a $2000 cada una") → costoTotal = precio × cantidad. Si no menciona ningún monto → null.
+- precio: precio POR BOLSA si lo menciona explícitamente (ej "a $2000 la bolsa"), sino null.
+- pagado: true por defecto. SOLO poner false si dice explícitamente que NO pagó todavía: "todavía no lo pagué", "no lo pagué", "queda debiendo", "a pagar", "lo debo", "lo pago después", "pago más adelante", "a crédito", "fiado".
+- metodoPago: "efectivo" o "transferencia" si lo menciona ("pagamos en transferencia" → "transferencia"), sino null.
+- diasParaPago: si dice "lo pago en 30 días", "a 30 días", "pago en una semana" (7) → el número de días. Si no → null.
+- fechaLimitePago: si da una fecha absoluta para pagar ("tengo que pagarlo antes del 20 de julio") → en formato YYYY-MM-DD. Si no → null. Preferí diasParaPago para plazos relativos.
 
 Para tipo "actualizar_cliente":
 {
@@ -255,6 +266,11 @@ export interface CompraStockData {
   precio: number | null
   casa: 'shangrila' | 'departamento' | null
   distribucion: { casa: 'shangrila' | 'departamento'; cantidad: number }[] | null
+  costoTotal: number | null
+  pagado: boolean
+  metodoPago: 'efectivo' | 'transferencia' | null
+  diasParaPago: number | null
+  fechaLimitePago: string | null
 }
 
 export interface ActualizarClienteData {

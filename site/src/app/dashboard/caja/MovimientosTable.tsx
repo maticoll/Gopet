@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { editarMovimiento } from './actions'
+import { useState, useTransition } from 'react'
+import { editarMovimiento, marcarMovimientoPagado } from './actions'
 
 type Movimiento = {
   id: string
@@ -10,6 +10,8 @@ type Movimiento = {
   categoria: string
   metodo_pago: string | null
   etiqueta: string | null
+  pagado: boolean
+  fecha_limite_pago: string | null
   created_at: string
 }
 
@@ -19,6 +21,16 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
   const [filtroEtiqueta, setFiltroEtiqueta] = useState<string>('todas')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [pagandoId, setPagandoId] = useState<string | null>(null)
+  const [, startTransition] = useTransition()
+
+  function handleMarcarPagado(id: string) {
+    setPagandoId(id)
+    startTransition(async () => {
+      await marcarMovimientoPagado(id)
+      setPagandoId(null)
+    })
+  }
   const [form, setForm] = useState<{
     descripcion: string
     monto: number
@@ -104,6 +116,7 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
               <th className="text-left py-2 pr-4">Etiqueta</th>
               <th className="text-left py-2 pr-4">Tipo</th>
               <th className="text-left py-2 pr-4">Método</th>
+              <th className="text-left py-2 pr-4">Pago</th>
               <th className="text-right py-2 pr-4">Monto</th>
               <th className="py-2"></th>
             </tr>
@@ -111,7 +124,7 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
           <tbody>
             {movimientosFiltrados.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-6 text-center text-slate-500 text-sm">
+                <td colSpan={8} className="py-6 text-center text-slate-500 text-sm">
                   No hay movimientos con la etiqueta "{filtroEtiqueta}"
                 </td>
               </tr>
@@ -165,6 +178,7 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
                           <option value="transferencia">🏦 Transfer</option>
                         </select>
                       </td>
+                      <td className="py-2 pr-4 text-slate-500 text-xs">—</td>
                       <td className="py-2 pr-4 text-right">
                         <input
                           type="number"
@@ -215,6 +229,27 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
                       {esEgreso ? 'Egreso' : 'Ingreso'}
                     </td>
                     <td className="py-2 pr-4 text-slate-400 text-xs">{metodo}</td>
+                    <td className="py-2 pr-4 text-xs">
+                      {m.pagado ? (
+                        <span className="text-green-400">✅ Pagado</span>
+                      ) : (
+                        <div className="flex flex-col gap-1 items-start">
+                          <span className="text-orange-400 font-medium">⏳ No pagado</span>
+                          {m.fecha_limite_pago && (
+                            <span className="text-slate-500">
+                              vence {new Date(m.fecha_limite_pago + 'T12:00:00').toLocaleDateString('es-UY')}
+                            </span>
+                          )}
+                          <button
+                            onClick={() => handleMarcarPagado(m.id)}
+                            disabled={pagandoId === m.id}
+                            className="text-green-400 hover:text-green-300 border border-green-900 hover:border-green-700 px-2 py-0.5 rounded disabled:opacity-50 transition-colors"
+                          >
+                            {pagandoId === m.id ? '…' : 'Marcar pagado'}
+                          </button>
+                        </div>
+                      )}
+                    </td>
                     <td className={`py-2 pr-4 text-right font-medium ${esEgreso ? 'text-red-400' : 'text-green-400'}`}>
                       {esEgreso ? '-' : '+'}${m.monto.toLocaleString('es-UY')}
                     </td>

@@ -34,6 +34,11 @@ export async function editarVenta(
   revalidatePath('/dashboard/caja')
 }
 
+export async function marcarMovimientoPagado(movimientoId: string): Promise<void> {
+  await sql`UPDATE movimientos_caja SET pagado = true WHERE id = ${movimientoId}`
+  revalidatePath('/dashboard/caja')
+}
+
 export async function editarMovimiento(
   movimientoId: string,
   data: {
