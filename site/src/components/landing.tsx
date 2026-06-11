@@ -526,7 +526,7 @@ export default function Landing() {
             HERO — imagen de fondo full-screen
             Guardar imagen en: site/public/images/hero-bg.jpg
         ══════════════════════════════════════════════════════ */}
-        <section className="order-1 sm:order-none relative min-h-screen text-white overflow-hidden flex flex-col items-center justify-center"
+        <section className="force-white order-1 sm:order-none relative min-h-screen text-white overflow-hidden flex flex-col items-center justify-center"
                  style={{ backgroundColor:"#2a4a1a" }}>
           {/* Fondo mobile (portrait) */}
           <div className="absolute inset-0 sm:hidden" style={{ backgroundImage:"url('/images/fondo%201%20celular.PNG')", backgroundSize:"cover", backgroundPosition:"center center" }}/>

@@ -137,6 +137,8 @@ html:not(.dark) .bg-slate-800 { background-color: #e2e8f0 !important; }
 html:not(.dark) .border-slate-800 { border-color: #e2e8f0 !important; }
 html:not(.dark) .border-slate-700 { border-color: #cbd5e1 !important; }
 html:not(.dark) .text-white { color: #0f172a !important; }
+html:not(.dark) .force-white,
+html:not(.dark) .force-white .text-white { color: white !important; }
 html:not(.dark) .text-slate-400 { color: #475569 !important; }
 html:not(.dark) .text-slate-300 { color: #334155 !important; }
 html:not(.dark) .text-slate-500 { color: #64748b !important; }
