@@ -56,12 +56,13 @@ export default async function CajaPage() {
     .filter(v => v.metodo_pago === 'transferencia')
     .reduce((sum, v) => sum + (v.precio as number) * ((v.cantidad as number) ?? 1), 0)
 
-  // Movimientos por método — solo los pagados afectan el saldo (gastos no pagados aún no salieron)
+  // Movimientos por método — TODOS afectan el saldo (los no pagados también:
+  // son gastos que igual se van a pagar). Marcar como pagado luego no cambia el saldo.
   const movEfectivo = movimientosRaw
-    .filter(m => m.metodo_pago === 'efectivo' && m.pagado !== false)
+    .filter(m => m.metodo_pago === 'efectivo')
     .reduce((sum, m) => sum + (m.categoria === 'egreso' ? -(m.monto as number) : (m.monto as number)), 0)
   const movTransferencia = movimientosRaw
-    .filter(m => m.metodo_pago === 'transferencia' && m.pagado !== false)
+    .filter(m => m.metodo_pago === 'transferencia')
     .reduce((sum, m) => sum + (m.categoria === 'egreso' ? -(m.monto as number) : (m.monto as number)), 0)
 
   const saldoEfectivo = totalEfectivo + movEfectivo
