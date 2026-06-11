@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { editarMovimiento, marcarMovimientoPagado } from './actions'
+import { editarMovimiento, marcarMovimientoPagado, eliminarMovimiento } from './actions'
 
 type Movimiento = {
   id: string
@@ -22,7 +22,17 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [pagandoId, setPagandoId] = useState<string | null>(null)
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null)
   const [, startTransition] = useTransition()
+
+  function handleEliminar(id: string) {
+    if (!confirm('¿Eliminar este movimiento? Esta acción no se puede deshacer.')) return
+    setEliminandoId(id)
+    startTransition(async () => {
+      await eliminarMovimiento(id)
+      setEliminandoId(null)
+    })
+  }
 
   function handleMarcarPagado(id: string) {
     setPagandoId(id)
@@ -187,11 +197,11 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
                           className="bg-slate-700 text-white rounded px-1.5 py-0.5 text-xs w-24 border border-slate-600 text-right"
                         />
                       </td>
-                      <td className="py-2 whitespace-nowrap">
+                      <td className="py-2 whitespace-nowrap flex gap-1">
                         <button
                           onClick={() => saveEdit(m.id)}
                           disabled={saving}
-                          className="text-xs text-green-400 hover:text-green-300 border border-green-900 hover:border-green-700 px-2 py-0.5 rounded mr-1 disabled:opacity-50 transition-colors"
+                          className="text-xs text-green-400 hover:text-green-300 border border-green-900 hover:border-green-700 px-2 py-0.5 rounded disabled:opacity-50 transition-colors"
                         >
                           {saving ? '…' : 'Guardar'}
                         </button>
@@ -253,12 +263,19 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
                     <td className={`py-2 pr-4 text-right font-medium ${esEgreso ? 'text-red-400' : 'text-green-400'}`}>
                       {esEgreso ? '-' : '+'}${m.monto.toLocaleString('es-UY')}
                     </td>
-                    <td className="py-2">
+                    <td className="py-2 whitespace-nowrap flex gap-1">
                       <button
                         onClick={() => startEdit(m)}
                         className="text-xs text-blue-400 hover:text-blue-300 border border-blue-900 hover:border-blue-700 px-2 py-0.5 rounded transition-colors"
                       >
                         Editar
+                      </button>
+                      <button
+                        onClick={() => handleEliminar(m.id)}
+                        disabled={eliminandoId === m.id}
+                        className="text-xs text-red-400 hover:text-red-300 border border-red-900 hover:border-red-700 px-2 py-0.5 rounded disabled:opacity-50 transition-colors"
+                      >
+                        {eliminandoId === m.id ? '…' : 'Borrar'}
                       </button>
                     </td>
                   </tr>

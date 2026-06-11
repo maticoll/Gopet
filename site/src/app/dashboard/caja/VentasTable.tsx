@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { editarVenta, marcarPagado } from './actions'
+import { useState, useTransition } from 'react'
+import { editarVenta, marcarPagado, eliminarVenta } from './actions'
 
 type Cliente = { id: string; nombre: string }
 
@@ -27,6 +27,17 @@ export default function VentasTable({
 }) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null)
+  const [, startTransition] = useTransition()
+
+  function handleEliminar(id: string) {
+    if (!confirm('¿Eliminar esta venta? Esta acción no se puede deshacer.')) return
+    setEliminandoId(id)
+    startTransition(async () => {
+      await eliminarVenta(id)
+      setEliminandoId(null)
+    })
+  }
 
   // form state
   const [form, setForm] = useState<{
@@ -211,12 +222,19 @@ export default function VentasTable({
                 <td className="py-2 pr-3 text-slate-400 text-xs">
                   {v.metodo_pago === 'efectivo' ? '💵 Efectivo' : v.metodo_pago === 'transferencia' ? '🏦 Transfer' : '—'}
                 </td>
-                <td className="py-2">
+                <td className="py-2 whitespace-nowrap flex gap-1">
                   <button
                     onClick={() => startEdit(v)}
                     className="text-xs text-blue-400 hover:text-blue-300 border border-blue-900 hover:border-blue-700 px-2 py-0.5 rounded transition-colors"
                   >
                     Editar
+                  </button>
+                  <button
+                    onClick={() => handleEliminar(v.id)}
+                    disabled={eliminandoId === v.id}
+                    className="text-xs text-red-400 hover:text-red-300 border border-red-900 hover:border-red-700 px-2 py-0.5 rounded disabled:opacity-50 transition-colors"
+                  >
+                    {eliminandoId === v.id ? '…' : 'Borrar'}
                   </button>
                 </td>
               </tr>

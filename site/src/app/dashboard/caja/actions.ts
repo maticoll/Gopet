@@ -61,6 +61,16 @@ export async function editarMovimiento(
   revalidatePath('/dashboard/caja')
 }
 
+export async function eliminarMovimiento(movimientoId: string): Promise<void> {
+  await sql`DELETE FROM movimientos_caja WHERE id = ${movimientoId}`
+  revalidatePath('/dashboard/caja')
+}
+
+export async function eliminarVenta(ventaId: string): Promise<void> {
+  await sql`DELETE FROM ventas WHERE id = ${ventaId}`
+  revalidatePath('/dashboard/caja')
+}
+
 export async function editarStock(
   productoNombre: string,
   stockShangrila: number,
