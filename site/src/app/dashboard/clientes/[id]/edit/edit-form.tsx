@@ -1,11 +1,21 @@
 'use client'
 
+const ORIGENES = [
+  { value: '',              label: 'Sin especificar' },
+  { value: 'meta_ads',      label: 'Meta Ads' },
+  { value: 'tocar_puerta',  label: 'Toca puerta' },
+  { value: 'boca_a_boca',   label: 'Boca a boca' },
+  { value: 'recomendacion', label: 'Recomendación' },
+  { value: 'conocido',      label: 'Conocido' },
+]
+
 interface Cliente {
   id: string
   nombre: string
   telefono: string | null
   direccion: string | null
   data_extra: string | null
+  origen: string | null
 }
 
 export function EditClienteForm({
@@ -52,6 +62,22 @@ export function EditClienteForm({
           defaultValue={cliente.direccion ?? ''}
           className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500"
         />
+      </div>
+
+      <div>
+        <label htmlFor="origen" className="block text-slate-300 text-sm mb-1">
+          ¿Cómo llegó el cliente?
+        </label>
+        <select
+          id="origen"
+          name="origen"
+          defaultValue={cliente.origen ?? ''}
+          className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500"
+        >
+          {ORIGENES.map(o => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
       </div>
 
       <div>

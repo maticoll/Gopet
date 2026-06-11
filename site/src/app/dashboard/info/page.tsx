@@ -3,6 +3,7 @@ import { SpeciesChart } from '@/components/dashboard/species-chart'
 import { ProductsChart } from '@/components/dashboard/products-chart'
 import { AlertsTimeline } from '@/components/dashboard/alerts-timeline'
 import { MonthlyTrend } from '@/components/dashboard/monthly-trend'
+import { AcquisitionChart } from '@/components/dashboard/acquisition-chart'
 import { diasHastaFin, fechaHoyUruguay } from '@/lib/calculations'
 
 export const metadata = { title: 'Info — PetStock' }
@@ -65,6 +66,18 @@ export default async function InfoPage() {
     .map(([mes, data]) => ({ mes, ...data }))
     .slice(-6)
 
+  const origenesRaw = await sql`
+    SELECT origen, COUNT(*)::int AS cantidad
+    FROM clientes
+    WHERE activo = true
+    GROUP BY origen
+    ORDER BY cantidad DESC
+  `
+  const origenes = origenesRaw.map(r => ({
+    origen: (r.origen as string | null),
+    cantidad: r.cantidad as number,
+  }))
+
   const totalClientes = perros + gatos
   const META = 102000
   const totalVentas = ventas.reduce((sum, v) => sum + (v.precio as number), 0)
@@ -111,7 +124,7 @@ export default async function InfoPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-slate-900 rounded-lg p-4">
           <h3 className="text-white font-semibold text-sm mb-3">Distribución de Mascotas</h3>
           <SpeciesChart perros={perros} gatos={gatos} />
@@ -127,6 +140,10 @@ export default async function InfoPage() {
         <div className="bg-slate-900 rounded-lg p-4">
           <h3 className="text-white font-semibold text-sm mb-3">Ventas por Mes</h3>
           <MonthlyTrend ventas={ventasMensuales} />
+        </div>
+        <div className="bg-slate-900 rounded-lg p-4">
+          <h3 className="text-white font-semibold text-sm mb-3">Cómo Llegaron los Clientes</h3>
+          <AcquisitionChart origenes={origenes} />
         </div>
       </div>
     </div>

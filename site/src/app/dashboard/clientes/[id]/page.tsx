@@ -4,6 +4,14 @@ import Link from 'next/link'
 import { BajaButton } from './baja-button'
 import MascotaCard from './MascotaCard'
 
+const ORIGEN_LABELS: Record<string, string> = {
+  meta_ads:      'Meta Ads',
+  tocar_puerta:  'Toca puerta',
+  boca_a_boca:   'Boca a boca',
+  recomendacion: 'Recomendación',
+  conocido:      'Conocido',
+}
+
 export default async function ClientePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
 
@@ -53,6 +61,12 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
           <div>
             <p className="text-slate-500 text-xs uppercase tracking-wide mb-1">Dirección</p>
             <p className="text-white">{(cliente.direccion as string) ?? '—'}</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-slate-500 text-xs uppercase tracking-wide mb-1">Cómo llegó</p>
+            <p className="text-white">{ORIGEN_LABELS[(cliente.origen as string) ?? ''] ?? '—'}</p>
           </div>
         </div>
         <div>
