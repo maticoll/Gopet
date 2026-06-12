@@ -480,18 +480,19 @@ export default function Landing() {
     <>
       {/* ══ NAVBAR ══ */}
       <header className="fixed top-0 left-0 right-0 z-50 text-white" style={{ backgroundColor:"#FDF5E8", borderBottom:"1px solid rgba(0,0,0,0.08)" }}>
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <a href="/" className="flex items-center">
-            <Image src="/images/logo gopet negro.png" alt="GoPet" width={108} height={36} className="object-contain mt-4" priority />
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between relative">
+          <a href="/" className="flex items-center flex-shrink-0">
+            <Image src="/images/logo gopet negro.png" alt="GoPet" width={108} height={36} className="object-contain mt-5" priority />
           </a>
 
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-black/50">
+          {/* Nav centrado absolutamente */}
+          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-black/50 absolute left-1/2 -translate-x-1/2">
             <a href="#como-funciona" className="hover:text-black transition-colors">Cómo funciona</a>
             <a href="#productos"     className="hover:text-black transition-colors">Productos</a>
             <a href="#beneficios"    className="hover:text-black transition-colors">Beneficios</a>
           </nav>
 
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-3 flex-shrink-0">
             <a href={igURL} target="_blank" rel="noopener noreferrer"
                className="flex items-center gap-2 px-4 py-2 rounded-full text-white text-sm font-heading font-bold hover:opacity-90 transition-opacity cursor-pointer"
                style={{ background:"linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)" }}>
