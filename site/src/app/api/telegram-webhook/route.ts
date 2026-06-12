@@ -111,6 +111,25 @@ async function buscarProductosPorCriterios(
   return rows
 }
 
+// Busca un cliente por nombre: primero match exacto, luego el más parecido
+// (tolera typos / acentos / variaciones de apellido) usando similitud de trigramas.
+// Devuelve null si no hay ninguno lo bastante parecido → se crea uno nuevo.
+async function buscarClienteSimilar(
+  nombre: string
+): Promise<{ id: string; nombre: string; activo: boolean } | null> {
+  const exacto = await sql`SELECT id, nombre, activo FROM clientes WHERE lower(nombre) = lower(${nombre}) LIMIT 1`
+  if (exacto.length) return exacto[0] as { id: string; nombre: string; activo: boolean }
+
+  const similar = await sql`
+    SELECT id, nombre, activo
+    FROM clientes
+    WHERE similarity(lower(nombre), lower(${nombre})) >= 0.4
+    ORDER BY similarity(lower(nombre), lower(${nombre})) DESC
+    LIMIT 1
+  `
+  return similar.length ? (similar[0] as { id: string; nombre: string; activo: boolean }) : null
+}
+
 function obtenerSiguienteCampoFaltante(d: VentaData, campoActual: string | null): string | null {
   const campos = ['telefono', 'direccion']
   const startIndex = campoActual ? campos.indexOf(campoActual) + 1 : 0
@@ -230,12 +249,13 @@ export async function POST(req: NextRequest) {
 
       let registradas = 0
       for (const v of p.ventasMultiples as VentaData[]) {
-        // Buscar o crear cliente
-        const clienteRows = await sql`SELECT id, activo FROM clientes WHERE lower(nombre) = lower(${v.clienteNombre}) LIMIT 1`
+        // Buscar o crear cliente (con detección de nombres parecidos)
+        const clienteExistente = await buscarClienteSimilar(v.clienteNombre)
         let clienteId: string
-        if (clienteRows.length) {
-          clienteId = clienteRows[0].id as string
-          if (!clienteRows[0].activo) await sql`UPDATE clientes SET activo = true WHERE id = ${clienteId}`
+        if (clienteExistente) {
+          clienteId = clienteExistente.id
+          v.clienteNombre = clienteExistente.nombre
+          if (!clienteExistente.activo) await sql`UPDATE clientes SET activo = true WHERE id = ${clienteId}`
           if (v.clienteDireccion) await sql`UPDATE clientes SET direccion = ${v.clienteDireccion} WHERE id = ${clienteId}`
           if (v.clienteTelefono)  await sql`UPDATE clientes SET telefono  = ${v.clienteTelefono}  WHERE id = ${clienteId}`
         } else {
@@ -855,12 +875,14 @@ async function aplicarCompraStock(c: any): Promise<{ ok: boolean; resumen: strin
 // ── procesarVentaConProducto ───────────────────────────────────────────────
 
 async function procesarVentaConProducto(chatId: string, d: VentaData, dataExtraInline: string | null = null) {
-  const clienteRows = await sql`SELECT id, activo FROM clientes WHERE lower(nombre) = lower(${d.clienteNombre}) LIMIT 1`
+  const clienteExistente = await buscarClienteSimilar(d.clienteNombre)
   let clienteId: string
 
-  if (clienteRows.length) {
-    clienteId = clienteRows[0].id as string
-    if (!clienteRows[0].activo) await sql`UPDATE clientes SET activo = true WHERE id = ${clienteId}`
+  if (clienteExistente) {
+    clienteId = clienteExistente.id
+    // Usar el nombre canónico de la BD (así la confirmación muestra el cliente real)
+    d.clienteNombre = clienteExistente.nombre
+    if (!clienteExistente.activo) await sql`UPDATE clientes SET activo = true WHERE id = ${clienteId}`
     if (d.clienteDireccion) await sql`UPDATE clientes SET direccion = ${d.clienteDireccion} WHERE id = ${clienteId}`
     if (d.clienteTelefono)  await sql`UPDATE clientes SET telefono  = ${d.clienteTelefono}  WHERE id = ${clienteId}`
   } else {
