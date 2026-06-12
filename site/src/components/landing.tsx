@@ -514,9 +514,9 @@ export default function Landing() {
             <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:"auto" }} exit={{ opacity:0, height:0 }}
                         className="md:hidden overflow-hidden" style={{ backgroundColor:"#FDF5E8", borderTop:"1px solid rgba(0,0,0,0.08)" }}>
               <div className="px-6 py-4 flex flex-col gap-4">
-                <a href="#como-funciona" onClick={()=>setMobileOpen(false)} className="text-white/70 hover:text-white text-sm font-medium">Cómo funciona</a>
-                <a href="#productos"     onClick={()=>setMobileOpen(false)} className="text-white/70 hover:text-white text-sm font-medium">Productos</a>
-                <a href="#beneficios"    onClick={()=>setMobileOpen(false)} className="text-white/70 hover:text-white text-sm font-medium">Beneficios</a>
+                <a href="#como-funciona" onClick={()=>setMobileOpen(false)} className="text-sm font-medium" style={{ color:"#3D2010" }}>Cómo funciona</a>
+                <a href="#productos"     onClick={()=>setMobileOpen(false)} className="text-sm font-medium" style={{ color:"#3D2010" }}>Productos</a>
+                <a href="#beneficios"    onClick={()=>setMobileOpen(false)} className="text-sm font-medium" style={{ color:"#3D2010" }}>Beneficios</a>
                 <a href={generalWA} target="_blank" rel="noopener noreferrer"
                    className="flex items-center justify-center gap-2 py-3 rounded-full bg-[#25D366] text-white font-heading font-bold text-sm">
                   <WaIcon className="w-4 h-4"/> Pedir ahora
