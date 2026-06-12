@@ -479,7 +479,7 @@ export default function Landing() {
       <header className="fixed top-0 left-0 right-0 z-50 text-white" style={{ backgroundColor:"#FDF5E8", borderBottom:"1px solid rgba(0,0,0,0.08)" }}>
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <a href="/" className="flex items-center">
-            <Image src="/images/logo gopet negro.png" alt="GoPet" width={108} height={36} className="object-contain mt-2.5" priority />
+            <Image src="/images/logo gopet negro.png" alt="GoPet" width={108} height={36} className="object-contain mt-4" priority />
           </a>
 
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-black/50">
