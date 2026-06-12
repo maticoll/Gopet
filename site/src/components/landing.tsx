@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import DogGame from "@/components/DogGame";
 import Image from "next/image";
 import { PawPrint, Truck, Tag, Heart, Headphones, ChevronRight, Menu, X, Zap, ShieldCheck, Leaf } from "lucide-react";
@@ -474,12 +474,30 @@ export default function Landing() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"perros"|"gatos">("perros");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [headerVisible, setHeaderVisible] = useState(true);
+  const lastScrollY = useRef(0);
   const generalWA = waURL("Hola GoPet! Quiero hacer un pedido.");
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentY = window.scrollY;
+      if (currentY < 10) {
+        setHeaderVisible(true);
+      } else if (currentY < lastScrollY.current) {
+        setHeaderVisible(true);  // subiendo → mostrar
+      } else {
+        setHeaderVisible(false); // bajando → ocultar
+      }
+      lastScrollY.current = currentY;
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
     <>
       {/* ══ NAVBAR ══ */}
-      <header className="fixed top-0 left-0 right-0 z-50 text-white" style={{ backgroundColor:"#FDF5E8", borderBottom:"1px solid rgba(0,0,0,0.08)", paddingTop:"env(safe-area-inset-top)" }}>
+      <header className="fixed top-0 left-0 right-0 z-50 text-white" style={{ backgroundColor:"#FDF5E8", borderBottom:"1px solid rgba(0,0,0,0.08)", paddingTop:"env(safe-area-inset-top)", transform: headerVisible ? "translateY(0)" : "translateY(-110%)", transition:"transform 0.3s ease" }}>
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between relative">
           <a href="/" className="flex items-center flex-shrink-0">
             <Image src="/images/logo gopet negro.png" alt="GoPet" width={108} height={36} className="object-contain mt-5" priority />
