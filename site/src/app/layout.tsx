@@ -1,6 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+
+export const viewport: Viewport = {
+  themeColor: "#FDF5E8",
+  viewportFit: "cover",
+};
 
 export const metadata: Metadata = {
   title: "GoPet | Tu Ración Al Instante",
