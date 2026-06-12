@@ -67,8 +67,11 @@ export async function eliminarMovimiento(movimientoId: string): Promise<void> {
 }
 
 export async function eliminarVenta(ventaId: string): Promise<void> {
+  // Devolver el stock a la casa correcta antes de borrar la venta
+  await sql`SELECT devolver_stock_venta(${ventaId}::uuid)`
   await sql`DELETE FROM ventas WHERE id = ${ventaId}`
   revalidatePath('/dashboard/caja')
+  revalidatePath('/dashboard/stock')
 }
 
 export async function editarStock(

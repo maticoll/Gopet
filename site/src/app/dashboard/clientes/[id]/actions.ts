@@ -28,6 +28,8 @@ export async function eliminarMascota(
   mascotaId: string,
   clienteId: string
 ): Promise<void> {
+  // Devolver el stock de cada venta antes de borrar
+  await sql`SELECT devolver_stock_venta(id) FROM ventas WHERE perro_id = ${mascotaId}`
   // Eliminar ventas asociadas primero (FK)
   await sql`DELETE FROM ventas WHERE perro_id = ${mascotaId}`
   await sql`DELETE FROM perros WHERE id = ${mascotaId}`
@@ -59,6 +61,8 @@ export async function eliminarVenta(
   ventaId: string,
   clienteId: string
 ): Promise<void> {
+  // Devolver el stock a la casa correcta antes de borrar
+  await sql`SELECT devolver_stock_venta(${ventaId}::uuid)`
   await sql`DELETE FROM ventas WHERE id = ${ventaId}`
   revalidatePath(`/dashboard/clientes/${clienteId}`)
 }
