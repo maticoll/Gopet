@@ -117,14 +117,14 @@ async function buscarProductosPorCriterios(
 async function buscarClienteSimilar(
   nombre: string
 ): Promise<{ id: string; nombre: string; activo: boolean } | null> {
-  const exacto = await sql`SELECT id, nombre, activo FROM clientes WHERE lower(nombre) = lower(${nombre}) LIMIT 1`
+  const exacto = await sql`SELECT id, nombre, activo FROM clientes WHERE unaccent(lower(nombre)) = unaccent(lower(${nombre})) LIMIT 1`
   if (exacto.length) return exacto[0] as { id: string; nombre: string; activo: boolean }
 
   const similar = await sql`
     SELECT id, nombre, activo
     FROM clientes
-    WHERE similarity(lower(nombre), lower(${nombre})) >= 0.4
-    ORDER BY similarity(lower(nombre), lower(${nombre})) DESC
+    WHERE similarity(unaccent(lower(nombre)), unaccent(lower(${nombre}))) >= 0.4
+    ORDER BY similarity(unaccent(lower(nombre)), unaccent(lower(${nombre}))) DESC
     LIMIT 1
   `
   return similar.length ? (similar[0] as { id: string; nombre: string; activo: boolean }) : null
@@ -587,7 +587,12 @@ export async function POST(req: NextRequest) {
 
     if (resultado.tipo === 'data_extra_cliente') {
       const d = resultado.data as DataExtraClienteData
-      const clienteRows = await sql`SELECT id FROM clientes WHERE lower(nombre) LIKE lower(${'%' + d.clienteNombre + '%'}) LIMIT 1`
+      const clienteRows = await sql`
+        SELECT id FROM clientes
+        WHERE unaccent(lower(nombre)) LIKE unaccent(lower(${'%' + d.clienteNombre + '%'}))
+           OR similarity(unaccent(lower(nombre)), unaccent(lower(${d.clienteNombre}))) >= 0.4
+        ORDER BY similarity(unaccent(lower(nombre)), unaccent(lower(${d.clienteNombre}))) DESC
+        LIMIT 1`
       if (!clienteRows.length) {
         await sendMessage(chatId, `❌ No encontré un cliente con el nombre "${d.clienteNombre}".`)
         return NextResponse.json({ ok: true })
@@ -643,7 +648,12 @@ export async function POST(req: NextRequest) {
 
     if (resultado.tipo === 'editar_venta') {
       const d = resultado.data as EditarVentaData
-      const clienteRows = await sql`SELECT id, nombre FROM clientes WHERE lower(nombre) LIKE lower(${'%' + d.clienteNombre + '%'}) ORDER BY activo DESC LIMIT 1`
+      const clienteRows = await sql`
+        SELECT id, nombre FROM clientes
+        WHERE unaccent(lower(nombre)) LIKE unaccent(lower(${'%' + d.clienteNombre + '%'}))
+           OR similarity(unaccent(lower(nombre)), unaccent(lower(${d.clienteNombre}))) >= 0.4
+        ORDER BY activo DESC, similarity(unaccent(lower(nombre)), unaccent(lower(${d.clienteNombre}))) DESC
+        LIMIT 1`
       if (!clienteRows.length) {
         await sendMessage(chatId, `❌ No encontré un cliente con el nombre "${d.clienteNombre}".`)
         return NextResponse.json({ ok: true })
@@ -692,7 +702,12 @@ export async function POST(req: NextRequest) {
 
     if (resultado.tipo === 'actualizar_cliente') {
       const d = resultado.data as ActualizarClienteData
-      const clienteRows = await sql`SELECT id FROM clientes WHERE lower(nombre) LIKE lower(${'%' + d.clienteNombre + '%'}) LIMIT 1`
+      const clienteRows = await sql`
+        SELECT id FROM clientes
+        WHERE unaccent(lower(nombre)) LIKE unaccent(lower(${'%' + d.clienteNombre + '%'}))
+           OR similarity(unaccent(lower(nombre)), unaccent(lower(${d.clienteNombre}))) >= 0.4
+        ORDER BY similarity(unaccent(lower(nombre)), unaccent(lower(${d.clienteNombre}))) DESC
+        LIMIT 1`
       if (!clienteRows.length) {
         await sendMessage(chatId, `❌ No encontré un cliente con el nombre "${d.clienteNombre}".`)
         return NextResponse.json({ ok: true })
