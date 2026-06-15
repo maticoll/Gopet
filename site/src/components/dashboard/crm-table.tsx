@@ -106,7 +106,7 @@ export function CrmTable({ clientes }: { clientes: ClienteRow[] }) {
               <th className="text-left text-slate-500 font-medium py-2 px-3 text-xs uppercase tracking-wide hidden sm:table-cell">Mascotas</th>
               <th className="text-left text-slate-500 font-medium py-2 px-3 text-xs uppercase tracking-wide hidden lg:table-cell">Dirección</th>
               <th className="text-left text-slate-500 font-medium py-2 px-3 text-xs uppercase tracking-wide hidden md:table-cell">1ª compra</th>
-              <th className="text-left text-slate-500 font-medium py-2 px-3 text-xs uppercase tracking-wide hidden md:table-cell">Últ. compra</th>
+              <th className="text-left text-slate-500 font-medium py-2 px-3 text-xs uppercase tracking-wide">Últ. compra</th>
               <th className="text-left text-slate-500 font-medium py-2 px-3 text-xs uppercase tracking-wide">Próx. fin bolsa</th>
               <th className="text-right text-slate-500 font-medium py-2 px-3 text-xs uppercase tracking-wide w-16"></th>
             </tr>
@@ -163,7 +163,7 @@ export function CrmTable({ clientes }: { clientes: ClienteRow[] }) {
                   </td>
 
                   {/* Última compra */}
-                  <td className="py-3 px-3 text-slate-300 hidden md:table-cell">
+                  <td className="py-3 px-3 text-slate-300">
                     {formatFecha(c.ultimaCompra)}
                   </td>
 
