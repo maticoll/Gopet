@@ -23,7 +23,7 @@ export default async function CajaPage() {
   const movimientosRaw = await sql`
     SELECT id, descripcion, monto, categoria, metodo_pago, etiqueta, pagado, fecha_limite_pago, fecha, created_at
     FROM movimientos_caja
-    ORDER BY fecha DESC NULLS LAST, created_at DESC
+    ORDER BY COALESCE(fecha, created_at::date) DESC, created_at DESC
     LIMIT 30
   `
 
