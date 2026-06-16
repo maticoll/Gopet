@@ -13,6 +13,7 @@ export default async function InfoPage() {
     SELECT
       v.fecha_estimada_fin,
       v.precio,
+      v.cantidad,
       v.fecha_venta,
       v.producto,
       p.especie
@@ -50,7 +51,7 @@ export default async function InfoPage() {
   const hace5Meses = fechaHoyUruguay()
   hace5Meses.setMonth(hace5Meses.getMonth() - 5)
   const todasVentas = await sql`
-    SELECT precio, fecha_venta FROM ventas
+    SELECT precio, cantidad, fecha_venta FROM ventas
     WHERE fecha_venta >= ${hace5Meses.toISOString().split('T')[0]}
   `
 
@@ -60,7 +61,7 @@ export default async function InfoPage() {
     const fecha  = new Date(v.fecha_venta as string)
     const mesKey = `${meses[fecha.getMonth()]} ${fecha.getFullYear().toString().slice(-2)}`
     const actual = ventasPorMes.get(mesKey) || { total: 0, cantidad: 0 }
-    ventasPorMes.set(mesKey, { total: actual.total + (v.precio as number), cantidad: actual.cantidad + 1 })
+    ventasPorMes.set(mesKey, { total: actual.total + (v.precio as number) * ((v.cantidad as number) ?? 1), cantidad: actual.cantidad + 1 })
   })
   const ventasMensuales = Array.from(ventasPorMes.entries())
     .map(([mes, data]) => ({ mes, ...data }))
@@ -80,7 +81,7 @@ export default async function InfoPage() {
 
   const totalClientes = perros + gatos
   const META = 102000
-  const totalVentas = ventas.reduce((sum, v) => sum + (v.precio as number), 0)
+  const totalVentas = ventas.reduce((sum, v) => sum + (v.precio as number) * ((v.cantidad as number) ?? 1), 0)
   const porcentajeMeta = Math.min((totalVentas / META) * 100, 100)
 
   return (
