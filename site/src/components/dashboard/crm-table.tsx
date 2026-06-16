@@ -102,6 +102,7 @@ export function CrmTable({ clientes }: { clientes: ClienteRow[] }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-800">
+              <th className="text-left text-slate-500 font-medium py-2 px-3 text-xs uppercase tracking-wide w-10">#</th>
               <th className="text-left text-slate-500 font-medium py-2 px-3 text-xs uppercase tracking-wide">Cliente</th>
               <th className="text-left text-slate-500 font-medium py-2 px-3 text-xs uppercase tracking-wide hidden sm:table-cell">Mascotas</th>
               <th className="text-left text-slate-500 font-medium py-2 px-3 text-xs uppercase tracking-wide hidden lg:table-cell">Dirección</th>
@@ -112,7 +113,7 @@ export function CrmTable({ clientes }: { clientes: ClienteRow[] }) {
             </tr>
           </thead>
           <tbody>
-            {filtrados.map(c => {
+            {filtrados.map((c, i) => {
               // Mascota con fin de bolsa más próximo
               const mascotaUrgente = c.mascotas
                 .filter(m => m.diasRestantes !== null)
@@ -125,6 +126,9 @@ export function CrmTable({ clientes }: { clientes: ClienteRow[] }) {
                   className="border-b border-slate-900 hover:bg-slate-900 transition-colors group cursor-pointer"
                   onClick={() => router.push(`/dashboard/clientes/${c.clienteId}`)}
                 >
+                  {/* Número */}
+                  <td className="py-3 px-3 text-slate-500 tabular-nums">{i + 1}</td>
+
                   {/* Cliente */}
                   <td className="py-3 px-3 text-white">
                     {c.clienteNombre}
@@ -220,7 +224,7 @@ export function CrmTable({ clientes }: { clientes: ClienteRow[] }) {
             })}
             {filtrados.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-slate-600">
+                <td colSpan={8} className="py-8 text-center text-slate-600">
                   No se encontraron clientes
                 </td>
               </tr>

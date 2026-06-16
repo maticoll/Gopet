@@ -121,6 +121,7 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
         <table className="w-full text-sm">
           <thead>
             <tr className="text-slate-400 border-b border-slate-800">
+              <th className="text-left py-2 pr-4 w-10">#</th>
               <th className="text-left py-2 pr-4">Fecha</th>
               <th className="text-left py-2 pr-4">Descripción</th>
               <th className="text-left py-2 pr-4">Etiqueta</th>
@@ -134,17 +135,18 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
           <tbody>
             {movimientosFiltrados.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-6 text-center text-slate-500 text-sm">
+                <td colSpan={9} className="py-6 text-center text-slate-500 text-sm">
                   No hay movimientos con la etiqueta "{filtroEtiqueta}"
                 </td>
               </tr>
             ) : (
-              movimientosFiltrados.map(m => {
+              movimientosFiltrados.map((m, i) => {
                 const isEditing = editingId === m.id
 
                 if (isEditing && form) {
                   return (
                     <tr key={m.id} className="border-b border-slate-700 bg-slate-800/60">
+                      <td className="py-2 pr-4 text-slate-500 tabular-nums">{i + 1}</td>
                       <td className="py-2 pr-4 text-slate-400 text-xs">
                         {new Date(m.created_at).toLocaleDateString('es-UY')}
                       </td>
@@ -220,6 +222,7 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
                 const metodo = m.metodo_pago === 'efectivo' ? '💵 Efectivo' : '🏦 Transfer'
                 return (
                   <tr key={m.id} className="border-b border-slate-800/50">
+                    <td className="py-2 pr-4 text-slate-500 tabular-nums">{i + 1}</td>
                     <td className="py-2 pr-4 text-slate-400">
                       {new Date(m.created_at).toLocaleDateString('es-UY')}
                     </td>
