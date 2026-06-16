@@ -55,6 +55,7 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
     categoria: string
     metodo_pago: string
     etiqueta: string
+    pagado: boolean
   } | null>(null)
 
   function startEdit(m: Movimiento) {
@@ -66,6 +67,7 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
       categoria: m.categoria,
       metodo_pago: m.metodo_pago ?? 'efectivo',
       etiqueta: m.etiqueta ?? '',
+      pagado: m.pagado,
     })
   }
 
@@ -84,6 +86,7 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
       categoria: form.categoria,
       metodo_pago: form.metodo_pago || null,
       etiqueta: form.etiqueta || null,
+      pagado: form.pagado,
     })
     setSaving(false)
     setEditingId(null)
@@ -205,7 +208,16 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
                           <option value="transferencia">🏦 Transfer</option>
                         </select>
                       </td>
-                      <td className="py-2 pr-4 text-slate-500 text-xs">—</td>
+                      <td className="py-2 pr-4">
+                        <select
+                          value={form.pagado ? 'pagado' : 'pendiente'}
+                          onChange={e => setForm({ ...form, pagado: e.target.value === 'pagado' })}
+                          className="bg-slate-700 text-white rounded px-1.5 py-0.5 text-xs border border-slate-600"
+                        >
+                          <option value="pagado">✅ Pagado</option>
+                          <option value="pendiente">⏳ No pagado</option>
+                        </select>
+                      </td>
                       <td className="py-2 pr-4 text-right">
                         <input
                           type="number"

@@ -213,11 +213,13 @@ Para tipo "movimiento_caja":
     "categoria": "egreso" | "ingreso",
     "metodoPago": "efectivo" | "transferencia" | null,
     "etiqueta": "Meta Ads" | "Compra stock" | "Nafta" | null,
-    "fecha": "YYYY-MM-DD" | null
+    "fecha": "YYYY-MM-DD" | null,
+    "pagado": true | false
   }
 }
 - categoria "egreso": se gastó plata (flete, packaging, insumos, gastos varios)
 - categoria "ingreso": entró plata por fuera de ventas de bolsas (cobro de deuda, otro ingreso)
+- pagado: true por defecto. SOLO poner false si dice explícitamente que NO está pagado todavía: "no lo pagué", "todavía no pagué", "queda debiendo", "a pagar", "lo debo", "lo pago después", "pago más adelante", "a crédito", "fiado", "sin pagar".
 - fecha: la fecha del gasto/ingreso en formato YYYY-MM-DD. Si el mensaje da una fecha absoluta ("el 14 de marzo de 2026", "el 3/2") usarla. Si da una relativa ("ayer", "anteayer", "hoy", "el lunes pasado") calcularla a partir de la fecha de hoy indicada arriba. Si no menciona ninguna fecha → null (se usa la fecha de hoy).
 - etiqueta: asignar "Meta Ads" si el mensaje menciona "meta ads", "meta", "facebook ads", "instagram ads", "pauta", "publicidad"; asignar "Compra stock" si menciona "compra stock", "compré stock", "compré bolsas", "mercadería", "stock"; asignar "Nafta" si menciona "nafta", "combustible", "gasolina"; null si no aplica ninguna
 
@@ -357,6 +359,7 @@ export interface MovimientoCajaData {
   metodoPago: 'efectivo' | 'transferencia' | null
   etiqueta: 'Meta Ads' | 'Compra stock' | 'Nafta' | null
   fecha: string | null
+  pagado: boolean
 }
 
 export interface DataExtraClienteData {

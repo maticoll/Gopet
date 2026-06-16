@@ -354,8 +354,8 @@ export async function POST(req: NextRequest) {
 
       const fechaMov = d.fecha ?? fechaHoyUruguay().toISOString().split('T')[0]
       await sql`
-        INSERT INTO movimientos_caja (descripcion, monto, categoria, metodo_pago, etiqueta, fecha)
-        VALUES (${d.descripcion}, ${d.monto}, ${d.categoria}, ${d.metodoPago ?? null}, ${d.etiqueta ?? null}, ${fechaMov}::date)
+        INSERT INTO movimientos_caja (descripcion, monto, categoria, metodo_pago, etiqueta, fecha, pagado)
+        VALUES (${d.descripcion}, ${d.monto}, ${d.categoria}, ${d.metodoPago ?? null}, ${d.etiqueta ?? null}, ${fechaMov}::date, ${d.pagado ?? true})
       `
       await sendMessage(chatId, `✅ <b>Movimiento registrado</b>\n${bloqueMovimientoTexto(d)}`)
 
@@ -909,7 +909,8 @@ function bloqueMovimientoTexto(d: MovimientoCajaData): string {
   const etiquetaTexto = d.etiqueta ? ` · 🏷️ ${d.etiqueta}` : ''
   const fechaEfectiva = d.fecha ?? fechaHoyUruguay().toISOString().split('T')[0]
   const fechaTexto = `\n📅 ${new Date(fechaEfectiva + 'T12:00:00').toLocaleDateString('es-UY')}`
-  return `${emoji} <b>${titulo}</b>\n📝 ${d.descripcion}\n💵 ${signo}$${d.monto.toLocaleString('es-UY')}${metodoPagoTexto}${etiquetaTexto}${fechaTexto}`
+  const pagoTexto = `\n💳 ${d.pagado ? '✅ Pagado' : '⏳ NO pagado'}`
+  return `${emoji} <b>${titulo}</b>\n📝 ${d.descripcion}\n💵 ${signo}$${d.monto.toLocaleString('es-UY')}${metodoPagoTexto}${etiquetaTexto}${fechaTexto}${pagoTexto}`
 }
 
 function bloqueTransferenciaTexto(d: TransferenciaInternaData): string {
