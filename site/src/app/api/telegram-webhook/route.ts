@@ -340,6 +340,30 @@ export async function POST(req: NextRequest) {
       await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
       await sendMessage(chatId, '❌ Compra cancelada.')
 
+    // ── confirmar_movimiento_caja ────────────────────────────────────
+    } else if (accion === 'confirmar_movimiento_caja') {
+      if (messageId) await deleteMessage(chatId, messageId)
+
+      const estados = await sql`SELECT payload FROM telegram_estados WHERE chat_id = ${chatId}`
+      if (!estados.length || !estados[0].payload) {
+        await sendMessage(chatId, '⚠️ No hay movimiento pendiente de confirmación.')
+        return NextResponse.json({ ok: true })
+      }
+      const d = estados[0].payload as MovimientoCajaData
+      await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
+
+      await sql`
+        INSERT INTO movimientos_caja (descripcion, monto, categoria, metodo_pago, etiqueta)
+        VALUES (${d.descripcion}, ${d.monto}, ${d.categoria}, ${d.metodoPago ?? null}, ${d.etiqueta ?? null})
+      `
+      await sendMessage(chatId, `✅ <b>Movimiento registrado</b>\n${bloqueMovimientoTexto(d)}`)
+
+    // ── cancelar_movimiento_caja ─────────────────────────────────────
+    } else if (accion === 'cancelar_movimiento_caja') {
+      if (messageId) await deleteMessage(chatId, messageId)
+      await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
+      await sendMessage(chatId, '❌ Movimiento rechazado.')
+
     // ── recompro ─────────────────────────────────────────────────────
     } else if (accion === 'recompro') {
       const ventaRows = await sql`SELECT * FROM ventas WHERE id = ${ventaId}`
@@ -521,15 +545,16 @@ export async function POST(req: NextRequest) {
     // movimiento_caja siempre tiene ok:true pero lo chequeamos antes por si acaso
     if (resultado.tipo === 'movimiento_caja') {
       const d = resultado.data as MovimientoCajaData
+      const payloadStr = JSON.stringify(d)
       await sql`
-        INSERT INTO movimientos_caja (descripcion, monto, categoria, metodo_pago, etiqueta)
-        VALUES (${d.descripcion}, ${d.monto}, ${d.categoria}, ${d.metodoPago ?? null}, ${d.etiqueta ?? null})
+        INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
+        VALUES (${chatId}, 'confirmando_movimiento_caja', null, ${payloadStr}, now())
+        ON CONFLICT (chat_id) DO UPDATE SET estado = 'confirmando_movimiento_caja', venta_id = null, payload = ${payloadStr}, updated_at = now()
       `
-      const emoji = d.categoria === 'egreso' ? '💸' : '💰'
-      const signo = d.categoria === 'egreso' ? '-' : '+'
-      const metodoPagoTexto = d.metodoPago === 'efectivo' ? ' · 💵 Efectivo' : d.metodoPago === 'transferencia' ? ' · 🏦 Transferencia' : ''
-      const etiquetaTexto = d.etiqueta ? ` · 🏷️ ${d.etiqueta}` : ''
-      await sendMessage(chatId, `${emoji} <b>Movimiento registrado</b>\n📝 ${d.descripcion}\n💵 ${signo}$${d.monto.toLocaleString('es-UY')}${metodoPagoTexto}${etiquetaTexto}`)
+      await sendMessageWithButtons(chatId,
+        `${bloqueMovimientoTexto(d)}\n\n¿Confirmar?`,
+        [{ text: '✅ Confirmar', callback_data: 'confirmar_movimiento_caja' }, { text: '❌ Rechazar', callback_data: 'cancelar_movimiento_caja' }]
+      )
       return NextResponse.json({ ok: true })
     }
 
@@ -846,6 +871,15 @@ function bloqueCompraTexto(c: CompraNormalizada): string {
         : `\n💳 ⏳ NO pagado${c.fechaLimitePago ? ` · vence ${new Date(c.fechaLimitePago + 'T12:00:00').toLocaleDateString('es-UY')}` : ''}`)
     : ''
   return `🛍 <b>${c.producto}</b> — ${c.cantidadTotal} bolsa${c.cantidadTotal > 1 ? 's' : ''}\n${casaLineas}${costoLinea}${pagoLinea}`
+}
+
+function bloqueMovimientoTexto(d: MovimientoCajaData): string {
+  const emoji = d.categoria === 'egreso' ? '💸' : '💰'
+  const titulo = d.categoria === 'egreso' ? 'Gasto' : 'Ingreso'
+  const signo = d.categoria === 'egreso' ? '-' : '+'
+  const metodoPagoTexto = d.metodoPago === 'efectivo' ? ' · 💵 Efectivo' : d.metodoPago === 'transferencia' ? ' · 🏦 Transferencia' : ''
+  const etiquetaTexto = d.etiqueta ? ` · 🏷️ ${d.etiqueta}` : ''
+  return `${emoji} <b>${titulo}</b>\n📝 ${d.descripcion}\n💵 ${signo}$${d.monto.toLocaleString('es-UY')}${metodoPagoTexto}${etiquetaTexto}`
 }
 
 // Aplica una compra: suma stock por casa y registra el gasto en caja. Devuelve resumen.
