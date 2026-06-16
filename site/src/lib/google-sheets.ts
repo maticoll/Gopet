@@ -48,3 +48,39 @@ export async function appendVentaToSheet(venta: VentaRow): Promise<void> {
     requestBody: { values: [row] },
   })
 }
+
+type CellValue = string | number | boolean
+
+// Sobrescribe por completo una pestaña con headers + filas. Crea la pestaña si no existe.
+// Se usa para el respaldo semanal: cada tabla de la base se vuelca a su propia pestaña.
+export async function overwriteSheetTab(
+  title: string,
+  headers: string[],
+  rows: CellValue[][],
+): Promise<void> {
+  if (!process.env.GOOGLE_SHEETS_ID) {
+    console.error('GOOGLE_SHEETS_ID not configured')
+    return
+  }
+  const spreadsheetId = process.env.GOOGLE_SHEETS_ID
+  const sheets = google.sheets({ version: 'v4', auth })
+
+  // Crear la pestaña si todavía no existe
+  const meta = await sheets.spreadsheets.get({ spreadsheetId })
+  const existe = meta.data.sheets?.some(s => s.properties?.title === title)
+  if (!existe) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: { requests: [{ addSheet: { properties: { title } } }] },
+    })
+  }
+
+  // Limpiar contenido previo y escribir el snapshot actual
+  await sheets.spreadsheets.values.clear({ spreadsheetId, range: `'${title}'!A:ZZ` })
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `'${title}'!A1`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [headers, ...rows] },
+  })
+}
