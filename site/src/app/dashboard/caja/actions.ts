@@ -42,6 +42,7 @@ export async function marcarMovimientoPagado(movimientoId: string): Promise<void
 export async function editarMovimiento(
   movimientoId: string,
   data: {
+    fecha: string
     descripcion: string
     monto: number
     categoria: string
@@ -51,6 +52,7 @@ export async function editarMovimiento(
 ): Promise<void> {
   await sql`
     UPDATE movimientos_caja SET
+      fecha       = ${data.fecha || null}::date,
       descripcion = ${data.descripcion},
       monto       = ${data.monto},
       categoria   = ${data.categoria},

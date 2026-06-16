@@ -12,7 +12,14 @@ type Movimiento = {
   etiqueta: string | null
   pagado: boolean
   fecha_limite_pago: string | null
+  fecha: string | null
   created_at: string
+}
+
+// Fecha a mostrar: la del gasto/ingreso (fecha) o, si falta, el momento de registro
+function fechaMostrar(m: Movimiento): string {
+  if (m.fecha) return new Date(m.fecha + 'T12:00:00').toLocaleDateString('es-UY')
+  return new Date(m.created_at).toLocaleDateString('es-UY')
 }
 
 const ETIQUETAS = ['Meta Ads', 'Compra stock', 'Nafta']
@@ -42,6 +49,7 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
     })
   }
   const [form, setForm] = useState<{
+    fecha: string
     descripcion: string
     monto: number
     categoria: string
@@ -52,6 +60,7 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
   function startEdit(m: Movimiento) {
     setEditingId(m.id)
     setForm({
+      fecha: m.fecha ?? (m.created_at ? m.created_at.substring(0, 10) : ''),
       descripcion: m.descripcion,
       monto: m.monto,
       categoria: m.categoria,
@@ -69,6 +78,7 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
     if (!form) return
     setSaving(true)
     await editarMovimiento(id, {
+      fecha: form.fecha,
       descripcion: form.descripcion,
       monto: form.monto,
       categoria: form.categoria,
@@ -147,8 +157,13 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
                   return (
                     <tr key={m.id} className="border-b border-slate-700 bg-slate-800/60">
                       <td className="py-2 pr-4 text-slate-500 tabular-nums">{i + 1}</td>
-                      <td className="py-2 pr-4 text-slate-400 text-xs">
-                        {new Date(m.created_at).toLocaleDateString('es-UY')}
+                      <td className="py-2 pr-4">
+                        <input
+                          type="date"
+                          value={form.fecha}
+                          onChange={e => setForm({ ...form, fecha: e.target.value })}
+                          className="bg-slate-700 text-white rounded px-1.5 py-0.5 text-xs w-28 border border-slate-600"
+                        />
                       </td>
                       <td className="py-2 pr-4">
                         <input
@@ -224,7 +239,7 @@ export default function MovimientosTable({ movimientos }: { movimientos: Movimie
                   <tr key={m.id} className="border-b border-slate-800/50">
                     <td className="py-2 pr-4 text-slate-500 tabular-nums">{i + 1}</td>
                     <td className="py-2 pr-4 text-slate-400">
-                      {new Date(m.created_at).toLocaleDateString('es-UY')}
+                      {fechaMostrar(m)}
                     </td>
                     <td className="py-2 pr-4 text-white">
                       {esEgreso ? '💸' : '💰'} {m.descripcion}

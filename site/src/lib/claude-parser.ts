@@ -212,11 +212,13 @@ Para tipo "movimiento_caja":
     "monto": number,
     "categoria": "egreso" | "ingreso",
     "metodoPago": "efectivo" | "transferencia" | null,
-    "etiqueta": "Meta Ads" | "Compra stock" | "Nafta" | null
+    "etiqueta": "Meta Ads" | "Compra stock" | "Nafta" | null,
+    "fecha": "YYYY-MM-DD" | null
   }
 }
 - categoria "egreso": se gastó plata (flete, packaging, insumos, gastos varios)
 - categoria "ingreso": entró plata por fuera de ventas de bolsas (cobro de deuda, otro ingreso)
+- fecha: la fecha del gasto/ingreso en formato YYYY-MM-DD. Si el mensaje da una fecha absoluta ("el 14 de marzo de 2026", "el 3/2") usarla. Si da una relativa ("ayer", "anteayer", "hoy", "el lunes pasado") calcularla a partir de la fecha de hoy indicada arriba. Si no menciona ninguna fecha → null (se usa la fecha de hoy).
 - etiqueta: asignar "Meta Ads" si el mensaje menciona "meta ads", "meta", "facebook ads", "instagram ads", "pauta", "publicidad"; asignar "Compra stock" si menciona "compra stock", "compré stock", "compré bolsas", "mercadería", "stock"; asignar "Nafta" si menciona "nafta", "combustible", "gasolina"; null si no aplica ninguna
 
 Reglas para ventas:
@@ -354,6 +356,7 @@ export interface MovimientoCajaData {
   categoria: 'egreso' | 'ingreso'
   metodoPago: 'efectivo' | 'transferencia' | null
   etiqueta: 'Meta Ads' | 'Compra stock' | 'Nafta' | null
+  fecha: string | null
 }
 
 export interface DataExtraClienteData {
@@ -377,10 +380,11 @@ export interface ParseResult {
 }
 
 export async function parsearMensaje(mensaje: string): Promise<ParseResult> {
+  const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Montevideo' }) // YYYY-MM-DD
   const response = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 1024,
-    system: SYSTEM_PROMPT,
+    system: `${SYSTEM_PROMPT}\n\nLa fecha de hoy es ${hoy} (zona horaria America/Montevideo). Usala para resolver fechas relativas como "hoy", "ayer", "anteayer".`,
     messages: [{ role: 'user', content: mensaje }],
   })
 

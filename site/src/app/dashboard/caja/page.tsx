@@ -21,9 +21,9 @@ export default async function CajaPage() {
 
   // Movimientos de caja (últimos 30)
   const movimientosRaw = await sql`
-    SELECT id, descripcion, monto, categoria, metodo_pago, etiqueta, pagado, fecha_limite_pago, created_at
+    SELECT id, descripcion, monto, categoria, metodo_pago, etiqueta, pagado, fecha_limite_pago, fecha, created_at
     FROM movimientos_caja
-    ORDER BY created_at DESC
+    ORDER BY fecha DESC NULLS LAST, created_at DESC
     LIMIT 30
   `
 
@@ -95,6 +95,11 @@ export default async function CajaPage() {
       ? (m.fecha_limite_pago instanceof Date
           ? m.fecha_limite_pago.toISOString().substring(0, 10)
           : String(m.fecha_limite_pago).substring(0, 10))
+      : null,
+    fecha: m.fecha
+      ? (m.fecha instanceof Date
+          ? m.fecha.toISOString().substring(0, 10)
+          : String(m.fecha).substring(0, 10))
       : null,
     created_at: m.created_at as string,
   }))

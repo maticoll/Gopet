@@ -352,9 +352,10 @@ export async function POST(req: NextRequest) {
       const d = estados[0].payload as MovimientoCajaData
       await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
 
+      const fechaMov = d.fecha ?? fechaHoyUruguay().toISOString().split('T')[0]
       await sql`
-        INSERT INTO movimientos_caja (descripcion, monto, categoria, metodo_pago, etiqueta)
-        VALUES (${d.descripcion}, ${d.monto}, ${d.categoria}, ${d.metodoPago ?? null}, ${d.etiqueta ?? null})
+        INSERT INTO movimientos_caja (descripcion, monto, categoria, metodo_pago, etiqueta, fecha)
+        VALUES (${d.descripcion}, ${d.monto}, ${d.categoria}, ${d.metodoPago ?? null}, ${d.etiqueta ?? null}, ${fechaMov}::date)
       `
       await sendMessage(chatId, `✅ <b>Movimiento registrado</b>\n${bloqueMovimientoTexto(d)}`)
 
@@ -906,7 +907,9 @@ function bloqueMovimientoTexto(d: MovimientoCajaData): string {
   const signo = d.categoria === 'egreso' ? '-' : '+'
   const metodoPagoTexto = d.metodoPago === 'efectivo' ? ' · 💵 Efectivo' : d.metodoPago === 'transferencia' ? ' · 🏦 Transferencia' : ''
   const etiquetaTexto = d.etiqueta ? ` · 🏷️ ${d.etiqueta}` : ''
-  return `${emoji} <b>${titulo}</b>\n📝 ${d.descripcion}\n💵 ${signo}$${d.monto.toLocaleString('es-UY')}${metodoPagoTexto}${etiquetaTexto}`
+  const fechaEfectiva = d.fecha ?? fechaHoyUruguay().toISOString().split('T')[0]
+  const fechaTexto = `\n📅 ${new Date(fechaEfectiva + 'T12:00:00').toLocaleDateString('es-UY')}`
+  return `${emoji} <b>${titulo}</b>\n📝 ${d.descripcion}\n💵 ${signo}$${d.monto.toLocaleString('es-UY')}${metodoPagoTexto}${etiquetaTexto}${fechaTexto}`
 }
 
 function bloqueTransferenciaTexto(d: TransferenciaInternaData): string {
