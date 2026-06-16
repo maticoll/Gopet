@@ -55,11 +55,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
             { href: '/ideas', label: 'Ideas' },
             { href: '/agente-meta', label: 'Meta' },
             { href: '/creacion-contenido', label: 'Contenido' },
-          ].map(({ href, label }) => (
-            <Link key={href} href={href} className="text-white font-semibold text-sm hover:text-slate-300 transition-colors">
-              {label}
-            </Link>
-          ))}
+            { href: 'https://gopet-wine.vercel.app', label: 'Web', external: true },
+          ].map(({ href, label, external }) =>
+            external ? (
+              <a key={href} href={href} target="_blank" rel="noopener noreferrer" className="text-amber-400 font-semibold text-sm hover:text-amber-300 transition-colors">
+                {label} ↗
+              </a>
+            ) : (
+              <Link key={href} href={href} className="text-white font-semibold text-sm hover:text-slate-300 transition-colors">
+                {label}
+              </Link>
+            )
+          )}
         </div>
         {/* Controles derecha */}
         <div className="flex items-center gap-3">

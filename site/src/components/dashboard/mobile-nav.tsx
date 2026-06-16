@@ -14,6 +14,7 @@ const navLinks = [
   { href: '/ideas', label: '💡 Ideas' },
   { href: '/agente-meta', label: '📈 Meta' },
   { href: '/creacion-contenido', label: '✍️ Contenido' },
+  { href: 'https://gopet-wine.vercel.app', label: '🌐 Web ↗', external: true },
 ]
 
 export function MobileNav() {
@@ -66,7 +67,20 @@ export function MobileNav() {
       {open && (
         <div className="absolute right-0 top-full mt-2 w-52 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-50 overflow-hidden">
           <nav className="flex flex-col">
-            {navLinks.map(({ href, label }) => {
+            {navLinks.map(({ href, label, external }) => {
+              if (external) {
+                return (
+                  <a
+                    key={href}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-3 text-sm transition-colors border-b border-slate-800 last:border-b-0 text-amber-400 hover:text-amber-300 hover:bg-slate-800"
+                  >
+                    {label}
+                  </a>
+                )
+              }
               const isActive = pathname === href
               return (
                 <Link
