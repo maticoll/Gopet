@@ -8,6 +8,7 @@ type Venta = {
   id: string
   producto: string
   precio: number
+  cantidad: number
   fecha_venta: string
   fecha_estimada_fin: string | null
 }
@@ -281,6 +282,7 @@ function VentaRow({ venta: v, clienteId }: { venta: Venta; clienteId: string }) 
   const [form, setForm] = useState({
     producto: v.producto,
     precio: v.precio?.toString() ?? '',
+    cantidad: (v.cantidad ?? 1).toString(),
     fecha_venta: toDateStr(v.fecha_venta),
     fecha_estimada_fin: toDateStr(v.fecha_estimada_fin),
   })
@@ -292,6 +294,7 @@ function VentaRow({ venta: v, clienteId }: { venta: Venta; clienteId: string }) 
     await editarVenta(v.id, clienteId, {
       producto: form.producto,
       precio: Number(form.precio),
+      cantidad: Math.max(1, Number(form.cantidad) || 1),
       fecha_venta: form.fecha_venta,
       fecha_estimada_fin: form.fecha_estimada_fin || null,
     })
@@ -318,11 +321,21 @@ function VentaRow({ venta: v, clienteId }: { venta: Venta; clienteId: string }) 
             />
           </div>
           <div>
-            <label className="text-slate-500 text-xs block mb-1">Precio ($)</label>
+            <label className="text-slate-500 text-xs block mb-1">Precio por bolsa ($)</label>
             <input
               type="number"
               value={form.precio}
               onChange={e => setForm({ ...form, precio: e.target.value })}
+              className="w-full bg-slate-700 text-white rounded px-2 py-1 text-sm border border-slate-600"
+            />
+          </div>
+          <div>
+            <label className="text-slate-500 text-xs block mb-1">Cantidad (bolsas)</label>
+            <input
+              type="number"
+              min={1}
+              value={form.cantidad}
+              onChange={e => setForm({ ...form, cantidad: e.target.value })}
               className="w-full bg-slate-700 text-white rounded px-2 py-1 text-sm border border-slate-600"
             />
           </div>
@@ -360,9 +373,16 @@ function VentaRow({ venta: v, clienteId }: { venta: Venta; clienteId: string }) 
   return (
     <div className="bg-slate-800 rounded p-3 flex justify-between items-center gap-2">
       <div className="flex-1 min-w-0">
-        <p className="text-white text-sm">{v.producto}</p>
+        <p className="text-white text-sm">
+          {v.producto}
+          {v.cantidad > 1 && <span className="text-amber-400 font-semibold"> ×{v.cantidad}</span>}
+        </p>
         <p className="text-slate-400 text-xs">
-          {v.fecha_venta ? new Date(String(v.fecha_venta).substring(0, 10) + 'T12:00:00').toLocaleDateString('es-UY') : 'Sin fecha'} · ${v.precio?.toLocaleString('es-UY')}
+          {v.fecha_venta ? new Date(String(v.fecha_venta).substring(0, 10) + 'T12:00:00').toLocaleDateString('es-UY') : 'Sin fecha'}
+          {' · '}
+          {v.cantidad > 1
+            ? <>{v.cantidad} × ${v.precio?.toLocaleString('es-UY')} = <span className="text-slate-300">${(v.precio * v.cantidad).toLocaleString('es-UY')}</span></>
+            : <>${v.precio?.toLocaleString('es-UY')}</>}
         </p>
       </div>
       <div className="flex items-center gap-2 shrink-0">

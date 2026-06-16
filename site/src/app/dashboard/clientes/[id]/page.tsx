@@ -91,6 +91,7 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
                 id: v.id as string,
                 producto: v.producto as string,
                 precio: v.precio as number,
+                cantidad: (v.cantidad as number) ?? 1,
                 fecha_venta: toISO(v.fecha_venta) ?? '',
                 fecha_estimada_fin: toISO(v.fecha_estimada_fin),
               }

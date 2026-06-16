@@ -42,6 +42,7 @@ export async function editarVenta(
   data: {
     producto: string
     precio: number
+    cantidad: number
     fecha_venta: string
     fecha_estimada_fin: string | null
   }
@@ -50,6 +51,7 @@ export async function editarVenta(
     UPDATE ventas SET
       producto          = ${data.producto},
       precio            = ${data.precio},
+      cantidad          = ${data.cantidad},
       fecha_venta       = ${data.fecha_venta}::date,
       fecha_estimada_fin = ${data.fecha_estimada_fin}::date
     WHERE id = ${ventaId}
