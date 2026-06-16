@@ -76,7 +76,9 @@ export default async function CajaPage() {
     cantidad: (v.cantidad as number) ?? 1,
     precio: v.precio as number,
     pagado: v.pagado as boolean,
-    fecha_venta: v.fecha_venta as string,
+    fecha_venta: v.fecha_venta instanceof Date
+      ? v.fecha_venta.toISOString().substring(0, 10)
+      : String(v.fecha_venta).substring(0, 10),
     metodo_pago: v.metodo_pago as string | null,
     cliente_id: v.cliente_id as string | null,
     cliente_nombre: v.cliente_nombre as string | null,
@@ -101,7 +103,9 @@ export default async function CajaPage() {
           ? m.fecha.toISOString().substring(0, 10)
           : String(m.fecha).substring(0, 10))
       : null,
-    created_at: m.created_at as string,
+    created_at: m.created_at instanceof Date
+      ? m.created_at.toISOString()
+      : String(m.created_at),
   }))
 
   const clientes = clientesRaw.map(c => ({
