@@ -364,6 +364,34 @@ export async function POST(req: NextRequest) {
       await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
       await sendMessage(chatId, '❌ Movimiento rechazado.')
 
+    // ── confirmar_transferencia_interna ──────────────────────────────
+    } else if (accion === 'confirmar_transferencia_interna') {
+      if (messageId) await deleteMessage(chatId, messageId)
+
+      const estados = await sql`SELECT payload FROM telegram_estados WHERE chat_id = ${chatId}`
+      if (!estados.length || !estados[0].payload) {
+        await sendMessage(chatId, '⚠️ No hay transferencia pendiente de confirmación.')
+        return NextResponse.json({ ok: true })
+      }
+      const d = estados[0].payload as TransferenciaInternaData
+      await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
+
+      await sql`
+        INSERT INTO movimientos_caja (descripcion, monto, categoria, metodo_pago)
+        VALUES (${'Transferencia interna'}, ${d.monto}, ${'egreso'}, ${d.de})
+      `
+      await sql`
+        INSERT INTO movimientos_caja (descripcion, monto, categoria, metodo_pago)
+        VALUES (${'Transferencia interna'}, ${d.monto}, ${'ingreso'}, ${d.a})
+      `
+      await sendMessage(chatId, `✅ <b>Registrada</b>\n${bloqueTransferenciaTexto(d)}`)
+
+    // ── cancelar_transferencia_interna ───────────────────────────────
+    } else if (accion === 'cancelar_transferencia_interna') {
+      if (messageId) await deleteMessage(chatId, messageId)
+      await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
+      await sendMessage(chatId, '❌ Transferencia rechazada.')
+
     // ── recompro ─────────────────────────────────────────────────────
     } else if (accion === 'recompro') {
       const ventaRows = await sql`SELECT * FROM ventas WHERE id = ${ventaId}`
@@ -528,17 +556,16 @@ export async function POST(req: NextRequest) {
     // transferencia_interna: crea dos movimientos (sale de un método, entra al otro)
     if (resultado.tipo === 'transferencia_interna') {
       const d = resultado.data as TransferenciaInternaData
+      const payloadStr = JSON.stringify(d)
       await sql`
-        INSERT INTO movimientos_caja (descripcion, monto, categoria, metodo_pago)
-        VALUES (${'Transferencia interna'}, ${d.monto}, ${'egreso'}, ${d.de})
+        INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
+        VALUES (${chatId}, 'confirmando_transferencia_interna', null, ${payloadStr}, now())
+        ON CONFLICT (chat_id) DO UPDATE SET estado = 'confirmando_transferencia_interna', venta_id = null, payload = ${payloadStr}, updated_at = now()
       `
-      await sql`
-        INSERT INTO movimientos_caja (descripcion, monto, categoria, metodo_pago)
-        VALUES (${'Transferencia interna'}, ${d.monto}, ${'ingreso'}, ${d.a})
-      `
-      const deLabel = d.de === 'efectivo' ? '💵 Efectivo' : '🏦 Banco'
-      const aLabel = d.a === 'efectivo' ? '💵 Efectivo' : '🏦 Banco'
-      await sendMessage(chatId, `🔄 <b>Transferencia interna registrada</b>\n💸 Sale de ${deLabel}: -$${d.monto.toLocaleString('es-UY')}\n💰 Entra a ${aLabel}: +$${d.monto.toLocaleString('es-UY')}`)
+      await sendMessageWithButtons(chatId,
+        `${bloqueTransferenciaTexto(d)}\n\n¿Confirmar?`,
+        [{ text: '✅ Confirmar', callback_data: 'confirmar_transferencia_interna' }, { text: '❌ Rechazar', callback_data: 'cancelar_transferencia_interna' }]
+      )
       return NextResponse.json({ ok: true })
     }
 
@@ -880,6 +907,12 @@ function bloqueMovimientoTexto(d: MovimientoCajaData): string {
   const metodoPagoTexto = d.metodoPago === 'efectivo' ? ' · 💵 Efectivo' : d.metodoPago === 'transferencia' ? ' · 🏦 Transferencia' : ''
   const etiquetaTexto = d.etiqueta ? ` · 🏷️ ${d.etiqueta}` : ''
   return `${emoji} <b>${titulo}</b>\n📝 ${d.descripcion}\n💵 ${signo}$${d.monto.toLocaleString('es-UY')}${metodoPagoTexto}${etiquetaTexto}`
+}
+
+function bloqueTransferenciaTexto(d: TransferenciaInternaData): string {
+  const deLabel = d.de === 'efectivo' ? '💵 Efectivo' : '🏦 Banco'
+  const aLabel = d.a === 'efectivo' ? '💵 Efectivo' : '🏦 Banco'
+  return `🔄 <b>Transferencia interna</b>\n💸 Sale de ${deLabel}: -$${d.monto.toLocaleString('es-UY')}\n💰 Entra a ${aLabel}: +$${d.monto.toLocaleString('es-UY')}`
 }
 
 // Aplica una compra: suma stock por casa y registra el gasto en caja. Devuelve resumen.
