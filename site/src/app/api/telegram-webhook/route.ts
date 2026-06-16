@@ -194,6 +194,11 @@ export async function POST(req: NextRequest) {
         await sql`UPDATE ventas SET metodo_pago = ${p.metodoPago} WHERE id = ${ventaRows[0].venta_id as string}`
       }
 
+      // Si el usuario indicó la fecha de la venta, usarla (registrar_venta usa hoy por defecto)
+      if (p.fechaVenta) {
+        await sql`UPDATE ventas SET fecha_venta = ${p.fechaVenta}::date WHERE id = ${ventaRows[0].venta_id as string}`
+      }
+
       if (p.dataExtraInline) {
         await sql`
           UPDATE clientes SET data_extra = CASE
@@ -210,7 +215,7 @@ export async function POST(req: NextRequest) {
           clienteDireccion: p.clienteDireccion, mascotaNombre: p.mascotaNombre,
           especie: p.especie, mascotaPeso: p.pesoKg, producto: p.producto,
           tamañoBolsaKg: p.tamañoBolsaKg, precio: p.precio,
-          fechaVenta: fechaHoyUruguayISO(), fechaEstimadaFin: p.fechaFin,
+          fechaVenta: p.fechaVenta ?? fechaHoyUruguayISO(), fechaEstimadaFin: p.fechaFin,
         })
       } catch (e) { console.error('Sheets sync error (non-fatal):', e) }
 
@@ -271,20 +276,24 @@ export async function POST(req: NextRequest) {
           const nueva = await sql`INSERT INTO perros (cliente_id, nombre, especie) VALUES (${clienteId}, ${v.mascotaNombre ?? (v.especie === 'perro' ? 'Perro' : 'Gato')}, ${v.especie}) RETURNING id`
           perroId = nueva[0].id as string
         }
-        // Calcular fecha fin
+        // Calcular fecha fin (desde la fecha de venta indicada, o desde hoy)
+        const baseVenta = v.fechaVenta ? new Date(v.fechaVenta + 'T12:00:00') : fechaHoyUruguay()
         let fechaFin: string | null = null
         if (v.especie === 'perro') {
           const g = await obtenerGramosDiariosDeTabla(v.tipoPerro, v.pesoKg)
-          if (g) fechaFin = calcularFechaFinPorGramosDia(fechaHoyUruguay(), v.tamañoBolsaKg, g).toISOString().split('T')[0]
+          if (g) fechaFin = calcularFechaFinPorGramosDia(baseVenta, v.tamañoBolsaKg, g).toISOString().split('T')[0]
         }
         if (v.precio === null || v.precio === undefined) {
           await sendMessage(chatId, `⚠️ No encontré el precio de "<b>${v.producto}</b>". Esa venta no se registró — registrala por separado con el precio.`)
           continue
         }
-        await sql`SELECT registrar_venta(${clienteId}::uuid, ${perroId}::uuid, ${v.producto}, ${v.tamañoBolsaKg}, ${v.precio}, ${null}, ${null}, ${fechaFin}::date, 1, ${v.pagado}, ${v.casa ?? 'shangrila'})`
-        if (v.metodoPago) {
-          const vRows = await sql`SELECT id FROM ventas WHERE cliente_id = ${clienteId} ORDER BY fecha_venta DESC LIMIT 1`
-          if (vRows.length) await sql`UPDATE ventas SET metodo_pago = ${v.metodoPago} WHERE id = ${vRows[0].id as string}`
+        const ventaRows = await sql`SELECT registrar_venta(${clienteId}::uuid, ${perroId}::uuid, ${v.producto}, ${v.tamañoBolsaKg}, ${v.precio}, ${null}, ${null}, ${fechaFin}::date, ${v.cantidad ?? 1}, ${v.pagado}, ${v.casa ?? 'shangrila'}) AS venta_id`
+        const nuevaVentaId = ventaRows[0]?.venta_id as string | undefined
+        if (nuevaVentaId && (v.metodoPago || v.fechaVenta)) {
+          await sql`UPDATE ventas SET
+            metodo_pago = COALESCE(${v.metodoPago ?? null}, metodo_pago),
+            fecha_venta = COALESCE(${v.fechaVenta ?? null}::date, fecha_venta)
+            WHERE id = ${nuevaVentaId}`
         }
         if (p.dataExtraInline && registradas === 0) {
           await sql`UPDATE clientes SET data_extra = CASE WHEN data_extra IS NULL OR data_extra = '' THEN ${p.dataExtraInline} ELSE data_extra || E'\n' || ${p.dataExtraInline} END WHERE id = ${clienteId}`
@@ -1002,17 +1011,20 @@ async function procesarVentaConProducto(chatId: string, d: VentaData, dataExtraI
   let fechaFin: string | null = null
   let gramosDiariosUsados: number | null = null
 
+  // Si el usuario indicó una fecha de venta, el fin de bolsa se calcula desde ahí (no desde hoy)
+  const baseVenta = d.fechaVenta ? new Date(d.fechaVenta + 'T12:00:00') : fechaHoyUruguay()
+
   if (d.especie === 'perro') {
     const gramosDeTabla = await obtenerGramosDiariosDeTabla(d.tipoPerro, d.pesoKg)
     if (gramosDeTabla) {
       gramosDiariosUsados = gramosDeTabla
-      fechaFin = calcularFechaFinPorGramosDia(fechaHoyUruguay(), d.tamañoBolsaKg, gramosDeTabla).toISOString().split('T')[0]
+      fechaFin = calcularFechaFinPorGramosDia(baseVenta, d.tamañoBolsaKg, gramosDeTabla).toISOString().split('T')[0]
     } else if (d.gramosPorComida && d.vecesAlDia) {
       gramosDiariosUsados = d.gramosPorComida * d.vecesAlDia
-      fechaFin = calcularFechaFinPerro(fechaHoyUruguay(), d.tamañoBolsaKg, d.gramosPorComida, d.vecesAlDia).toISOString().split('T')[0]
+      fechaFin = calcularFechaFinPerro(baseVenta, d.tamañoBolsaKg, d.gramosPorComida, d.vecesAlDia).toISOString().split('T')[0]
     }
   } else if (d.especie === 'gato' && d.intervaloDiasGato) {
-    fechaFin = calcularFechaFinGato(fechaHoyUruguay(), d.intervaloDiasGato).toISOString().split('T')[0]
+    fechaFin = calcularFechaFinGato(baseVenta, d.intervaloDiasGato).toISOString().split('T')[0]
   }
 
   const casaNormalizada = d.casa ?? 'shangrila'
@@ -1026,6 +1038,7 @@ async function procesarVentaConProducto(chatId: string, d: VentaData, dataExtraI
   const payload = {
     clienteId, perroId, producto: d.producto, tamañoBolsaKg: d.tamañoBolsaKg,
     precio: d.precio, cantidad: d.cantidad, pagado: d.pagado, metodoPago: d.metodoPago ?? null,
+    fechaVenta: d.fechaVenta ?? null,
     gramosPorComida: d.gramosPorComida, vecesAlDia: d.vecesAlDia,
     gramosDiarios: gramosDiariosUsados, fechaFin,
     clienteNombre: d.clienteNombre, clienteTelefono: d.clienteTelefono,
@@ -1047,9 +1060,11 @@ async function procesarVentaConProducto(chatId: string, d: VentaData, dataExtraI
   const totalTexto    = d.cantidad > 1 ? ` (total: $${d.precio! * d.cantidad})` : ''
   const pesoTexto     = d.pesoKg ? `, ${d.pesoKg}kg` : ''
   const direccionTexto = d.clienteDireccion ? `\n📍 Dirección: ${d.clienteDireccion}` : ''
+  const fechaVentaEfectiva = d.fechaVenta ?? fechaHoyUruguay().toISOString().split('T')[0]
+  const fechaVentaTexto = `\n📅 Fecha venta: ${new Date(fechaVentaEfectiva + 'T12:00:00').toLocaleDateString('es-UY')}`
 
   await sendMessageWithButtons(chatId,
-    `📦 <b>Nueva venta</b>\n\n👤 Cliente: ${d.clienteNombre}${direccionTexto}\n🐾 Mascota: ${d.mascotaNombre} (${d.especie}${pesoTexto})\n🛍 Producto: ${d.producto}${cantidadTexto}\n💰 Precio: $${d.precio}${totalTexto}\n💳 Pago: ${pagoTexto}\n${casaLabel} Stock: baja de ${casaLabel}${stockWarning}\n\n¿Confirmar?`,
+    `📦 <b>Nueva venta</b>\n\n👤 Cliente: ${d.clienteNombre}${direccionTexto}\n🐾 Mascota: ${d.mascotaNombre} (${d.especie}${pesoTexto})\n🛍 Producto: ${d.producto}${cantidadTexto}\n💰 Precio: $${d.precio}${totalTexto}\n💳 Pago: ${pagoTexto}${fechaVentaTexto}\n${casaLabel} Stock: baja de ${casaLabel}${stockWarning}\n\n¿Confirmar?`,
     [{ text: '✅ Confirmar', callback_data: 'confirmar_venta' }, { text: '❌ Cancelar', callback_data: 'cancelar_venta' }]
   )
 }

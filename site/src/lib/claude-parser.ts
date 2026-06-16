@@ -41,7 +41,8 @@ Para tipo "venta":
     "clienteDireccion": "string" | null,
     "clienteTelefono": "string" | null,
     "registrarSinPreguntar": boolean,
-    "casa": "shangrila" | "departamento" | null
+    "casa": "shangrila" | "departamento" | null,
+    "fechaVenta": "YYYY-MM-DD" | null
   },
   "faltantes": [],
   "faltanteProducto": {
@@ -237,6 +238,7 @@ Reglas para ventas:
 - clienteTelefono y clienteDireccion: extraerlos si el usuario los menciona, sino null. NUNCA incluirlos en faltantes.
 - intervaloDiasGato: SIEMPRE null. NUNCA incluir "intervaloDiasGato" en faltantes — se calcula automáticamente en la segunda compra.
 - cantidad: número de bolsas vendidas (default 1 si no se menciona)
+- fechaVenta: la fecha en que se hizo la venta, en formato YYYY-MM-DD. Si el mensaje da una fecha absoluta ("el 15 de marzo", "el 3/2") usarla. Si da una relativa ("ayer", "anteayer", "hoy", "el lunes pasado") calcularla a partir de la fecha de hoy indicada arriba. Si no menciona ninguna fecha → null (se usa la fecha de hoy).
 - registrarSinPreguntar: true si el usuario dice "anotalo así" / "dejalo así" / "registralo así" / "guardalo así" / "así está bien" / "sin más datos" / "solo eso". False en caso contrario.
 - casa: de qué casa se baja el stock. "shangrila", "shangri-la", "la casa", "aca", "acá" → "shangrila". "departamento", "depa", "el depa", "dto" → "departamento". Si no se menciona → null.
 
@@ -309,6 +311,7 @@ export interface VentaData {
   clienteTelefono: string | null
   registrarSinPreguntar: boolean
   casa: 'shangrila' | 'departamento' | null
+  fechaVenta: string | null
 }
 
 export interface FaltanteProducto {

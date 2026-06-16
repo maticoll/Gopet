@@ -15,7 +15,7 @@ export default async function CajaPage() {
       c.telefono AS cliente_telefono
     FROM ventas v
     LEFT JOIN clientes c ON c.id = v.cliente_id
-    ORDER BY v.fecha_venta DESC
+    ORDER BY v.created_at DESC
     LIMIT 50
   `
 
