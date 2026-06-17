@@ -5,8 +5,16 @@ import MovimientosTable from './MovimientosTable'
 
 export const metadata = { title: 'Caja — PetStock' }
 
+// Convierte una fecha de Postgres (Date o string ISO) a 'YYYY-MM-DD'.
+// El driver de Neon devuelve columnas date como Date, no como string.
+function toISODate(v: unknown): string | null {
+  if (!v) return null
+  if (v instanceof Date) return v.toISOString().slice(0, 10)
+  return String(v).slice(0, 10)
+}
+
 export default async function CajaPage() {
-  // Ventas recientes (últimas 50)
+  // Ventas recientes
   const ventasRaw = await sql`
     SELECT
       v.id, v.producto, v.cantidad, v.precio, v.pagado, v.fecha_venta, v.metodo_pago,
@@ -15,8 +23,8 @@ export default async function CajaPage() {
       c.telefono AS cliente_telefono
     FROM ventas v
     LEFT JOIN clientes c ON c.id = v.cliente_id
-    ORDER BY v.created_at DESC
-    LIMIT 50
+    ORDER BY v.fecha_venta DESC, v.created_at DESC
+    LIMIT 500
   `
 
   // Movimientos de caja (últimos 30)
@@ -78,9 +86,7 @@ export default async function CajaPage() {
     cantidad: (v.cantidad as number) ?? 1,
     precio: v.precio as number,
     pagado: v.pagado as boolean,
-    fecha_venta: v.fecha_venta instanceof Date
-      ? v.fecha_venta.toISOString().substring(0, 10)
-      : String(v.fecha_venta).substring(0, 10),
+    fecha_venta: toISODate(v.fecha_venta) ?? '',
     metodo_pago: v.metodo_pago as string | null,
     cliente_id: v.cliente_id as string | null,
     cliente_nombre: v.cliente_nombre as string | null,
@@ -95,16 +101,8 @@ export default async function CajaPage() {
     metodo_pago: m.metodo_pago as string | null,
     etiqueta: m.etiqueta as string | null,
     pagado: m.pagado as boolean,
-    fecha_limite_pago: m.fecha_limite_pago
-      ? (m.fecha_limite_pago instanceof Date
-          ? m.fecha_limite_pago.toISOString().substring(0, 10)
-          : String(m.fecha_limite_pago).substring(0, 10))
-      : null,
-    fecha: m.fecha
-      ? (m.fecha instanceof Date
-          ? m.fecha.toISOString().substring(0, 10)
-          : String(m.fecha).substring(0, 10))
-      : null,
+    fecha_limite_pago: toISODate(m.fecha_limite_pago),
+    fecha: toISODate(m.fecha),
     created_at: m.created_at instanceof Date
       ? m.created_at.toISOString()
       : String(m.created_at),

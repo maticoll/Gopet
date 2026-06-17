@@ -22,8 +22,8 @@ export async function editarVenta(
 ): Promise<void> {
   await sql`
     UPDATE ventas SET
-      fecha_venta  = ${data.fecha_venta},
-      cliente_id   = ${data.cliente_id},
+      fecha_venta  = ${data.fecha_venta || null}::date,
+      cliente_id   = ${data.cliente_id || null}::uuid,
       producto     = ${data.producto},
       precio       = ${data.precio},
       cantidad     = ${data.cantidad},
