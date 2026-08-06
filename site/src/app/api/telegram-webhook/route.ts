@@ -4,6 +4,7 @@ import { sendMessage, sendMessageWithButtons, answerCallbackQuery, deleteMessage
 import { appendVentaToSheet } from '@/lib/google-sheets'
 import { sql } from '@/lib/db'
 import { calcularFechaFinPerro, calcularFechaFinGato, calcularFechaFinPorGramosDia, fechaHoyUruguay, fechaHoyUruguayISO } from '@/lib/calculations'
+import { repartirPrecioPromo, totalVentas } from '@/lib/promos'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface ProductoEncontrado {
@@ -253,6 +254,7 @@ export async function POST(req: NextRequest) {
       await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
 
       let registradas = 0
+      let totalRegistrado = 0
       for (const v of p.ventasMultiples as VentaData[]) {
         // Buscar o crear cliente (con detección de nombres parecidos)
         const clienteExistente = await buscarClienteSimilar(v.clienteNombre)
@@ -299,8 +301,12 @@ export async function POST(req: NextRequest) {
           await sql`UPDATE clientes SET data_extra = CASE WHEN data_extra IS NULL OR data_extra = '' THEN ${p.dataExtraInline} ELSE data_extra || E'\n' || ${p.dataExtraInline} END WHERE id = ${clienteId}`
         }
         registradas++
+        totalRegistrado += (v.precio ?? 0) * (v.cantidad ?? 1)
       }
-      await sendMessage(chatId, `✅ ${registradas} ventas registradas para <b>${(p.ventasMultiples as VentaData[])[0].clienteNombre}</b>`)
+      const nombreCliente = (p.ventasMultiples as VentaData[])[0].clienteNombre
+      await sendMessage(chatId, p.esPromo === true
+        ? `✅ Promo registrada para <b>${nombreCliente}</b>\n📦 ${registradas} bolsas descontadas de stock\n💰 Total: $${totalRegistrado}`
+        : `✅ ${registradas} ventas registradas para <b>${nombreCliente}</b>\n💰 Total: $${totalRegistrado}`)
 
     // ── cancelar_venta ───────────────────────────────────────────────
     } else if (accion === 'cancelar_venta') {
@@ -674,28 +680,57 @@ export async function POST(req: NextRequest) {
 
     if (resultado.tipo === 'ventas_multiples') {
       const ventas = resultado.ventas!
+      const totalPromo = typeof resultado.precioTotalPromo === 'number' && resultado.precioTotalPromo > 0
+        ? resultado.precioTotalPromo
+        : null
+      const esPromo = resultado.esPromo === true && totalPromo !== null
+
+      // Si es promo pero no se entendió el total, NO seguir: caeríamos en los precios
+      // de lista y la promo se registraría más cara de lo que se cobró.
+      if (resultado.esPromo === true && totalPromo === null) {
+        await sendMessage(chatId, '🎁 Entendí que es una promo, pero no me quedó claro el precio total.\n\nReenviá el mensaje con el total, por ejemplo:\n<i>"promo a Pablo: lager adulto 25kg + lager adulto 10kg por 2450"</i>')
+        return NextResponse.json({ ok: true })
+      }
+
       // Resolver precios desde BD para cada producto
-      const ventasResueltas = []
+      const ventasResueltas: VentaData[] = []
       for (const v of ventas) {
         let precio = v.precio
-        if (!precio || v.usarPrecioBD) {
-          const busqueda = await buscarProductoEnBD(v.producto)
-          if (busqueda.exacto && busqueda.encontrados.length === 1) {
-            precio = busqueda.encontrados[0].precio_venta
-            v.producto = busqueda.encontrados[0].nombre
-          }
+        // OJO: precio 0 es un precio válido (las bolsas incluidas en una promo van en 0),
+        // así que hay que distinguir "sin precio" de "precio cero".
+        const sinPrecio = precio === null || precio === undefined
+        // Siempre buscamos el producto para normalizar el nombre al del catálogo:
+        // registrar_venta descuenta stock matcheando por nombre exacto.
+        const busqueda = await buscarProductoEnBD(v.producto)
+        if (busqueda.exacto && busqueda.encontrados.length === 1) {
+          v.producto = busqueda.encontrados[0].nombre
+          if (sinPrecio || v.usarPrecioBD) precio = busqueda.encontrados[0].precio_venta
         }
         ventasResueltas.push({ ...v, precio })
       }
 
+      // En una promo el precio total lo reparte el código, no el modelo: va entero
+      // en la bolsa más grande y el resto queda en 0 (siguen descontando stock).
+      const ventasFinales = esPromo
+        ? repartirPrecioPromo(ventasResueltas, totalPromo)
+        : ventasResueltas
+
+      const total = totalVentas(ventasFinales)
+
       // Mostrar una sola confirmación con todos los productos
-      let msg = `📦 <b>Ventas múltiples</b>\n👤 Cliente: ${ventas[0].clienteNombre}\n\n`
-      ventasResueltas.forEach((v, i) => {
-        msg += `<b>${i + 1}.</b> ${v.producto} — $${v.precio ?? '?'}\n`
+      let msg = esPromo
+        ? `🎁 <b>Promo</b>\n👤 Cliente: ${ventas[0].clienteNombre}\n\n`
+        : `📦 <b>Ventas múltiples</b>\n👤 Cliente: ${ventas[0].clienteNombre}\n\n`
+      ventasFinales.forEach((v, i) => {
+        const detalle = esPromo && v.precio === 0
+          ? '<i>incluida en la promo</i>'
+          : `$${v.precio ?? '?'}`
+        msg += `<b>${i + 1}.</b> ${v.producto} — ${detalle}\n`
       })
+      msg += `\n💰 Total: $${total}`
       msg += `\n💳 Pago: ${ventas[0].pagado ? '✅ Pagado' : '⏳ Pendiente'}\n\n¿Confirmar?`
 
-      const pStr = JSON.stringify({ ventasMultiples: ventasResueltas, dataExtraInline })
+      const pStr = JSON.stringify({ ventasMultiples: ventasFinales, dataExtraInline, esPromo })
       await sql`
         INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
         VALUES (${chatId}, 'confirmando_ventas_multiples', null, ${pStr}, now())

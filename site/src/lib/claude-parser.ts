@@ -5,7 +5,7 @@ const client = new Anthropic()
 const SYSTEM_PROMPT = `Sos un asistente que procesa mensajes sobre ventas y stock de alimento para mascotas (Uruguay).
 
 Primero determiná el tipo de mensaje:
-- "ventas_multiples": se vendieron DOS O MÁS productos DISTINTOS al mismo cliente en un solo mensaje (distintos tamaños o distintas marcas). Ejemplo: "vendí a Pablo una de 25kg y una de 7,5kg"
+- "ventas_multiples": se vendieron DOS O MÁS productos DISTINTOS al mismo cliente en un solo mensaje (distintos tamaños o distintas marcas). Ejemplo: "vendí a Pablo una de 25kg y una de 7,5kg". También se usa para las PROMOS / COMBOS / PACKS: varias bolsas que se venden juntas por un precio total único. Ejemplo: "le vendí una promo a Pablo, una bolsa de lager adulto 25 kilos y una de lager adulto 10 kilos por 2450"
 - "venta": se vendió UN solo producto (o varias bolsas del mismo producto) a un cliente
 - "compras_stock_multiples": llegó mercadería / se compró stock de DOS O MÁS productos DISTINTOS (distintas marcas o tamaños) en un mismo mensaje. Ejemplo: "compramos 15 de maxine adulto y 4 de lager adulto"
 - "compra_stock": llegó mercadería / se compró stock de UN solo producto para revender (sin cliente específico)
@@ -58,6 +58,8 @@ Para tipo "ventas_multiples":
 {
   "tipo": "ventas_multiples",
   "ok": true,
+  "esPromo": boolean,
+  "precioTotalPromo": number | null,
   "ventas": [
     {
       "clienteNombre": "string",
@@ -78,13 +80,18 @@ Para tipo "ventas_multiples":
       "clienteDireccion": "string" | null,
       "clienteTelefono": "string" | null,
       "registrarSinPreguntar": true,
-      "casa": "shangrila" | "departamento" | null
+      "casa": "shangrila" | "departamento" | null,
+      "fechaVenta": "YYYY-MM-DD" | null
     }
   ]
 }
-- Si el usuario menciona un precio total para todas las bolsas, dividirlo proporcionalmente entre los productos o poner null y usar usarPrecioBD:true para cada uno.
-- Si menciona precios individuales, asignarlos a cada producto.
+- esPromo: true si el mensaje usa la palabra "promo", "promoción", "combo" o "pack", O si da UN precio total único para todas las bolsas juntas. false en cualquier otro caso.
+- precioTotalPromo: SOLO cuando esPromo es true, el precio TOTAL de la promo tal cual lo dijo el usuario (ej "por 2450" → 2450). Si esPromo es false → null.
+- PRECIO CUANDO esPromo ES true: NUNCA dividir el total entre las bolsas ni buscarlo en el catálogo. Poner precio: 0 y usarPrecioBD: false en TODAS las entradas del array — el total va aparte en precioTotalPromo y el sistema lo asigna solo.
+  Ejemplo: "promo de lager adulto 25 kilos y lager adulto 10 kilos por 2450" → precioTotalPromo: 2450, y las dos entradas con precio: 0 y usarPrecioBD: false.
+- PRECIO CUANDO esPromo ES false: si el mensaje da precios individuales por bolsa, asignarlos a cada producto con usarPrecioBD: false. Si no menciona ningún precio, poner precio: null y usarPrecioBD: true en cada entrada (se busca en el catálogo).
 - El cliente, especie y mascota son los mismos para todas las ventas del array.
+- fechaVenta: misma regla que en el tipo "venta" (fecha absoluta o relativa resuelta a YYYY-MM-DD, o null si no se menciona). Debe ser la MISMA en todas las entradas del array.
 
 Para tipo "compra_stock":
 {
@@ -379,6 +386,8 @@ export interface ParseResult {
   ok: boolean
   data?: VentaData | CompraStockData | ActualizarClienteData | EditarVentaData | MovimientoCajaData | TransferenciaInternaData | DataExtraClienteData | TareaData
   ventas?: VentaData[]
+  esPromo?: boolean
+  precioTotalPromo?: number | null
   compras?: CompraStockData[]
   faltantes?: string[]
   faltanteProducto?: FaltanteProducto
