@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Trash2 } from 'lucide-react'
+import { UserMinus } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,7 +14,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { eliminarClienteConVentas } from '@/app/dashboard/actions'
+import { darDeBajaCliente } from '@/app/dashboard/actions'
 
 interface MascotaRow {
   mascotaId: string
@@ -57,7 +57,7 @@ export function CrmTable({ clientes }: { clientes: ClienteRow[] }) {
 
   const handleDelete = (clienteId: string) => {
     startTransition(async () => {
-      const result = await eliminarClienteConVentas(clienteId)
+      const result = await darDeBajaCliente(clienteId)
       if (result.success) {
         setDeletingId(null)
         router.refresh()
@@ -195,15 +195,18 @@ export function CrmTable({ clientes }: { clientes: ClienteRow[] }) {
                           e.stopPropagation()
                           setDeletingId(c.clienteId)
                         }}
-                        className="p-2 rounded-md text-slate-500 hover:text-red-400 hover:bg-slate-800 opacity-0 group-hover:opacity-100 transition-all"
+                        aria-label={`Dar de baja a ${c.clienteNombre}`}
+                        title="Dar de baja"
+                        className="p-2 rounded-md text-slate-600 hover:text-amber-400 hover:bg-slate-800 opacity-60 group-hover:opacity-100 transition-all"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <UserMinus className="w-4 h-4" />
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>¿Eliminar cliente?</AlertDialogTitle>
+                          <AlertDialogTitle>¿Dar de baja al cliente?</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Se dará de baja a <strong>{c.clienteNombre}</strong> y todas sus ventas. Esta acción no se puede deshacer.
+                            <strong>{c.clienteNombre}</strong> deja de aparecer en esta lista y no recibe más alertas.
+                            Sus ventas y su historial quedan guardados, y vuelve solo si le registrás una venta nueva.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -213,7 +216,7 @@ export function CrmTable({ clientes }: { clientes: ClienteRow[] }) {
                             disabled={isPending}
                             variant="destructive"
                           >
-                            {isPending ? 'Eliminando...' : 'Sí, eliminar'}
+                            {isPending ? 'Dando de baja...' : 'Sí, dar de baja'}
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>

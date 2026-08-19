@@ -2,6 +2,7 @@
 
 import { sql } from '@/lib/db'
 import { appendVentaToSheet } from '@/lib/google-sheets'
+import { buscarClienteSimilar, completarDatosContacto } from '@/lib/clientes'
 import { revalidatePath } from 'next/cache'
 
 interface VentaInput {
@@ -25,14 +26,17 @@ export async function registrarVentaAction(
   d: VentaInput
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    // 1. Buscar o crear cliente
-    const clienteRows = await sql`SELECT id FROM clientes WHERE lower(nombre) = lower(${d.clienteNombre}) LIMIT 1`
+    // 1. Buscar o crear cliente.
+    // Antes acá se comparaba con lower(nombre) = lower(...): escribir "Nacho
+    // Merlí" cuando en la base estaba "Nacho Merli" creaba una segunda ficha.
+    // Ahora usa el mismo matcher que el bot (ignora acentos y typos).
+    const clienteExistente = await buscarClienteSimilar(d.clienteNombre)
     let clienteId: string
 
-    if (clienteRows.length) {
-      clienteId = clienteRows[0].id as string
-      if (d.clienteTelefono)  await sql`UPDATE clientes SET telefono  = ${d.clienteTelefono}  WHERE id = ${clienteId}`
-      if (d.clienteDireccion) await sql`UPDATE clientes SET direccion = ${d.clienteDireccion} WHERE id = ${clienteId}`
+    if (clienteExistente) {
+      clienteId = clienteExistente.id
+      // Sólo completa lo que está vacío: no pisa un teléfono o dirección ya cargados.
+      await completarDatosContacto(clienteExistente, d.clienteTelefono, d.clienteDireccion)
     } else {
       const nuevo = await sql`
         INSERT INTO clientes (nombre, telefono, direccion)
@@ -46,6 +50,7 @@ export async function registrarVentaAction(
     const mascotaRows = await sql`
       SELECT id FROM perros
       WHERE cliente_id = ${clienteId} AND lower(nombre) = lower(${d.mascotaNombre})
+      ORDER BY created_at ASC
       LIMIT 1
     `
     let perroId: string

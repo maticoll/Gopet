@@ -5,6 +5,7 @@ import { appendVentaToSheet } from '@/lib/google-sheets'
 import { sql } from '@/lib/db'
 import { calcularFechaFinPerro, calcularFechaFinGato, calcularFechaFinPorGramosDia, fechaHoyUruguay, fechaHoyUruguayISO } from '@/lib/calculations'
 import { repartirPrecioPromo, totalVentas } from '@/lib/promos'
+import { buscarClienteSimilar, completarDatosContacto, contarFichasDelMismoNombre, type ClienteEncontrado } from '@/lib/clientes'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface ProductoEncontrado {
@@ -28,15 +29,35 @@ async function obtenerGramosDiariosDeTabla(
     .replace('raza pequeña', 'raza_pequeña')
     .replace(/\s+/g, '_')
 
+  // ORDER BY fijo: tabla_gramos tiene varias filas para el mismo tipo y rango
+  // de peso. Sin orden, Postgres devolvía cualquiera y el mismo perro daba un
+  // consumo distinto en cada venta.
   const rows = await sql`
     SELECT gramos_min, gramos_max FROM tabla_gramos
     WHERE tipo_perro = ${tipoNormalizado}
       AND peso_min_kg <= ${pesoKg}
       AND peso_max_kg >= ${pesoKg}
+    ORDER BY peso_min_kg ASC, gramos_min ASC, gramos_max ASC
     LIMIT 1
   `
-  if (!rows.length) return null
-  return Math.round(((rows[0].gramos_min as number) + (rows[0].gramos_max as number)) / 2)
+  if (rows.length) return promedioGramos(rows[0])
+
+  // Peso fuera de las bandas cargadas (ej. un "raza pequeña" de 18 kg, que la
+  // tabla sólo cubre hasta 10 kg). Antes eso devolvía null y la venta quedaba
+  // sin fecha de fin de bolsa, o sea sin alerta nunca. Mejor estimar con la
+  // banda más cercana del mismo tipo: la fecha se puede corregir a mano.
+  const cercanas = await sql`
+    SELECT gramos_min, gramos_max FROM tabla_gramos
+    WHERE tipo_perro = ${tipoNormalizado}
+    ORDER BY LEAST(abs(peso_min_kg - ${pesoKg}::numeric), abs(peso_max_kg - ${pesoKg}::numeric)) ASC,
+             peso_min_kg ASC, gramos_min ASC
+    LIMIT 1
+  `
+  return cercanas.length ? promedioGramos(cercanas[0]) : null
+}
+
+function promedioGramos(row: Record<string, unknown>): number {
+  return Math.round((Number(row.gramos_min) + Number(row.gramos_max)) / 2)
 }
 
 async function buscarProductoEnBD(
@@ -112,25 +133,6 @@ async function buscarProductosPorCriterios(
   return rows
 }
 
-// Busca un cliente por nombre: primero match exacto, luego el más parecido
-// (tolera typos / acentos / variaciones de apellido) usando similitud de trigramas.
-// Devuelve null si no hay ninguno lo bastante parecido → se crea uno nuevo.
-async function buscarClienteSimilar(
-  nombre: string
-): Promise<{ id: string; nombre: string; activo: boolean } | null> {
-  const exacto = await sql`SELECT id, nombre, activo FROM clientes WHERE unaccent(lower(nombre)) = unaccent(lower(${nombre})) LIMIT 1`
-  if (exacto.length) return exacto[0] as { id: string; nombre: string; activo: boolean }
-
-  const similar = await sql`
-    SELECT id, nombre, activo
-    FROM clientes
-    WHERE similarity(unaccent(lower(nombre)), unaccent(lower(${nombre}))) >= 0.4
-    ORDER BY similarity(unaccent(lower(nombre)), unaccent(lower(${nombre}))) DESC
-    LIMIT 1
-  `
-  return similar.length ? (similar[0] as { id: string; nombre: string; activo: boolean }) : null
-}
-
 function obtenerSiguienteCampoFaltante(d: VentaData, campoActual: string | null): string | null {
   const campos = ['telefono', 'direccion']
   const startIndex = campoActual ? campos.indexOf(campoActual) + 1 : 0
@@ -161,23 +163,45 @@ export async function POST(req: NextRequest) {
     }
 
     const data    = String(callbackQuery.data ?? '')
-    const [accion, ventaId] = data.split(':')
+    // El 2º segmento es el token de la confirmación pendiente, o el id de
+    // la venta en los botones de alerta (recompro / esperar / baja).
+    const [accion, argumento] = data.split(':')
+    const token   = argumento || undefined
+    const ventaId = argumento
 
     await answerCallbackQuery(callbackQueryId)
 
     // ── confirmar_venta ──────────────────────────────────────────────
     if (accion === 'confirmar_venta') {
-      if (messageId) await deleteMessage(chatId, messageId)
-
-      const estados = await sql`SELECT payload FROM telegram_estados WHERE chat_id = ${chatId}`
-      if (!estados.length || !estados[0].payload) {
-        await sendMessage(chatId, '⚠️ No hay venta pendiente de confirmación.')
+      const pendiente = await leerEstadoPendiente(chatId, 'confirmando_venta', token)
+      if (!pendiente.ok) {
+        await sendMessage(chatId, pendiente.mensaje)
         return NextResponse.json({ ok: true })
       }
-      const p = estados[0].payload as any
+      if (messageId) await deleteMessage(chatId, messageId)
+      const p = pendiente.payload
+
+      // Recién acá se dan de alta el cliente y la mascota. Si el usuario
+      // hubiera cancelado, no habría quedado nada escrito.
+      const { clienteId, perroId, nombre, telefono, direccion, avisos } = await resolverClienteYMascota({
+        clienteId: p.clienteId ?? null,
+        clienteNombre: p.clienteNombre,
+        clienteTelefono: p.clienteTelefono ?? null,
+        clienteDireccion: p.clienteDireccion ?? null,
+        perroId: p.perroId ?? null,
+        mascotaNombre: p.mascotaNombre ?? null,
+        especie: p.especie,
+        tipoPerro: p.tipoPerro ?? null,
+        pesoKg: p.pesoKg ?? null,
+      })
+      p.clienteId        = clienteId
+      p.perroId          = perroId
+      p.clienteNombre    = nombre
+      p.clienteTelefono  = telefono
+      p.clienteDireccion = direccion
 
       const ventaRows = await sql`SELECT registrar_venta(
-        ${p.clienteId}::uuid, ${p.perroId}::uuid, ${p.producto},
+        ${clienteId}::uuid, ${perroId}::uuid, ${p.producto},
         ${p.tamañoBolsaKg}, ${p.precio},
         ${p.gramosPorComida ?? null}, ${p.vecesAlDia ?? null},
         ${p.fechaFin ?? null}::date, ${p.cantidad}, ${p.pagado},
@@ -227,9 +251,10 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      const avisosTexto = avisos.length ? `\n${avisos.join('\n')}` : ''
       const respuesta = p.fechaFin
-        ? `✅ Venta registrada\n📅 Fin de bolsa estimado: ${new Date(p.fechaFin + 'T12:00:00').toLocaleDateString('es-UY')}\n⚠️ Alerta programada para 7 días antes`
-        : `✅ Venta registrada\n(Sin fecha estimada)`
+        ? `✅ Venta registrada para <b>${p.clienteNombre}</b>${avisosTexto}\n📅 Fin de bolsa estimado: ${new Date(p.fechaFin + 'T12:00:00').toLocaleDateString('es-UY')}\n⚠️ Alerta programada para 7 días antes`
+        : `✅ Venta registrada para <b>${p.clienteNombre}</b>${avisosTexto}\n(Sin fecha estimada — cargá raza y peso de la mascota para que calcule)`
       await sendMessage(chatId, respuesta)
 
       if (p.fechaFin && p.especie === 'perro' && p.gramosDiarios) {
@@ -243,46 +268,52 @@ export async function POST(req: NextRequest) {
 
     // ── confirmar_ventas_multiples ───────────────────────────────────
     } else if (accion === 'confirmar_ventas_multiples') {
-      if (messageId) await deleteMessage(chatId, messageId)
-
-      const estados = await sql`SELECT payload FROM telegram_estados WHERE chat_id = ${chatId}`
-      if (!estados.length || !estados[0].payload) {
-        await sendMessage(chatId, '⚠️ No hay ventas pendientes de confirmación.')
+      const pendiente = await leerEstadoPendiente(chatId, 'confirmando_ventas_multiples', token)
+      if (!pendiente.ok) {
+        await sendMessage(chatId, pendiente.mensaje)
         return NextResponse.json({ ok: true })
       }
-      const p = estados[0].payload as any
+      if (messageId) await deleteMessage(chatId, messageId)
+      const p = pendiente.payload
       await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
 
       let registradas = 0
       let totalRegistrado = 0
+      const avisosCliente: string[] = []
+      let clienteIdCache: string | null = null
+      let perroIdCache: string | null = null
       for (const v of p.ventasMultiples as VentaData[]) {
-        // Buscar o crear cliente (con detección de nombres parecidos)
-        const clienteExistente = await buscarClienteSimilar(v.clienteNombre)
-        let clienteId: string
-        if (clienteExistente) {
-          clienteId = clienteExistente.id
-          v.clienteNombre = clienteExistente.nombre
-          if (!clienteExistente.activo) await sql`UPDATE clientes SET activo = true WHERE id = ${clienteId}`
-          if (v.clienteDireccion) await sql`UPDATE clientes SET direccion = ${v.clienteDireccion} WHERE id = ${clienteId}`
-          if (v.clienteTelefono)  await sql`UPDATE clientes SET telefono  = ${v.clienteTelefono}  WHERE id = ${clienteId}`
-        } else {
-          const nuevo = await sql`INSERT INTO clientes (nombre, telefono, direccion, activo) VALUES (${v.clienteNombre}, ${v.clienteTelefono ?? null}, ${v.clienteDireccion ?? null}, true) RETURNING id`
-          clienteId = nuevo[0].id as string
+        // Todas las ventas del combo son del mismo cliente y la misma mascota:
+        // se resuelven una sola vez y se reusan (antes cada vuelta volvía a
+        // buscar y podía caer en una ficha distinta).
+        if (!clienteIdCache || !perroIdCache) {
+          const r = await resolverClienteYMascota({
+            clienteId: null,
+            clienteNombre: v.clienteNombre,
+            clienteTelefono: v.clienteTelefono ?? null,
+            clienteDireccion: v.clienteDireccion ?? null,
+            perroId: null,
+            mascotaNombre: v.mascotaNombre ?? null,
+            especie: v.especie,
+            tipoPerro: v.tipoPerro ?? null,
+            pesoKg: v.pesoKg ?? null,
+          })
+          clienteIdCache = r.clienteId
+          perroIdCache   = r.perroId
+          avisosCliente.push(...r.avisos)
+          v.clienteNombre = r.nombre
         }
-        // Buscar o crear mascota
-        let mascotaRows = await sql`SELECT id FROM perros WHERE cliente_id = ${clienteId} AND especie = ${v.especie} LIMIT 1`
-        let perroId: string
-        if (mascotaRows.length) {
-          perroId = mascotaRows[0].id as string
-        } else {
-          const nueva = await sql`INSERT INTO perros (cliente_id, nombre, especie) VALUES (${clienteId}, ${v.mascotaNombre ?? (v.especie === 'perro' ? 'Perro' : 'Gato')}, ${v.especie}) RETURNING id`
-          perroId = nueva[0].id as string
-        }
+        const clienteId = clienteIdCache
+        const perroId   = perroIdCache
         // Calcular fecha fin (desde la fecha de venta indicada, o desde hoy)
         const baseVenta = v.fechaVenta ? new Date(v.fechaVenta + 'T12:00:00') : fechaHoyUruguay()
         let fechaFin: string | null = null
         if (v.especie === 'perro') {
-          const g = await obtenerGramosDiariosDeTabla(v.tipoPerro, v.pesoKg)
+          // Respaldo con lo que ya está guardado en la ficha de la mascota
+          const mascotaRows = await sql`SELECT tipo, peso_kg FROM perros WHERE id = ${perroId}`
+          const tipoEfectivo = v.tipoPerro ?? (mascotaRows[0]?.tipo as string | null) ?? null
+          const pesoEfectivo = v.pesoKg ?? (mascotaRows[0]?.peso_kg != null ? Number(mascotaRows[0].peso_kg) : null)
+          const g = await obtenerGramosDiariosDeTabla(tipoEfectivo, pesoEfectivo)
           if (g) fechaFin = calcularFechaFinPorGramosDia(baseVenta, v.tamañoBolsaKg, g).toISOString().split('T')[0]
         }
         if (v.precio === null || v.precio === undefined) {
@@ -304,26 +335,29 @@ export async function POST(req: NextRequest) {
         totalRegistrado += (v.precio ?? 0) * (v.cantidad ?? 1)
       }
       const nombreCliente = (p.ventasMultiples as VentaData[])[0].clienteNombre
+      const avisosTexto = avisosCliente.length ? `\n${avisosCliente.join('\n')}` : ''
       await sendMessage(chatId, p.esPromo === true
-        ? `✅ Promo registrada para <b>${nombreCliente}</b>\n📦 ${registradas} bolsas descontadas de stock\n💰 Total: $${totalRegistrado}`
-        : `✅ ${registradas} ventas registradas para <b>${nombreCliente}</b>\n💰 Total: $${totalRegistrado}`)
+        ? `✅ Promo registrada para <b>${nombreCliente}</b>${avisosTexto}\n📦 ${registradas} bolsas descontadas de stock\n💰 Total: $${totalRegistrado}`
+        : `✅ ${registradas} ventas registradas para <b>${nombreCliente}</b>${avisosTexto}\n💰 Total: $${totalRegistrado}`)
 
     // ── cancelar_venta ───────────────────────────────────────────────
     } else if (accion === 'cancelar_venta') {
+      const borrado = await borrarEstadoSiCorresponde(chatId, ['confirmando_venta', 'confirmando_ventas_multiples'], token)
       if (messageId) await deleteMessage(chatId, messageId)
-      await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
-      await sendMessage(chatId, '❌ Venta cancelada.')
+      // Nada que deshacer: el cliente, la mascota y la venta se crean recién al confirmar.
+      await sendMessage(chatId, borrado
+        ? '❌ Venta cancelada. No se guardó nada.'
+        : '❌ Ese botón ya no estaba vigente. No se guardó nada por acá.')
 
     // ── confirmar_compra_stock ───────────────────────────────────────
     } else if (accion === 'confirmar_compra_stock') {
-      if (messageId) await deleteMessage(chatId, messageId)
-
-      const estados = await sql`SELECT payload FROM telegram_estados WHERE chat_id = ${chatId}`
-      if (!estados.length || !estados[0].payload) {
-        await sendMessage(chatId, '⚠️ No hay compra pendiente de confirmación.')
+      const pendiente = await leerEstadoPendiente(chatId, 'confirmando_compra_stock', token)
+      if (!pendiente.ok) {
+        await sendMessage(chatId, pendiente.mensaje)
         return NextResponse.json({ ok: true })
       }
-      const p = estados[0].payload as any
+      if (messageId) await deleteMessage(chatId, messageId)
+      const p = pendiente.payload
       await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
 
       const res = await aplicarCompraStock(p)
@@ -331,14 +365,13 @@ export async function POST(req: NextRequest) {
 
     // ── confirmar_compras_stock_multiples ────────────────────────────
     } else if (accion === 'confirmar_compras_stock_multiples') {
-      if (messageId) await deleteMessage(chatId, messageId)
-
-      const estados = await sql`SELECT payload FROM telegram_estados WHERE chat_id = ${chatId}`
-      if (!estados.length || !estados[0].payload) {
-        await sendMessage(chatId, '⚠️ No hay compra pendiente de confirmación.')
+      const pendiente = await leerEstadoPendiente(chatId, 'confirmando_compras_stock_multiples', token)
+      if (!pendiente.ok) {
+        await sendMessage(chatId, pendiente.mensaje)
         return NextResponse.json({ ok: true })
       }
-      const p = estados[0].payload as any
+      if (messageId) await deleteMessage(chatId, messageId)
+      const p = pendiente.payload
       await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
 
       const compras = (p.compras as any[]) ?? []
@@ -351,20 +384,21 @@ export async function POST(req: NextRequest) {
 
     // ── cancelar_compra_stock ────────────────────────────────────────
     } else if (accion === 'cancelar_compra_stock') {
+      const borrado = await borrarEstadoSiCorresponde(chatId, ['confirmando_compra_stock', 'confirmando_compras_stock_multiples'], token)
       if (messageId) await deleteMessage(chatId, messageId)
-      await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
-      await sendMessage(chatId, '❌ Compra cancelada.')
+      await sendMessage(chatId, borrado
+        ? '❌ Compra cancelada. No se tocó el stock.'
+        : '❌ Ese botón ya no estaba vigente. No se tocó el stock por acá.')
 
     // ── confirmar_movimiento_caja ────────────────────────────────────
     } else if (accion === 'confirmar_movimiento_caja') {
-      if (messageId) await deleteMessage(chatId, messageId)
-
-      const estados = await sql`SELECT payload FROM telegram_estados WHERE chat_id = ${chatId}`
-      if (!estados.length || !estados[0].payload) {
-        await sendMessage(chatId, '⚠️ No hay movimiento pendiente de confirmación.')
+      const pendiente = await leerEstadoPendiente(chatId, 'confirmando_movimiento_caja', token)
+      if (!pendiente.ok) {
+        await sendMessage(chatId, pendiente.mensaje)
         return NextResponse.json({ ok: true })
       }
-      const d = estados[0].payload as MovimientoCajaData
+      if (messageId) await deleteMessage(chatId, messageId)
+      const d = pendiente.payload as MovimientoCajaData
       await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
 
       const fechaMov = d.fecha ?? fechaHoyUruguay().toISOString().split('T')[0]
@@ -376,20 +410,21 @@ export async function POST(req: NextRequest) {
 
     // ── cancelar_movimiento_caja ─────────────────────────────────────
     } else if (accion === 'cancelar_movimiento_caja') {
+      const borrado = await borrarEstadoSiCorresponde(chatId, ['confirmando_movimiento_caja'], token)
       if (messageId) await deleteMessage(chatId, messageId)
-      await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
-      await sendMessage(chatId, '❌ Movimiento rechazado.')
+      await sendMessage(chatId, borrado
+        ? '❌ Movimiento rechazado. No se registró nada.'
+        : '❌ Ese botón ya no estaba vigente. No se registró nada por acá.')
 
     // ── confirmar_transferencia_interna ──────────────────────────────
     } else if (accion === 'confirmar_transferencia_interna') {
-      if (messageId) await deleteMessage(chatId, messageId)
-
-      const estados = await sql`SELECT payload FROM telegram_estados WHERE chat_id = ${chatId}`
-      if (!estados.length || !estados[0].payload) {
-        await sendMessage(chatId, '⚠️ No hay transferencia pendiente de confirmación.')
+      const pendiente = await leerEstadoPendiente(chatId, 'confirmando_transferencia_interna', token)
+      if (!pendiente.ok) {
+        await sendMessage(chatId, pendiente.mensaje)
         return NextResponse.json({ ok: true })
       }
-      const d = estados[0].payload as TransferenciaInternaData
+      if (messageId) await deleteMessage(chatId, messageId)
+      const d = pendiente.payload as TransferenciaInternaData
       await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
 
       await sql`
@@ -404,9 +439,11 @@ export async function POST(req: NextRequest) {
 
     // ── cancelar_transferencia_interna ───────────────────────────────
     } else if (accion === 'cancelar_transferencia_interna') {
+      const borrado = await borrarEstadoSiCorresponde(chatId, ['confirmando_transferencia_interna'], token)
       if (messageId) await deleteMessage(chatId, messageId)
-      await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
-      await sendMessage(chatId, '❌ Transferencia rechazada.')
+      await sendMessage(chatId, borrado
+        ? '❌ Transferencia rechazada. No se registró nada.'
+        : '❌ Ese botón ya no estaba vigente. No se registró nada por acá.')
 
     // ── recompro ─────────────────────────────────────────────────────
     } else if (accion === 'recompro') {
@@ -572,7 +609,8 @@ export async function POST(req: NextRequest) {
     // transferencia_interna: crea dos movimientos (sale de un método, entra al otro)
     if (resultado.tipo === 'transferencia_interna') {
       const d = resultado.data as TransferenciaInternaData
-      const payloadStr = JSON.stringify(d)
+      const tk = nuevoToken()
+      const payloadStr = JSON.stringify({ ...d, token: tk })
       await sql`
         INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
         VALUES (${chatId}, 'confirmando_transferencia_interna', null, ${payloadStr}, now())
@@ -580,7 +618,7 @@ export async function POST(req: NextRequest) {
       `
       await sendMessageWithButtons(chatId,
         `${bloqueTransferenciaTexto(d)}\n\n¿Confirmar?`,
-        [{ text: '✅ Confirmar', callback_data: 'confirmar_transferencia_interna' }, { text: '❌ Rechazar', callback_data: 'cancelar_transferencia_interna' }]
+        [{ text: '✅ Confirmar', callback_data: `confirmar_transferencia_interna:${tk}` }, { text: '❌ Rechazar', callback_data: `cancelar_transferencia_interna:${tk}` }]
       )
       return NextResponse.json({ ok: true })
     }
@@ -588,7 +626,8 @@ export async function POST(req: NextRequest) {
     // movimiento_caja siempre tiene ok:true pero lo chequeamos antes por si acaso
     if (resultado.tipo === 'movimiento_caja') {
       const d = resultado.data as MovimientoCajaData
-      const payloadStr = JSON.stringify(d)
+      const tk = nuevoToken()
+      const payloadStr = JSON.stringify({ ...d, token: tk })
       await sql`
         INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
         VALUES (${chatId}, 'confirmando_movimiento_caja', null, ${payloadStr}, now())
@@ -596,7 +635,7 @@ export async function POST(req: NextRequest) {
       `
       await sendMessageWithButtons(chatId,
         `${bloqueMovimientoTexto(d)}\n\n¿Confirmar?`,
-        [{ text: '✅ Confirmar', callback_data: 'confirmar_movimiento_caja' }, { text: '❌ Rechazar', callback_data: 'cancelar_movimiento_caja' }]
+        [{ text: '✅ Confirmar', callback_data: `confirmar_movimiento_caja:${tk}` }, { text: '❌ Rechazar', callback_data: `cancelar_movimiento_caja:${tk}` }]
       )
       return NextResponse.json({ ok: true })
     }
@@ -609,7 +648,8 @@ export async function POST(req: NextRequest) {
     if (resultado.tipo === 'compra_stock') {
       const c = normalizarCompraStock(resultado.data as CompraStockData)
 
-      const payloadStr = JSON.stringify(c)
+      const tk = nuevoToken()
+      const payloadStr = JSON.stringify({ ...c, token: tk })
       await sql`
         INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
         VALUES (${chatId}, 'confirmando_compra_stock', null, ${payloadStr}, now())
@@ -617,7 +657,7 @@ export async function POST(req: NextRequest) {
       `
       await sendMessageWithButtons(chatId,
         `📥 <b>Compra de stock</b>\n\n${bloqueCompraTexto(c)}\n\n¿Confirmar?`,
-        [{ text: '✅ Confirmar', callback_data: 'confirmar_compra_stock' }, { text: '❌ Cancelar', callback_data: 'cancelar_compra_stock' }]
+        [{ text: '✅ Confirmar', callback_data: `confirmar_compra_stock:${tk}` }, { text: '❌ Cancelar', callback_data: `cancelar_compra_stock:${tk}` }]
       )
       return NextResponse.json({ ok: true })
     }
@@ -630,7 +670,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: true })
       }
 
-      const payloadStr = JSON.stringify({ compras })
+      const tk = nuevoToken()
+      const payloadStr = JSON.stringify({ compras, token: tk })
       await sql`
         INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
         VALUES (${chatId}, 'confirmando_compras_stock_multiples', null, ${payloadStr}, now())
@@ -641,7 +682,7 @@ export async function POST(req: NextRequest) {
       const totalLinea = totalGasto > 0 ? `\n\n💰 <b>Gasto total: $${totalGasto.toLocaleString('es-UY')}</b>` : ''
       await sendMessageWithButtons(chatId,
         `📥 <b>Compra de stock (${compras.length} productos)</b>\n\n${bloques}${totalLinea}\n\n¿Confirmar?`,
-        [{ text: '✅ Confirmar todo', callback_data: 'confirmar_compras_stock_multiples' }, { text: '❌ Cancelar', callback_data: 'cancelar_compra_stock' }]
+        [{ text: '✅ Confirmar todo', callback_data: `confirmar_compras_stock_multiples:${tk}` }, { text: '❌ Cancelar', callback_data: `cancelar_compra_stock:${tk}` }]
       )
       return NextResponse.json({ ok: true })
     }
@@ -655,17 +696,12 @@ export async function POST(req: NextRequest) {
 
     if (resultado.tipo === 'data_extra_cliente') {
       const d = resultado.data as DataExtraClienteData
-      const clienteRows = await sql`
-        SELECT id FROM clientes
-        WHERE unaccent(lower(nombre)) LIKE unaccent(lower(${'%' + d.clienteNombre + '%'}))
-           OR similarity(unaccent(lower(nombre)), unaccent(lower(${d.clienteNombre}))) >= 0.4
-        ORDER BY similarity(unaccent(lower(nombre)), unaccent(lower(${d.clienteNombre}))) DESC
-        LIMIT 1`
-      if (!clienteRows.length) {
+      const cliente = await buscarClienteSimilar(d.clienteNombre)
+      if (!cliente) {
         await sendMessage(chatId, `❌ No encontré un cliente con el nombre "${d.clienteNombre}".`)
         return NextResponse.json({ ok: true })
       }
-      const cId = clienteRows[0].id as string
+      const cId = cliente.id
       // Concatenar a data_extra existente
       await sql`
         UPDATE clientes SET data_extra = CASE
@@ -674,7 +710,9 @@ export async function POST(req: NextRequest) {
         END
         WHERE id = ${cId}
       `
-      await sendMessage(chatId, `📝 <b>Data extra de ${d.clienteNombre} actualizada:</b>\n${d.info}`)
+      // Se muestra el nombre tal cual está en la base, no el que se tipeó:
+      // así se nota enseguida si el bot pegó en la ficha equivocada.
+      await sendMessage(chatId, `📝 <b>Data extra de ${cliente.nombre} actualizada:</b>\n${d.info}`)
       return NextResponse.json({ ok: true })
     }
 
@@ -730,33 +768,29 @@ export async function POST(req: NextRequest) {
       msg += `\n💰 Total: $${total}`
       msg += `\n💳 Pago: ${ventas[0].pagado ? '✅ Pagado' : '⏳ Pendiente'}\n\n¿Confirmar?`
 
-      const pStr = JSON.stringify({ ventasMultiples: ventasFinales, dataExtraInline, esPromo })
+      const tk = nuevoToken()
+      const pStr = JSON.stringify({ ventasMultiples: ventasFinales, dataExtraInline, esPromo, token: tk })
       await sql`
         INSERT INTO telegram_estados (chat_id, estado, venta_id, payload, updated_at)
         VALUES (${chatId}, 'confirmando_ventas_multiples', null, ${pStr}, now())
         ON CONFLICT (chat_id) DO UPDATE SET estado = 'confirmando_ventas_multiples', venta_id = null, payload = ${pStr}, updated_at = now()
       `
       await sendMessageWithButtons(chatId, msg, [
-        { text: '✅ Confirmar todo', callback_data: 'confirmar_ventas_multiples' },
-        { text: '❌ Cancelar', callback_data: 'cancelar_venta' },
+        { text: '✅ Confirmar todo', callback_data: `confirmar_ventas_multiples:${tk}` },
+        { text: '❌ Cancelar', callback_data: `cancelar_venta:${tk}` },
       ])
       return NextResponse.json({ ok: true })
     }
 
     if (resultado.tipo === 'editar_venta') {
       const d = resultado.data as EditarVentaData
-      const clienteRows = await sql`
-        SELECT id, nombre FROM clientes
-        WHERE unaccent(lower(nombre)) LIKE unaccent(lower(${'%' + d.clienteNombre + '%'}))
-           OR similarity(unaccent(lower(nombre)), unaccent(lower(${d.clienteNombre}))) >= 0.4
-        ORDER BY activo DESC, similarity(unaccent(lower(nombre)), unaccent(lower(${d.clienteNombre}))) DESC
-        LIMIT 1`
-      if (!clienteRows.length) {
+      const cliente = await buscarClienteSimilar(d.clienteNombre)
+      if (!cliente) {
         await sendMessage(chatId, `❌ No encontré un cliente con el nombre "${d.clienteNombre}".`)
         return NextResponse.json({ ok: true })
       }
-      const cId = clienteRows[0].id as string
-      const cNombre = clienteRows[0].nombre as string
+      const cId = cliente.id
+      const cNombre = cliente.nombre
 
       // Última venta del cliente
       const ventaRows = await sql`SELECT id, producto, precio, cantidad, pagado, metodo_pago FROM ventas WHERE cliente_id = ${cId} ORDER BY fecha_venta DESC, created_at DESC LIMIT 1`
@@ -799,22 +833,26 @@ export async function POST(req: NextRequest) {
 
     if (resultado.tipo === 'actualizar_cliente') {
       const d = resultado.data as ActualizarClienteData
-      const clienteRows = await sql`
-        SELECT id FROM clientes
-        WHERE unaccent(lower(nombre)) LIKE unaccent(lower(${'%' + d.clienteNombre + '%'}))
-           OR similarity(unaccent(lower(nombre)), unaccent(lower(${d.clienteNombre}))) >= 0.4
-        ORDER BY similarity(unaccent(lower(nombre)), unaccent(lower(${d.clienteNombre}))) DESC
-        LIMIT 1`
-      if (!clienteRows.length) {
+      const cliente = await buscarClienteSimilar(d.clienteNombre)
+      if (!cliente) {
         await sendMessage(chatId, `❌ No encontré un cliente con el nombre "${d.clienteNombre}".`)
         return NextResponse.json({ ok: true })
       }
-      const cId = clienteRows[0].id as string
-      if (d.telefono)  await sql`UPDATE clientes SET telefono  = ${d.telefono}  WHERE id = ${cId}`
-      if (d.direccion) await sql`UPDATE clientes SET direccion = ${d.direccion} WHERE id = ${cId}`
-      let mensaje = `✅ Cliente <b>${d.clienteNombre}</b> actualizado:\n`
-      if (d.telefono)  mensaje += `📱 Teléfono: ${d.telefono}\n`
-      if (d.direccion) mensaje += `📍 Dirección: ${d.direccion}\n`
+      const cId = cliente.id
+      // Este SÍ es el flujo para cambiar datos a propósito, así que pisa lo que
+      // había — pero deja dicho qué valor se reemplazó, por si pegó en la
+      // ficha equivocada.
+      let mensaje = `✅ Cliente <b>${cliente.nombre}</b> actualizado:\n`
+      if (d.telefono) {
+        await sql`UPDATE clientes SET telefono = ${d.telefono} WHERE id = ${cId}`
+        mensaje += `📱 Teléfono: ${d.telefono}${cliente.telefono ? ` <i>(antes: ${cliente.telefono})</i>` : ''}\n`
+      }
+      if (d.direccion) {
+        await sql`UPDATE clientes SET direccion = ${d.direccion} WHERE id = ${cId}`
+        mensaje += `📍 Dirección: ${d.direccion}${cliente.direccion ? ` <i>(antes: ${cliente.direccion})</i>` : ''}\n`
+      }
+      const fichas = await contarFichasDelMismoNombre(cliente.nombre)
+      if (fichas > 1) mensaje += `⚠️ Hay ${fichas} fichas con este nombre — conviene unificarlas.\n`
       await sendMessage(chatId, mensaje)
       return NextResponse.json({ ok: true })
     }
@@ -1002,46 +1040,182 @@ async function aplicarCompraStock(c: any): Promise<{ ok: boolean; resumen: strin
   return { ok: true, resumen: `📦 <b>${c.producto}</b> → 🏠 ${stockShangrila} / 🏢 ${stockDepartamento}${gastoLinea}` }
 }
 
+// ── Estado pendiente (confirmaciones) ──────────────────────────────────────
+
+// Token corto que viaja en el botón y también queda guardado en el payload.
+// Sirve para que un botón viejo no confirme una operación nueva: sólo hay un
+// estado pendiente por chat, así que si mandás otro mensaje antes de tocar
+// "Confirmar", el pendiente se pisa y el botón del mensaje anterior queda
+// apuntando a otra cosa. Antes eso registraba lo que no era.
+function nuevoToken(): string {
+  return Math.random().toString(36).slice(2, 10)
+}
+
+type EstadoPendiente =
+  | { ok: true; payload: any }
+  | { ok: false; mensaje: string }
+
+async function leerEstadoPendiente(
+  chatId: string,
+  estadoEsperado: string,
+  token: string | undefined
+): Promise<EstadoPendiente> {
+  const rows = await sql`SELECT estado, payload FROM telegram_estados WHERE chat_id = ${chatId}`
+  if (!rows.length || !rows[0].payload) {
+    return { ok: false, mensaje: '⚠️ No hay nada pendiente de confirmación.' }
+  }
+  if (rows[0].estado !== estadoEsperado) {
+    return { ok: false, mensaje: '⚠️ Ese botón ya no vale: quedó pendiente otra operación más nueva. Usá los botones del último mensaje.' }
+  }
+  const payload = rows[0].payload as any
+  if (payload?.token && token && payload.token !== token) {
+    return { ok: false, mensaje: '⚠️ Ese botón es de un mensaje viejo. Usá los botones del último mensaje.' }
+  }
+  return { ok: true, payload }
+}
+
+// Borra el pendiente sólo si es el que corresponde al botón apretado, para que
+// cancelar un mensaje viejo no tire abajo una confirmación más nueva.
+async function borrarEstadoSiCorresponde(
+  chatId: string,
+  estadosEsperados: string[],
+  token: string | undefined
+): Promise<boolean> {
+  const rows = await sql`SELECT estado, payload FROM telegram_estados WHERE chat_id = ${chatId}`
+  if (!rows.length) return false
+  if (!estadosEsperados.includes(rows[0].estado as string)) return false
+  const payload = rows[0].payload as any
+  if (payload?.token && token && payload.token !== token) return false
+  await sql`DELETE FROM telegram_estados WHERE chat_id = ${chatId}`
+  return true
+}
+
+// ── Alta de cliente y mascota (al CONFIRMAR, nunca antes) ──────────────────
+
+interface DatosClienteMascota {
+  clienteId: string | null
+  clienteNombre: string
+  clienteTelefono: string | null
+  clienteDireccion: string | null
+  perroId: string | null
+  mascotaNombre: string | null
+  especie: string
+  tipoPerro: string | null
+  pesoKg: number | null
+}
+
+// Crea o recupera el cliente y la mascota. Se llama SOLO desde los handlers de
+// confirmación: si el usuario cancela, no queda nada escrito en la base.
+async function resolverClienteYMascota(
+  p: DatosClienteMascota
+): Promise<{ clienteId: string; perroId: string; nombre: string; telefono: string | null; direccion: string | null; avisos: string[] }> {
+  const avisos: string[] = []
+
+  let cliente: ClienteEncontrado | null = null
+  if (p.clienteId) {
+    const rows = await sql`SELECT id, nombre, telefono, direccion, activo FROM clientes WHERE id = ${p.clienteId}`
+    cliente = (rows[0] as unknown as ClienteEncontrado) ?? null
+  }
+  if (!cliente) cliente = await buscarClienteSimilar(p.clienteNombre)
+
+  let clienteId: string
+  if (cliente) {
+    clienteId = cliente.id
+    if (!cliente.activo) await sql`UPDATE clientes SET activo = true WHERE id = ${clienteId}`
+    const { completados, conflictos } = await completarDatosContacto(cliente, p.clienteTelefono, p.clienteDireccion)
+    avisos.push(...completados, ...conflictos)
+  } else {
+    const nuevo = await sql`
+      INSERT INTO clientes (nombre, telefono, direccion, activo)
+      VALUES (${p.clienteNombre}, ${p.clienteTelefono ?? null}, ${p.clienteDireccion ?? null}, true)
+      RETURNING id`
+    clienteId = nuevo[0].id as string
+    avisos.push(`🆕 Cliente nuevo: ${p.clienteNombre}`)
+  }
+
+  let perroId: string | null = null
+  if (p.perroId) {
+    const rows = await sql`SELECT id FROM perros WHERE id = ${p.perroId} AND cliente_id = ${clienteId}`
+    perroId = (rows[0]?.id as string) ?? null
+  }
+  if (!perroId) {
+    const rows = p.mascotaNombre
+      ? await sql`SELECT id FROM perros WHERE cliente_id = ${clienteId} AND lower(nombre) = lower(${p.mascotaNombre}) ORDER BY created_at ASC LIMIT 1`
+      : await sql`SELECT id FROM perros WHERE cliente_id = ${clienteId} AND especie = ${p.especie} ORDER BY created_at ASC LIMIT 1`
+    perroId = (rows[0]?.id as string) ?? null
+  }
+  if (!perroId) {
+    const nombreMascota = p.mascotaNombre ?? (p.especie === 'perro' ? 'Perro' : 'Gato')
+    const nueva = await sql`
+      INSERT INTO perros (cliente_id, nombre, especie, tipo, peso_kg)
+      VALUES (${clienteId}, ${nombreMascota}, ${p.especie}, ${p.tipoPerro ?? null}, ${p.pesoKg ?? null})
+      RETURNING id`
+    perroId = nueva[0].id as string
+  } else {
+    // Completar sólo lo que está vacío: el peso o el tipo cargados a mano
+    // valen más que lo que se deduzca de un mensaje suelto.
+    if (p.tipoPerro) await sql`UPDATE perros SET tipo = ${p.tipoPerro} WHERE id = ${perroId} AND tipo IS NULL`
+    if (p.pesoKg != null) await sql`UPDATE perros SET peso_kg = ${p.pesoKg} WHERE id = ${perroId} AND peso_kg IS NULL`
+  }
+
+  // Datos finales tal como quedaron guardados: es lo que se manda a la planilla,
+  // para que la fila no diga una dirección que la base no tiene.
+  const finales = await sql`SELECT nombre, telefono, direccion FROM clientes WHERE id = ${clienteId}`
+  return {
+    clienteId,
+    perroId,
+    nombre: (finales[0]?.nombre as string) ?? p.clienteNombre,
+    telefono: (finales[0]?.telefono as string | null) ?? null,
+    direccion: (finales[0]?.direccion as string | null) ?? null,
+    avisos,
+  }
+}
+
 // ── procesarVentaConProducto ───────────────────────────────────────────────
 
+// Arma la confirmación de una venta. NO escribe nada en la base: sólo lee para
+// mostrar contra qué ficha se va a registrar. El alta real pasa en el handler
+// de "confirmar_venta".
 async function procesarVentaConProducto(chatId: string, d: VentaData, dataExtraInline: string | null = null) {
   const clienteExistente = await buscarClienteSimilar(d.clienteNombre)
-  let clienteId: string
+  const nombreTipeado = d.clienteNombre
+
+  let clienteId: string | null = null
+  let avisoCliente = ''
 
   if (clienteExistente) {
     clienteId = clienteExistente.id
     // Usar el nombre canónico de la BD (así la confirmación muestra el cliente real)
     d.clienteNombre = clienteExistente.nombre
-    if (!clienteExistente.activo) await sql`UPDATE clientes SET activo = true WHERE id = ${clienteId}`
-    if (d.clienteDireccion) await sql`UPDATE clientes SET direccion = ${d.clienteDireccion} WHERE id = ${clienteId}`
-    if (d.clienteTelefono)  await sql`UPDATE clientes SET telefono  = ${d.clienteTelefono}  WHERE id = ${clienteId}`
+    if (clienteExistente.nombre.toLowerCase() !== nombreTipeado.toLowerCase()) {
+      avisoCliente = `\n<i>(lo asocié a la ficha existente "${clienteExistente.nombre}")</i>`
+    }
+    const fichas = await contarFichasDelMismoNombre(clienteExistente.nombre)
+    if (fichas > 1) {
+      avisoCliente += `\n⚠️ <i>Hay ${fichas} fichas con este nombre — conviene unificarlas</i>`
+    }
   } else {
-    const nuevo = await sql`INSERT INTO clientes (nombre, telefono, direccion, activo) VALUES (${d.clienteNombre}, ${d.clienteTelefono ?? null}, ${d.clienteDireccion ?? null}, true) RETURNING id`
-    clienteId = nuevo[0].id as string
+    avisoCliente = '\n🆕 <i>Cliente nuevo (se crea al confirmar)</i>'
   }
 
-  // Buscar mascota: por nombre si lo dieron, o por especie si el cliente ya tiene una
-  let mascotaRows: { id: string; nombre: string }[] = []
-  if (d.mascotaNombre) {
-    mascotaRows = await sql`SELECT id, nombre FROM perros WHERE cliente_id = ${clienteId} AND lower(nombre) = lower(${d.mascotaNombre}) LIMIT 1` as { id: string; nombre: string }[]
-  } else {
-    // Sin nombre: buscar por especie del cliente
-    mascotaRows = await sql`SELECT id, nombre FROM perros WHERE cliente_id = ${clienteId} AND especie = ${d.especie} LIMIT 1` as { id: string; nombre: string }[]
+  // Mascota: buscar por nombre si lo dieron, o por especie si el cliente ya tiene una
+  let mascota: { id: string; nombre: string; tipo: string | null; peso_kg: string | null; intervalo_compra_dias: number | null } | null = null
+  if (clienteId) {
+    const rows = d.mascotaNombre
+      ? await sql`SELECT id, nombre, tipo, peso_kg, intervalo_compra_dias FROM perros WHERE cliente_id = ${clienteId} AND lower(nombre) = lower(${d.mascotaNombre}) ORDER BY created_at ASC LIMIT 1`
+      : await sql`SELECT id, nombre, tipo, peso_kg, intervalo_compra_dias FROM perros WHERE cliente_id = ${clienteId} AND especie = ${d.especie} ORDER BY created_at ASC LIMIT 1`
+    mascota = (rows[0] as any) ?? null
   }
 
-  let perroId: string
+  const perroId = mascota?.id ?? null
+  if (mascota && !d.mascotaNombre) d.mascotaNombre = mascota.nombre
 
-  if (mascotaRows.length) {
-    perroId = mascotaRows[0].id as string
-    // Si no tenían nombre, completar con el que encontramos en BD
-    if (!d.mascotaNombre) d.mascotaNombre = mascotaRows[0].nombre as string
-  } else {
-    // No existe — crear con nombre genérico si no se dio uno
-    const nombreMascota = d.mascotaNombre ?? (d.especie === 'perro' ? 'Perro' : 'Gato')
-    const nueva = await sql`INSERT INTO perros (cliente_id, nombre, especie, tipo, peso_kg) VALUES (${clienteId}, ${nombreMascota}, ${d.especie}, ${d.tipoPerro ?? null}, ${d.pesoKg ?? null}) RETURNING id`
-    perroId = nueva[0].id as string
-    d.mascotaNombre = nombreMascota
-  }
+  // Datos de la mascota ya guardados como respaldo: un mensaje del día a día
+  // ("otra bolsa para rocky") no repite raza ni peso, y sin esto la venta
+  // quedaba sin fecha de fin de bolsa y por lo tanto sin alerta.
+  const tipoPerroEfectivo = d.tipoPerro ?? mascota?.tipo ?? null
+  const pesoEfectivo      = d.pesoKg ?? (mascota?.peso_kg != null ? Number(mascota.peso_kg) : null)
+  const intervaloGato     = d.intervaloDiasGato ?? mascota?.intervalo_compra_dias ?? null
 
   let fechaFin: string | null = null
   let gramosDiariosUsados: number | null = null
@@ -1050,7 +1224,7 @@ async function procesarVentaConProducto(chatId: string, d: VentaData, dataExtraI
   const baseVenta = d.fechaVenta ? new Date(d.fechaVenta + 'T12:00:00') : fechaHoyUruguay()
 
   if (d.especie === 'perro') {
-    const gramosDeTabla = await obtenerGramosDiariosDeTabla(d.tipoPerro, d.pesoKg)
+    const gramosDeTabla = await obtenerGramosDiariosDeTabla(tipoPerroEfectivo, pesoEfectivo)
     if (gramosDeTabla) {
       gramosDiariosUsados = gramosDeTabla
       fechaFin = calcularFechaFinPorGramosDia(baseVenta, d.tamañoBolsaKg, gramosDeTabla).toISOString().split('T')[0]
@@ -1058,8 +1232,8 @@ async function procesarVentaConProducto(chatId: string, d: VentaData, dataExtraI
       gramosDiariosUsados = d.gramosPorComida * d.vecesAlDia
       fechaFin = calcularFechaFinPerro(baseVenta, d.tamañoBolsaKg, d.gramosPorComida, d.vecesAlDia).toISOString().split('T')[0]
     }
-  } else if (d.especie === 'gato' && d.intervaloDiasGato) {
-    fechaFin = calcularFechaFinGato(baseVenta, d.intervaloDiasGato).toISOString().split('T')[0]
+  } else if (d.especie === 'gato' && intervaloGato) {
+    fechaFin = calcularFechaFinGato(baseVenta, intervaloGato).toISOString().split('T')[0]
   }
 
   const casaNormalizada = d.casa ?? 'shangrila'
@@ -1070,15 +1244,17 @@ async function procesarVentaConProducto(chatId: string, d: VentaData, dataExtraI
     ? `\n⚠️ Solo hay ${stockCasa} bolsa${stockCasa !== 1 ? 's' : ''} en ${casaLabel}`
     : ''
 
+  const token = nuevoToken()
   const payload = {
+    token,
     clienteId, perroId, producto: d.producto, tamañoBolsaKg: d.tamañoBolsaKg,
     precio: d.precio, cantidad: d.cantidad, pagado: d.pagado, metodoPago: d.metodoPago ?? null,
     fechaVenta: d.fechaVenta ?? null,
     gramosPorComida: d.gramosPorComida, vecesAlDia: d.vecesAlDia,
     gramosDiarios: gramosDiariosUsados, fechaFin,
-    clienteNombre: d.clienteNombre, clienteTelefono: d.clienteTelefono,
-    clienteDireccion: d.clienteDireccion, mascotaNombre: d.mascotaNombre,
-    especie: d.especie, tipoPerro: d.tipoPerro, pesoKg: d.pesoKg,
+    clienteNombre: d.clienteNombre, clienteTelefono: d.clienteTelefono ?? null,
+    clienteDireccion: d.clienteDireccion ?? null, mascotaNombre: d.mascotaNombre ?? null,
+    especie: d.especie, tipoPerro: tipoPerroEfectivo, pesoKg: pesoEfectivo,
     casa: casaNormalizada,
     dataExtraInline,
   }
@@ -1093,13 +1269,31 @@ async function procesarVentaConProducto(chatId: string, d: VentaData, dataExtraI
   const pagoTexto     = d.pagado ? '✅ Pagado' : '⏳ Pendiente'
   const cantidadTexto = d.cantidad > 1 ? ` × ${d.cantidad}` : ''
   const totalTexto    = d.cantidad > 1 ? ` (total: $${d.precio! * d.cantidad})` : ''
-  const pesoTexto     = d.pesoKg ? `, ${d.pesoKg}kg` : ''
-  const direccionTexto = d.clienteDireccion ? `\n📍 Dirección: ${d.clienteDireccion}` : ''
-  const fechaVentaEfectiva = d.fechaVenta ?? fechaHoyUruguay().toISOString().split('T')[0]
+  const pesoTexto     = pesoEfectivo ? `, ${pesoEfectivo}kg` : ''
+  const mascotaNueva  = perroId ? '' : ' 🆕'
+
+  // La dirección del mensaje no pisa la que ya está cargada: se avisa y listo.
+  let direccionTexto = ''
+  if (d.clienteDireccion) {
+    if (!clienteExistente || !clienteExistente.direccion) {
+      direccionTexto = `\n📍 Dirección: ${d.clienteDireccion}`
+    } else if (clienteExistente.direccion.trim().toLowerCase() !== d.clienteDireccion.trim().toLowerCase()) {
+      direccionTexto = `\n📍 Dirección guardada: ${clienteExistente.direccion}\n⚠️ <i>El mensaje decía "${d.clienteDireccion}" — NO la cambio. Para cambiarla mandá: "la dirección de ${d.clienteNombre} es ..."</i>`
+    } else {
+      direccionTexto = `\n📍 Dirección: ${clienteExistente.direccion}`
+    }
+  } else if (clienteExistente?.direccion) {
+    direccionTexto = `\n📍 Dirección: ${clienteExistente.direccion}`
+  }
+
+  const fechaVentaEfectiva = d.fechaVenta ?? fechaHoyUruguayISO()
   const fechaVentaTexto = `\n📅 Fecha venta: ${new Date(fechaVentaEfectiva + 'T12:00:00').toLocaleDateString('es-UY')}`
+  const finBolsaTexto = fechaFin
+    ? `\n📆 Fin de bolsa estimado: ${new Date(fechaFin + 'T12:00:00').toLocaleDateString('es-UY')}`
+    : '\n📆 Fin de bolsa: sin estimar (falta raza o peso de la mascota)'
 
   await sendMessageWithButtons(chatId,
-    `📦 <b>Nueva venta</b>\n\n👤 Cliente: ${d.clienteNombre}${direccionTexto}\n🐾 Mascota: ${d.mascotaNombre} (${d.especie}${pesoTexto})\n🛍 Producto: ${d.producto}${cantidadTexto}\n💰 Precio: $${d.precio}${totalTexto}\n💳 Pago: ${pagoTexto}${fechaVentaTexto}\n${casaLabel} Stock: baja de ${casaLabel}${stockWarning}\n\n¿Confirmar?`,
-    [{ text: '✅ Confirmar', callback_data: 'confirmar_venta' }, { text: '❌ Cancelar', callback_data: 'cancelar_venta' }]
+    `📦 <b>Nueva venta</b>\n\n👤 Cliente: ${d.clienteNombre}${avisoCliente}${direccionTexto}\n🐾 Mascota: ${d.mascotaNombre ?? (d.especie === 'perro' ? 'Perro' : 'Gato')}${mascotaNueva} (${d.especie}${pesoTexto})\n🛍 Producto: ${d.producto}${cantidadTexto}\n💰 Precio: $${d.precio}${totalTexto}\n💳 Pago: ${pagoTexto}${fechaVentaTexto}${finBolsaTexto}\n${casaLabel} Stock: baja de ${casaLabel}${stockWarning}\n\n¿Confirmar?`,
+    [{ text: '✅ Confirmar', callback_data: `confirmar_venta:${token}` }, { text: '❌ Cancelar', callback_data: `cancelar_venta:${token}` }]
   )
 }

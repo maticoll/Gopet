@@ -2,6 +2,14 @@ import { sql } from '@/lib/db'
 import { CrmTable } from '@/components/dashboard/crm-table'
 import { diasHastaFin } from '@/lib/calculations'
 
+// Neon devuelve las columnas date como objetos Date. Concatenarles 'T12:00:00'
+// (que es lo que hace la tabla para leerlas en hora local) daba 'Invalid Date'.
+function aISO(v: unknown): string | null {
+  if (!v) return null
+  if (v instanceof Date) return v.toISOString().slice(0, 10)
+  return String(v).slice(0, 10)
+}
+
 export default async function DashboardPage() {
   // Una fila por mascota con su última venta — luego agrupamos por cliente en JS
   const rows = await sql`
@@ -68,21 +76,21 @@ export default async function DashboardPage() {
         clienteId: cId,
         clienteNombre: r.cliente_nombre as string,
         direccion: r.direccion as string | null,
-        primeraCompra: r.primera_compra ? String(r.primera_compra).slice(0, 10) : null,
-        ultimaCompra: r.ultima_compra ? String(r.ultima_compra).slice(0, 10) : null,
+        primeraCompra: aISO(r.primera_compra),
+        ultimaCompra: aISO(r.ultima_compra),
         mascotas: [],
         proximosDias: null,
       })
     }
     const entry = clientesMap.get(cId)!
-    const dias = r.fecha_estimada_fin ? diasHastaFin(new Date(r.fecha_estimada_fin as string)) : null
+    const dias = r.fecha_estimada_fin ? diasHastaFin(new Date(r.fecha_estimada_fin as string | Date)) : null
     entry.mascotas.push({
       mascotaId: r.perro_id as string,
       mascotaNombre: r.perro_nombre as string,
       especie: (r.especie ?? 'perro') as 'perro' | 'gato',
       mascotaPeso: r.peso_kg as number | null,
       producto: r.producto as string | null,
-      fechaFin: r.fecha_estimada_fin as string | null,
+      fechaFin: aISO(r.fecha_estimada_fin),
       diasRestantes: dias,
     })
     // Guardar el fin de bolsa más próximo del cliente

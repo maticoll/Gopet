@@ -35,8 +35,13 @@ export async function GET(req: NextRequest) {
   let procesadas = 0
 
   for (const venta of ventasPendientes) {
+    // Neon devuelve fecha_estimada_fin como Date: concatenarle 'T12:00:00'
+    // daba 'Invalid Date' en el texto de la alerta.
+    const fechaFinISO = venta.fecha_estimada_fin instanceof Date
+      ? venta.fecha_estimada_fin.toISOString().slice(0, 10)
+      : String(venta.fecha_estimada_fin).slice(0, 10)
     const diasRestantes = Math.round(
-      (new Date(venta.fecha_estimada_fin as string).getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24)
+      (new Date(fechaFinISO + 'T12:00:00').getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24)
     )
 
     try {
@@ -52,7 +57,7 @@ export async function GET(req: NextRequest) {
       const mensajeIA = aiResponse.content[0].type === 'text' ? aiResponse.content[0].text : ''
 
       const alertaTexto = `⚠️ <b>${venta.mascota_nombre}</b> (${venta.especie}, ${venta.peso_kg}kg) — ${venta.cliente_nombre}
-📦 Bolsa <b>${venta.producto}</b> vence en <b>${diasRestantes} días</b> (${new Date((venta.fecha_estimada_fin as string) + 'T12:00:00').toLocaleDateString('es-UY')})
+📦 Bolsa <b>${venta.producto}</b> vence en <b>${diasRestantes} días</b> (${new Date(fechaFinISO + 'T12:00:00').toLocaleDateString('es-UY')})
 
 💬 Mensaje sugerido para el cliente:
 "${mensajeIA}"`
