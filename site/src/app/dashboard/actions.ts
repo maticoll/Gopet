@@ -3,37 +3,25 @@
 import { sql } from '@/lib/db'
 import { revalidatePath } from 'next/cache'
 
-// Da de baja un cliente: deja de aparecer en el dashboard y de recibir alertas,
-// pero NO se borra nada.
+// Elimina un cliente por completo: sus ventas, sus mascotas y su ficha.
+// NO se puede deshacer.
 //
-// Antes esta acción hacía DELETE de las ventas, las mascotas y el cliente. El
-// cartel decía "se dará de baja", así que se perdía historial (y facturación
-// del total) creyendo que era una baja reversible. Ahora es reversible de
-// verdad: alcanza con volver a poner activo = true, y cualquier venta nueva
-// del cliente lo reactiva sola.
-export async function darDeBajaCliente(
+// Para sacar a alguien de la lista sin perder el historial está "Dar de baja"
+// en la ficha del cliente, que sólo pone activo = false.
+export async function eliminarClienteConVentas(
   clienteId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await sql`UPDATE clientes SET activo = false WHERE id = ${clienteId}`
+    // Devolver el stock de cada venta a su casa correcta
+    await sql`SELECT devolver_stock_venta(id) FROM ventas WHERE cliente_id = ${clienteId}`
+    await sql`DELETE FROM ventas WHERE cliente_id = ${clienteId}`
+    await sql`DELETE FROM perros WHERE cliente_id = ${clienteId}`
+    await sql`DELETE FROM clientes WHERE id = ${clienteId}`
     revalidatePath('/dashboard')
-    revalidatePath(`/dashboard/clientes/${clienteId}`)
+    revalidatePath('/dashboard/caja')
+    revalidatePath('/dashboard/stock')
     return { success: true }
   } catch {
-    return { success: false, error: 'Error al dar de baja el cliente' }
-  }
-}
-
-// Reactiva un cliente dado de baja.
-export async function reactivarCliente(
-  clienteId: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    await sql`UPDATE clientes SET activo = true WHERE id = ${clienteId}`
-    revalidatePath('/dashboard')
-    revalidatePath(`/dashboard/clientes/${clienteId}`)
-    return { success: true }
-  } catch {
-    return { success: false, error: 'Error al reactivar el cliente' }
+    return { success: false, error: 'Error al eliminar el cliente' }
   }
 }
