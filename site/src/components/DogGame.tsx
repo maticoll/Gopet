@@ -9,18 +9,18 @@ const W = CELL * COLS;
 const H = CELL * ROWS;
 
 const RATIONS = [
-  { name: "Maxine Cachorros",     image: "/images/p01.jpg", color: "#E87010" },
-  { name: "Maxine Adultos",       image: "/images/p02.jpg", color: "#C20808" },
-  { name: "Maxine Senior",        image: "/images/p03.jpg", color: "#4E9A1A" },
-  { name: "Maxine Razas Peq.",    image: "/images/p04.jpg", color: "#9A2A80" },
-  { name: "Maxine Gatos",         image: "/images/p05.jpg", color: "#2878B8" },
-  { name: "Maxine Gatos Cast.",   image: "/images/p06.jpg", color: "#C02888" },
-  { name: "Lager Senior",         image: "/images/p07.jpg", color: "#223A88" },
-  { name: "Lager Razas Peq.",     image: "/images/p08.jpg", color: "#008A80" },
-  { name: "Lager Cachorros",      image: "/images/p09.jpg", color: "#6AAE18" },
-  { name: "Lager Gatos",          image: "/images/p10.jpg", color: "#B81870" },
-  { name: "Lager Gatos Cast.",    image: "/images/p11.jpg", color: "#702480" },
-  { name: "Lager Adultos",        image: "/images/p12.jpg", color: "#D07010" },
+  { name: "Maxine Cachorros",     image: "/images/p01.png", color: "#E87010" },
+  { name: "Maxine Adultos",       image: "/images/p02.png", color: "#C20808" },
+  { name: "Maxine Senior",        image: "/images/p03.png", color: "#4E9A1A" },
+  { name: "Maxine Razas Peq.",    image: "/images/p04.png", color: "#9A2A80" },
+  { name: "Maxine Gatos",         image: "/images/p05.png", color: "#2878B8" },
+  { name: "Maxine Gatos Cast.",   image: "/images/p06.png", color: "#C02888" },
+  { name: "Lager Senior",         image: "/images/p07.png", color: "#223A88" },
+  { name: "Lager Razas Peq.",     image: "/images/p08.png", color: "#008A80" },
+  { name: "Lager Cachorros",      image: "/images/p09.png", color: "#6AAE18" },
+  { name: "Lager Gatos",          image: "/images/p10.png", color: "#B81870" },
+  { name: "Lager Gatos Cast.",    image: "/images/p11.png", color: "#702480" },
+  { name: "Lager Adultos",        image: "/images/p12.png", color: "#D07010" },
 ];
 
 type Point = { x: number; y: number };

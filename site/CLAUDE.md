@@ -13,7 +13,7 @@ App interna para una empresa que vende comida para perros y gatos (marca Maxiene
 **Subsistema 1 completo** (login + dashboard + CRM + bot Telegram + cron alertas).
 
 ### Rutas implementadas
-- `/` — Landing page (existente, no tocar)
+- `/` — Landing page pública: catálogo + carrito con descuentos por monto
 - `/login` — Login equipo interno (Supabase Auth)
 - `/dashboard` — Dashboard principal: PieChart meta de ventas + lista alertas + tabla CRM
 - `/dashboard/clientes/new` — Formulario nueva venta
@@ -25,6 +25,22 @@ App interna para una empresa que vende comida para perros y gatos (marca Maxiene
 - `/api/ventas/sheets` — Sincroniza venta a Google Sheets
 - `/api/telegram-webhook` — Recibe mensajes del bot (POST)
 - `/api/cron/alertas` — Cron job diario 09:00 Uruguay (GET, protegido con CRON_SECRET)
+
+### Landing pública (`/`)
+
+Catálogo con carrito. El pedido no se cobra online: se arma el mensaje y se abre
+WhatsApp con el detalle escrito.
+
+- `src/lib/catalogo.ts` — Productos y precios de la web (número, no string)
+- `src/lib/carrito.ts` — Escalones de descuento y armado del mensaje de pedido
+- `src/components/carrito/` — Hook del carrito (localStorage) + drawer + barra de descuentos
+
+**Descuentos por monto:** $6.000 → 10% off, $10.000 → 20% off. Aplica un solo
+escalón (el más alto alcanzado), sobre el subtotal a precio de lista.
+
+**OJO con los precios:** viven en dos lados y hay que cambiarlos en los dos.
+`src/lib/catalogo.ts` es lo que ve el cliente en la web; `productos.precio_venta`
+en la base es de donde saca el precio el bot de Telegram.
 
 ### Archivos clave
 - `src/proxy.ts` — Protección de rutas (Next.js 16: se llama proxy, NO middleware)

@@ -3,16 +3,17 @@
 import { useState, useEffect, useRef } from "react";
 import DogGame from "@/components/DogGame";
 import Image from "next/image";
-import { PawPrint, Truck, Tag, Heart, Headphones, ChevronRight, Menu, X, Zap, ShieldCheck, Leaf } from "lucide-react";
+import Link from "next/link";
+import { PawPrint, ChevronRight, Menu, X, Zap, ShieldCheck, Leaf } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-
-const WA_NUMBER = "59892262052";
-const IG_HANDLE = "gopet_uy";
-
-const waURL = (msg: string) =>
-  `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`;
-
-const igURL = `https://www.instagram.com/${IG_HANDLE}`;
+import { IgIcon, WaIcon } from "@/components/iconos";
+import { IG_HANDLE, igURL, waURL } from "@/lib/contacto";
+import { perros, gatos, tamaños, formatearPrecio, promoLagerAdulto, type Producto } from "@/lib/catalogo";
+import { useCarrito } from "@/components/carrito/use-carrito";
+import { CarritoDrawer } from "@/components/carrito/carrito-drawer";
+import { BotonCarrito, BurbujaCarrito } from "@/components/carrito/boton-carrito";
+import { SelectorVariantes } from "@/components/carrito/selector-variantes";
+import { AvisoDescuentos } from "@/components/carrito/barra-descuento";
 
 /*
   Paleta "Pet Friendly" — alegre, colorida, amigable
@@ -21,9 +22,9 @@ const igURL = `https://www.instagram.com/${IG_HANDLE}`;
   Hero (fallback):  #3D2010
   Feature strip:    #FEF9E7  (amarillo miel suave)
   Spotlight:        #FFF5EE  (salmón muy claro — permite mix-blend-mode en la bolsa)
-  Cómo funciona:    #EFF9FF  (celeste bebé)
+  Cómo funciona:    #FFF8F0  (crema cálido)
   Productos:        #FFFFFF  (blanco limpio)
-  Beneficios:       #F0FFF6  (verde menta suave)
+  Beneficios:       #FDEEDD  (arena cálida)
   CTA:              #E87010  (naranja Maxine — más cálido y juguetón que el rojo oscuro)
 
   Titulos:   #3D2010  en secciones claras
@@ -33,36 +34,12 @@ const igURL = `https://www.instagram.com/${IG_HANDLE}`;
   Accent-3:  #25A244  verde WhatsApp
 */
 
-type Product = {
-  id: string; brand: "Maxine" | "Lager"; name: string; label: string;
-  color: string; weight: string; prices: string[]; desc: string; image: string;
-};
-
-const perros: Product[] = [
-  { id:"mx-c", brand:"Maxine", name:"Cachorros",     label:"C",  color:"#E87010", weight:"21 kg / 7.5 kg",          prices:["$2.870","$1.190"], desc:"Para cachorros de todas las razas",  image:"/images/p01.png" },
-  { id:"mx-a", brand:"Maxine", name:"Adultos",        label:"A",  color:"#C20808", weight:"21+4 kg gratis / 7.5 kg", prices:["$2.440","$1.090"], desc:"Para perros adultos",                image:"/images/p02.png" },
-  { id:"mx-s", brand:"Maxine", name:"Senior",         label:"S",  color:"#4E9A1A", weight:"21 kg / 7.5 kg",          prices:["$2.920","$1.220"], desc:"Para perros mayores de 7 años",      image:"/images/p03.png" },
-  { id:"mx-p", brand:"Maxine", name:"Razas Pequeñas", label:"P",  color:"#9A2A80", weight:"21 kg / 7.5 kg",          prices:["$2.990","$1.170"], desc:"Adultos razas pequeñas",             image:"/images/p04.png" },
-  { id:"lg-c", brand:"Lager",  name:"Cachorros",      label:"C",  color:"#6AAE18", weight:"22 kg / 10 kg",           prices:["$2.190","$1.200"], desc:"Para cachorros de todas las razas",  image:"/images/p09.png" },
-  { id:"lg-a", brand:"Lager",  name:"Adultos",        label:"A",  color:"#D07010", weight:"22+3 kg gratis / 10 kg",  prices:["$1.940","$1.020"], desc:"Para perros adultos",                image:"/images/p12.png" },
-  { id:"lg-s", brand:"Lager",  name:"Senior 7+",      label:"S",  color:"#223A88", weight:"22 kg / 10 kg",           prices:["$2.140","$1.190"], desc:"Para perros mayores de 7 años",      image:"/images/p07.png" },
-  { id:"lg-p", brand:"Lager",  name:"Razas Pequeñas", label:"P",  color:"#008A80", weight:"22 kg / 10 kg",           prices:["$2.240","$1.150"], desc:"Adultos razas pequeñas",             image:"/images/p08.png" },
-];
-
-const gatos: Product[] = [
-  { id:"mx-g",  brand:"Maxine", name:"Gatos",           label:"G",  color:"#2878B8", weight:"21 kg / 7.5 kg", prices:["$3.860","$1.540"], desc:"Para gatos adultos",                       image:"/images/p05.png" },
-  { id:"mx-gc", brand:"Maxine", name:"Gatos Castrados", label:"GC", color:"#C02888", weight:"21 kg / 7.5 kg", prices:["$3.860","$1.540"], desc:"Para gatos castrados adultos",              image:"/images/p06.png" },
-  { id:"lg-g",  brand:"Lager",  name:"Gatos",           label:"G",  color:"#B81870", weight:"22 kg / 10 kg",  prices:["$2.580","$1.340"], desc:"Para gatos adultos — mix salmón y carne",   image:"/images/p10.png" },
-  { id:"lg-gc", brand:"Lager",  name:"Gatos Castrados", label:"GC", color:"#702480", weight:"22 kg / 10 kg",  prices:["$2.740","$1.530"], desc:"Para gatos castrados — mix salmón y pollo", image:"/images/p11.png" },
-];
-
 // ── Datos de detalle por producto (del catálogo Agrofeed Sep 2025) ────────────
 
 type ProductDetail = {
   formula: string;
   badge: string;
   tier: string;
-  packs: string[];
   features: { emoji: string; title: string; desc: string }[];
 };
 
@@ -70,7 +47,6 @@ const productDetails: Record<string, ProductDetail> = {
   "mx-a": {
     formula: "Fórmula optimizada para máximo rendimiento. Alta concentración de energía. Pollo y arroz.",
     badge: "HIGH PERFORMANCE", tier: "Super Premium",
-    packs: ["10 kg", "21+4 kg"],
     features: [
       { emoji:"💪", title:"Músculos fuertes y sanos",          desc:"Proteínas de alta biodisponibilidad para mantener la masa muscular óptima." },
       { emoji:"✨", title:"Pelaje saludable y brillante",       desc:"Ácidos grasos esenciales para un pelaje radiante y sedoso." },
@@ -81,7 +57,6 @@ const productDetails: Record<string, ProductDetail> = {
   "mx-c": {
     formula: "Fórmula ajustada para un óptimo crecimiento y desarrollo de animales jóvenes.",
     badge: "HIGH PERFORMANCE", tier: "Super Premium",
-    packs: ["10 kg", "21+4 kg"],
     features: [
       { emoji:"🦴", title:"Músculos y huesos sanos",            desc:"Calcio y fósforo en proporción ideal para el desarrollo óseo." },
       { emoji:"✨", title:"Pelaje saludable y brillante",       desc:"Nutrientes esenciales para un pelaje sedoso desde cachorro." },
@@ -92,7 +67,6 @@ const productDetails: Record<string, ProductDetail> = {
   "mx-s": {
     formula: "Máxima protección de articulaciones con Glucosamina y Condroitina. Antioxidantes naturales (vitaminas E, C y Selenio). Con extracto de Yuca.",
     badge: "HIGH PERFORMANCE", tier: "Super Premium",
-    packs: ["10 kg", "21+4 kg"],
     features: [
       { emoji:"🦴", title:"Salud articular",                    desc:"Glucosamina y Condroitina para proteger articulaciones en perros maduros." },
       { emoji:"🌿", title:"Cuidado del tracto digestivo",       desc:"Extracto de Yuca y prebióticos para una digestión óptima." },
@@ -103,7 +77,6 @@ const productDetails: Record<string, ProductDetail> = {
   "mx-p": {
     formula: "Fórmula optimizada para máximo rendimiento en razas pequeñas. Alta concentración de energía. Pollo y arroz.",
     badge: "HIGH PERFORMANCE", tier: "Super Premium",
-    packs: ["10 kg", "21+4 kg"],
     features: [
       { emoji:"🌿", title:"Salud intestinal",                   desc:"Digestión adaptada al metabolismo acelerado de razas pequeñas." },
       { emoji:"💪", title:"Energía muscular",                   desc:"Alta concentración de proteínas para mantener la vitalidad." },
@@ -114,7 +87,6 @@ const productDetails: Record<string, ProductDetail> = {
   "mx-g": {
     formula: "Cuidado integral de la salud felina. Previene y controla la formación de bola de pelos. Excelente digestión, reduce volumen y olor en las heces.",
     badge: "HIGH PERFORMANCE", tier: "Super Premium",
-    packs: ["10 kg", "21+4 kg"],
     features: [
       { emoji:"🥩", title:"Proteínas de máxima calidad",        desc:"Alta concentración de proteínas con cantidad controlada de minerales." },
       { emoji:"🛡️", title:"Sistema inmunológico óptimo",        desc:"Antioxidantes y vitaminas para una inmunidad robusta." },
@@ -125,7 +97,6 @@ const productDetails: Record<string, ProductDetail> = {
   "mx-gc": {
     formula: "Fórmula específica para gatos castrados. Ayuda a controlar el peso. Excelente digestibilidad. Reduce volumen y olor en las heces.",
     badge: "HIGH PERFORMANCE", tier: "Super Premium",
-    packs: ["10 kg"],
     features: [
       { emoji:"⚖️", title:"Control de peso",                    desc:"Fórmula balanceada para el metabolismo reducido del gato castrado." },
       { emoji:"🧪", title:"Ph urinario equilibrado",            desc:"Minerales controlados para proteger la salud renal." },
@@ -136,7 +107,6 @@ const productDetails: Record<string, ProductDetail> = {
   "lg-a": {
     formula: "1er Alimento Premium del Uruguay. Ingredientes 100% naturales. Balanceado y nutritivo.",
     badge: "ALTA CALIDAD", tier: "Premium",
-    packs: ["10 kg", "22+3 kg"],
     features: [
       { emoji:"🍽️", title:"Excelente nutrición y sabor",       desc:"Fórmula que combina palatabilidad superior con nutrición completa." },
       { emoji:"🌿", title:"Salud intestinal",                   desc:"Yuca y pulpa de remolacha para una microbiota intestinal saludable." },
@@ -147,7 +117,6 @@ const productDetails: Record<string, ProductDetail> = {
   "lg-s": {
     formula: "Para perros adultos mayores de 7 años. Ingredientes naturales. 100% balanceado y nutritivo. Reducido en grasa.",
     badge: "ALTA CALIDAD", tier: "Premium",
-    packs: ["10 kg", "22+3 kg"],
     features: [
       { emoji:"⚖️", title:"Control de peso",                    desc:"Fórmula reducida en grasa para mantener el peso ideal en perros seniors." },
       { emoji:"❤️", title:"Salud renal y calidad de vida",      desc:"Ingredientes que cuidan los riñones y mejoran el bienestar general." },
@@ -158,7 +127,6 @@ const productDetails: Record<string, ProductDetail> = {
   "lg-p": {
     formula: "Para perros adultos de razas pequeñas. Ingredientes naturales. 100% balanceado y nutritivo.",
     badge: "ALTA CALIDAD", tier: "Premium",
-    packs: ["10 kg", "22+3 kg"],
     features: [
       { emoji:"🌿", title:"Salud intestinal",                   desc:"Probióticos y pulpa de remolacha para una digestión perfecta." },
       { emoji:"✨", title:"Pelo sano y brillante",              desc:"Omega 3 y 6, ácidos grasos esenciales para un pelaje impecable." },
@@ -169,7 +137,6 @@ const productDetails: Record<string, ProductDetail> = {
   "lg-c": {
     formula: "Para cachorros saludables. Ingredientes naturales. 100% balanceado y nutritivo.",
     badge: "ALTA CALIDAD", tier: "Premium",
-    packs: ["10 kg", "22+3 kg"],
     features: [
       { emoji:"🦴", title:"Crecimiento de huesos y músculos",   desc:"Calcio y fósforo en proporción ideal para un desarrollo óptimo." },
       { emoji:"🌱", title:"Ingredientes naturales",             desc:"Fórmula sin aditivos artificiales, segura para cachorros." },
@@ -180,7 +147,6 @@ const productDetails: Record<string, ProductDetail> = {
   "lg-g": {
     formula: "Con Taurina. Omega 3 y 6. Enriquecido con Aceite de Pescado. Mix Pescado y Carne.",
     badge: "ALTA CALIDAD", tier: "Premium",
-    packs: ["10 kg", "22+3 kg"],
     features: [
       { emoji:"🚿", title:"Protege el tracto urinario",         desc:"Fórmula con control de minerales para la salud renal y urinaria." },
       { emoji:"❤️", title:"Corazón y visión saludables",        desc:"Taurina esencial para el correcto funcionamiento cardíaco y visual." },
@@ -191,7 +157,6 @@ const productDetails: Record<string, ProductDetail> = {
   "lg-gc": {
     formula: "Ayuda a controlar el peso. Excelente digestibilidad. Reducido en minerales para protección renal. Elaborado con salmón. Mix Salmón y Pollo.",
     badge: "ALTA CALIDAD", tier: "Premium",
-    packs: ["10 kg", "22+3 kg"],
     features: [
       { emoji:"⚖️", title:"Control de peso",                    desc:"Reducido en minerales y grasa para el metabolismo del gato castrado." },
       { emoji:"🚿", title:"Protege el tracto urinario",         desc:"Menos minerales para prevenir cálculos urinarios y proteger riñones." },
@@ -201,23 +166,6 @@ const productDetails: Record<string, ProductDetail> = {
   },
 };
 
-// ── Icons ─────────────────────────────────────────────────────────────────────
-
-const IgIcon = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
-    <circle cx="12" cy="12" r="4"/>
-    <circle cx="17.5" cy="6.5" r="0.5" fill="currentColor" stroke="none"/>
-  </svg>
-);
-
-const WaIcon = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden>
-    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-  </svg>
-);
-
-// ── Section Divider ───────────────────────────────────────────────────────────
 // Onda suave y orgánica entre secciones. Doble capa: una onda de fondo translúcida
 // que asoma como sombra y una onda principal sólida encima → sensación de relieve.
 // La onda se genera muestreando una sinusoide y uniendo los puntos con curvas
@@ -268,39 +216,11 @@ function SectionDivider({ fromColor, toColor = "#FFFFFF" }: { fromColor: string;
   );
 }
 
-// ── Weight label — splits "21+4 kg gratis / 7.5 kg" into stacked lines ────────
-
-function WeightLabel({ weight, prices }: { weight: string; prices?: string[] }) {
-  const sizes = weight.split(" / ");
-  return (
-    <div className="flex flex-col gap-1">
-      {sizes.map((size, i) => {
-        const hasGratis = size.includes("gratis");
-        const base = size.replace(" gratis", "").trim();
-        return (
-          <div key={size} className="flex items-center gap-1.5">
-            <span className="text-xs font-semibold whitespace-nowrap" style={{ color:"#9C7050" }}>{base}</span>
-            {hasGratis && (
-              <span className="inline-flex items-center justify-center text-[7px] font-bold uppercase rounded-full leading-none flex-shrink-0"
-                    style={{ backgroundColor:"#E87010", color:"#fff", height:"11px", padding:"0 3px" }}>
-                gratis
-              </span>
-            )}
-            {prices?.[i] && (
-              <span className="text-xs font-black whitespace-nowrap" style={{ color:"#3D2010" }}>{prices[i]}</span>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 // ── Product Modal ─────────────────────────────────────────────────────────────
 
-function ProductModal({ p, onClose }: { p: Product; onClose: () => void }) {
+function ProductModal({ p, onClose, onAgregar }: { p: Producto; onClose: () => void; onAgregar: (varianteIdx: number) => void }) {
   const det = productDetails[p.id];
-  const msg = `Hola GoPet! Quiero pedir ${p.brand} ${p.name} (${p.weight}). ¿Está disponible?`;
+  const msg = `Hola GoPet! Quiero pedir ${p.marca} ${p.nombre} (${tamaños(p)}). ¿Está disponible?`;
 
   // Cerrar con Escape
   const handleKey = (e: React.KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -335,12 +255,12 @@ function ProductModal({ p, onClose }: { p: Product; onClose: () => void }) {
           {/* Cabecera con imagen */}
           <div className="relative h-52 sm:h-64 flex items-center justify-center overflow-hidden rounded-t-3xl sm:rounded-t-3xl"
                style={{ backgroundColor:"#FFF5EE" }}>
-            <Image src={p.image} alt={`${p.brand} ${p.name}`} fill className="object-contain p-6 sm:p-10"
+            <Image src={p.imagen} alt={`${p.marca} ${p.nombre}`} fill className="object-contain p-6 sm:p-10"
                    sizes="(max-width:640px) 100vw, 672px" priority/>
             {/* Badges */}
             <div className="absolute top-4 left-4 flex flex-col gap-1.5">
               <span className="text-xs font-heading font-bold px-2.5 py-1 rounded-full text-white"
-                    style={{ backgroundColor: p.color }}>{p.brand}</span>
+                    style={{ backgroundColor: p.color }}>{p.marca}</span>
               <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full"
                     style={{ backgroundColor:"rgba(255,255,255,0.85)", color:"#3D2010" }}>{det.tier}</span>
             </div>
@@ -359,22 +279,15 @@ function ProductModal({ p, onClose }: { p: Product; onClose: () => void }) {
             <div className="mb-4">
               <p className="text-xs font-bold uppercase tracking-widest mb-1" style={{ color: p.color }}>{det.badge}</p>
               <h2 className="font-heading font-black text-2xl sm:text-3xl tracking-tight" style={{ color:"#3D2010" }}>
-                {p.brand} <span style={{ color: p.color }}>{p.name}</span>
+                {p.marca} <span style={{ color: p.color }}>{p.nombre}</span>
               </h2>
               <p className="text-sm mt-1.5 leading-relaxed" style={{ color:"#9C7050" }}>{det.formula}</p>
             </div>
 
-            {/* Packs disponibles */}
+            {/* Presentaciones — tamaño, precio y botón para sumarlo al carrito */}
             <div className="mb-5">
               <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color:"#C4804A" }}>Presentaciones</p>
-              <div className="flex flex-wrap gap-2">
-                {det.packs.map(pk => (
-                  <span key={pk} className="px-3 py-1.5 rounded-full text-sm font-heading font-bold"
-                        style={{ backgroundColor:"#FEE8D0", color:"#3D2010", border:"1px solid #F5D0A8" }}>
-                    {pk}
-                  </span>
-                ))}
-              </div>
+              <SelectorVariantes producto={p} onAgregar={onAgregar} tamaño="grande"/>
             </div>
 
             {/* Beneficios */}
@@ -409,8 +322,7 @@ function ProductModal({ p, onClose }: { p: Product; onClose: () => void }) {
 
 // ── Product card ──────────────────────────────────────────────────────────────
 
-function ProductCard({ p, onClick }: { p: Product; onClick: () => void }) {
-  const msg = `Hola GoPet! Quiero consultar sobre ${p.brand} ${p.name} (${p.weight}). ¿Está disponible?`;
+function ProductCard({ p, onClick, onAgregar }: { p: Producto; onClick: () => void; onAgregar: (varianteIdx: number) => void }) {
   const isBestseller = p.id === "mx-a";
   return (
     <motion.div
@@ -437,11 +349,11 @@ function ProductCard({ p, onClick }: { p: Product; onClick: () => void }) {
       <div className="relative h-36 sm:h-48 flex items-center justify-center overflow-hidden cursor-pointer group"
            style={{ backgroundColor:"#FFFBF6" }}
            onClick={onClick}>
-        <Image src={p.image} alt={`${p.brand} ${p.name}`} fill className="object-contain p-2 sm:p-3 group-hover:scale-105 transition-transform duration-300"
+        <Image src={p.imagen} alt={`${p.marca} ${p.nombre}`} fill className="object-contain p-2 sm:p-3 group-hover:scale-105 transition-transform duration-300"
                sizes="(max-width:640px) 50vw,(max-width:1024px) 33vw,25vw"/>
         <span className="absolute top-2 left-2 text-[10px] sm:text-xs font-heading font-bold px-1.5 sm:px-2 py-0.5 rounded-full text-white"
               style={{ backgroundColor: p.color }}>
-          {p.brand}
+          {p.marca}
         </span>
         {/* Indicador "Ver más" */}
         <span className="absolute bottom-2 right-2 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
@@ -451,17 +363,11 @@ function ProductCard({ p, onClick }: { p: Product; onClick: () => void }) {
       </div>
       <div className="p-3 sm:p-4 flex flex-col gap-2 sm:gap-3 flex-1">
         <div className="cursor-pointer" onClick={onClick}>
-          <h3 className="font-heading font-bold text-sm sm:text-base leading-tight" style={{ color:"#3D2010" }}>{p.name}</h3>
+          <h3 className="font-heading font-bold text-sm sm:text-base leading-tight" style={{ color:"#3D2010" }}>{p.nombre}</h3>
           <p className="text-[10px] sm:text-xs mt-0.5" style={{ color:"#9C7050" }}>{p.desc}</p>
         </div>
-        <div className="mt-auto flex items-center justify-between gap-2">
-          <WeightLabel weight={p.weight} prices={p.prices} />
-          <a href={waURL(msg)} target="_blank" rel="noopener noreferrer"
-             className="inline-flex items-center gap-1 text-xs font-heading font-bold px-3 py-2 rounded-lg text-white transition-opacity hover:opacity-90 cursor-pointer"
-             style={{ backgroundColor:"#E87010" }}>
-            <WaIcon className="w-3.5 h-3.5"/>
-            Pedir
-          </a>
+        <div className="mt-auto">
+          <SelectorVariantes producto={p} onAgregar={onAgregar}/>
         </div>
       </div>
     </motion.div>
@@ -473,10 +379,21 @@ function ProductCard({ p, onClick }: { p: Product; onClick: () => void }) {
 export default function Landing() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"perros"|"gatos">("perros");
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Producto | null>(null);
   const [headerVisible, setHeaderVisible] = useState(true);
+  const [carritoAbierto, setCarritoAbierto] = useState(false);
   const lastScrollY = useRef(0);
   const generalWA = waURL("Hola GoPet! Quiero hacer un pedido.");
+
+  const carrito = useCarrito();
+  const promo = promoLagerAdulto();
+
+  /** Suma una bolsa y abre el carrito la primera vez, para que se vea qué pasó. */
+  const agregarAlCarrito = (productoId: string) => (varianteIdx: number) => {
+    const primeraVez = carrito.items.length === 0;
+    carrito.agregar(productoId, varianteIdx);
+    if (primeraVez) setCarritoAbierto(true);
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -499,9 +416,9 @@ export default function Landing() {
       {/* ══ NAVBAR ══ */}
       <header className="fixed top-0 left-0 right-0 z-50 text-white" style={{ backgroundColor:"#FDF5E8", borderBottom:"1px solid rgba(0,0,0,0.08)", paddingTop:"env(safe-area-inset-top)", transform: headerVisible ? "translateY(0)" : "translateY(-110%)", transition:"transform 0.3s ease" }}>
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between relative">
-          <a href="/" className="flex items-center flex-shrink-0">
+          <Link href="/" className="flex items-center flex-shrink-0">
             <Image src="/images/logo gopet negro.png" alt="GoPet" width={108} height={36} className="object-contain mt-5" priority />
-          </a>
+          </Link>
 
           {/* Nav centrado absolutamente */}
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-black/50 absolute left-1/2 -translate-x-1/2">
@@ -520,11 +437,15 @@ export default function Landing() {
                className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#25D366] text-white text-sm font-heading font-bold hover:bg-[#1eba58] transition-colors cursor-pointer">
               <WaIcon className="w-4 h-4"/> Pedir ahora
             </a>
+            <BotonCarrito totales={carrito.totales} onClick={() => setCarritoAbierto(true)}/>
           </div>
 
-          <button className="md:hidden p-2 cursor-pointer text-black" onClick={() => setMobileOpen(v=>!v)} aria-label="Abrir menú">
-            {mobileOpen ? <X className="w-5 h-5"/> : <Menu className="w-5 h-5"/>}
-          </button>
+          <div className="md:hidden flex items-center gap-1">
+            <BotonCarrito totales={carrito.totales} onClick={() => setCarritoAbierto(true)}/>
+            <button className="p-2 cursor-pointer text-black" onClick={() => setMobileOpen(v=>!v)} aria-label="Abrir menú">
+              {mobileOpen ? <X className="w-5 h-5"/> : <Menu className="w-5 h-5"/>}
+            </button>
+          </div>
         </div>
 
         <AnimatePresence>
@@ -641,6 +562,8 @@ export default function Landing() {
               <p style={{ color:"#9C7050" }}>Marcas Maxine y Lager — Agrofeed Uruguay</p>
             </div>
 
+            <AvisoDescuentos className="mb-6"/>
+
             <div className="flex gap-2 mb-8">
               {(["perros","gatos"] as const).map((tab) => (
                 <button key={tab} onClick={()=>setActiveTab(tab)}
@@ -655,7 +578,9 @@ export default function Landing() {
               <motion.div key={activeTab} initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-12 }}
                           transition={{ duration:0.25, ease:[0.25,1,0.5,1] }}
                           className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {(activeTab==="perros" ? perros : gatos).map((p) => <ProductCard key={p.id} p={p} onClick={() => setSelectedProduct(p)}/>)}
+                {(activeTab==="perros" ? perros : gatos).map((p) => (
+                  <ProductCard key={p.id} p={p} onClick={() => setSelectedProduct(p)} onAgregar={agregarAlCarrito(p.id)}/>
+                ))}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -837,22 +762,22 @@ export default function Landing() {
               <div className="flex items-center gap-5 mb-10">
                 <div className="flex flex-col">
                   <span className="text-[11px] uppercase tracking-widest font-semibold mb-0.5" style={{ color:"rgba(255,255,255,0.35)" }}>Antes</span>
-                  <span className="font-heading font-bold text-xl line-through" style={{ color:"rgba(255,255,255,0.3)" }}>$2.870</span>
+                  <span className="font-heading font-bold text-xl line-through" style={{ color:"rgba(255,255,255,0.3)" }}>{formatearPrecio(promo.lista)}</span>
                 </div>
                 <div className="w-px h-10 self-center" style={{ backgroundColor:"rgba(255,255,255,0.15)" }}/>
                 <div className="flex flex-col">
                   <span className="text-[11px] uppercase tracking-widest font-semibold mb-0.5" style={{ color:"#E87010" }}>Precio oferta</span>
-                  <span className="font-heading font-black" style={{ fontSize:"clamp(2.4rem,5vw,3.5rem)", color:"#fff", lineHeight:1 }}>$2.450</span>
+                  <span className="font-heading font-black" style={{ fontSize:"clamp(2.4rem,5vw,3.5rem)", color:"#fff", lineHeight:1 }}>{formatearPrecio(promo.precio)}</span>
                 </div>
                 <div className="self-end mb-1 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider"
                      style={{ backgroundColor:"rgba(232,112,16,0.2)", border:"1px solid rgba(232,112,16,0.5)", color:"#F5A623" }}>
-                  15% OFF
+                  {promo.off}% OFF
                 </div>
               </div>
 
               {/* CTA */}
               <div className="flex flex-col sm:flex-row items-start gap-3">
-                <a href={waURL("Hola GoPet! Quiero aprovechar la promo de Lager Adulto 22+13 kg a $2.450. ¿Está disponible?")}
+                <a href={waURL(`Hola GoPet! Quiero aprovechar la promo de Lager Adulto 22+13 kg a ${formatearPrecio(promo.precio)}. ¿Está disponible?`)}
                    target="_blank" rel="noopener noreferrer"
                    className="inline-flex items-center gap-2.5 px-7 py-4 rounded-2xl font-heading font-black text-base transition-all hover:brightness-110 cursor-pointer"
                    style={{ backgroundColor:"#E87010", color:"#fff", boxShadow:"0 8px 32px rgba(232,112,16,0.4)" }}>
@@ -868,18 +793,18 @@ export default function Landing() {
           </div>
         </section>
 
-        <div className="hidden sm:block"><SectionDivider fromColor="#E87010" toColor="#EFF9FF"/></div>
+        <div className="hidden sm:block"><SectionDivider fromColor="#1A0F00" toColor="#FFF8F0"/></div>
 
         {/* ══════════════════════════════════════════════════════
-            CÓMO FUNCIONA — celeste bebé
+            CÓMO FUNCIONA — crema cálido
         ══════════════════════════════════════════════════════ */}
-        <section id="como-funciona" className="order-6 sm:order-none py-16 sm:py-24 px-5 sm:px-6" style={{ backgroundColor:"#EFF9FF" }}>
+        <section id="como-funciona" className="order-6 sm:order-none py-16 sm:py-24 px-5 sm:px-6" style={{ backgroundColor:"#FFF8F0" }}>
           <div className="max-w-6xl mx-auto">
             <div className="mb-14">
-              <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter mb-2" style={{ color:"#1A6FA0" }}>
+              <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter mb-2" style={{ color:"#3D2010" }}>
                 Cómo funciona 🐾
               </h2>
-              <p style={{ color:"#4A90B8" }}>Tres pasos, sin complicaciones.</p>
+              <p style={{ color:"#9C7050" }}>Tres pasos, sin complicaciones.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -890,55 +815,55 @@ export default function Landing() {
               ].map((step, i) => (
                 <motion.div key={step.n} initial={{ opacity:0, y:24 }} whileInView={{ opacity:1, y:0 }}
                             viewport={{ once:true }} transition={{ duration:0.45, delay:i*0.1, ease:[0.25,1,0.5,1] }}
-                            className="flex flex-col gap-3 p-6 rounded-3xl" style={{ backgroundColor:"#FFFFFF", border:"1px solid #C8E8F8", boxShadow:"0 4px 20px rgba(26,111,160,0.08)" }}>
+                            className="flex flex-col gap-3 p-6 rounded-3xl" style={{ backgroundColor:"#FFFFFF", border:"1px solid #F0DCCB", boxShadow:"0 4px 20px rgba(61,32,16,0.06)" }}>
                   <div className="flex items-center gap-3">
                     <span className="text-3xl">{step.emoji}</span>
-                    <span className="font-heading font-black text-4xl leading-none" style={{ color:"rgba(26,111,160,0.18)" }}>{step.n}</span>
+                    <span className="font-heading font-black text-4xl leading-none" style={{ color:"rgba(232,112,16,0.25)" }}>{step.n}</span>
                   </div>
-                  <h3 className="font-heading font-bold text-xl" style={{ color:"#1A6FA0" }}>{step.title}</h3>
-                  <p className="leading-relaxed" style={{ color:"#4A90B8" }}>{step.desc}</p>
+                  <h3 className="font-heading font-bold text-xl" style={{ color:"#3D2010" }}>{step.title}</h3>
+                  <p className="leading-relaxed" style={{ color:"#9C7050" }}>{step.desc}</p>
                 </motion.div>
               ))}
             </div>
           </div>
         </section>
 
-        <div className="hidden sm:block"><SectionDivider fromColor="#EFF9FF" toColor="#F0FFF6"/></div>
+        <div className="hidden sm:block"><SectionDivider fromColor="#FFF8F0" toColor="#FDEEDD"/></div>
 
         {/* ══════════════════════════════════════════════════════
-            BENEFICIOS — verde menta suave
+            BENEFICIOS — arena cálida
         ══════════════════════════════════════════════════════ */}
-        <section id="beneficios" className="order-7 sm:order-none py-16 sm:py-24 px-5 sm:px-6" style={{ backgroundColor:"#F0FFF6" }}>
+        <section id="beneficios" className="order-7 sm:order-none py-16 sm:py-24 px-5 sm:px-6" style={{ backgroundColor:"#FDEEDD" }}>
           <div className="max-w-6xl mx-auto">
             <div className="mb-14">
-              <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter mb-2" style={{ color:"#1A7A40" }}>
-                ¿Por qué GoPet? 💚
+              <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter mb-2" style={{ color:"#3D2010" }}>
+                ¿Por qué GoPet? 🧡
               </h2>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {[
-                { emoji:"🚚", icon:<Truck className="w-5 h-5"/>,      color:"#25A244", bg:"#C8F0D8", title:"Envío gratis y rápido",      desc:"Coordinamos la entrega en el horario que mejor te quede. Sin costo extra." },
-                { emoji:"🏷️", icon:<Tag className="w-5 h-5"/>,        color:"#E87010", bg:"#FDE8C8", title:"Los mejores precios",        desc:"Sin intermediarios, sin locales caros. El precio justo para vos y tu mascota." },
-                { emoji:"❤️", icon:<Heart className="w-5 h-5"/>,      color:"#E84060", bg:"#FFD0DC", title:"Seguimiento de tu mascota",  desc:"Te ayudamos a elegir la ración correcta según la edad y raza de tu mascota." },
-                { emoji:"🎧", icon:<Headphones className="w-5 h-5"/>, color:"#1A6FA0", bg:"#C8E8F8", title:"Atención personalizada",     desc:"Respondemos rápido. Consultas, pedidos y soporte — todo por WhatsApp." },
+                { emoji:"🚚", bg:"#FDE8C8", title:"Envío gratis y rápido",     desc:"Coordinamos la entrega en el horario que mejor te quede. Sin costo extra." },
+                { emoji:"🏷️", bg:"#FBDCC0", title:"Los mejores precios",       desc:"Sin intermediarios, sin locales caros. El precio justo para vos y tu mascota." },
+                { emoji:"❤️", bg:"#FFD0DC", title:"Seguimiento de tu mascota", desc:"Te ayudamos a elegir la ración correcta según la edad y raza de tu mascota." },
+                { emoji:"🎧", bg:"#F5E2C0", title:"Atención personalizada",    desc:"Respondemos rápido. Consultas, pedidos y soporte — todo por WhatsApp." },
               ].map((b, i) => (
                 <motion.div key={b.title} initial={{ opacity:0, y:20 }} whileInView={{ opacity:1, y:0 }}
                             viewport={{ once:true }} transition={{ duration:0.4, delay:i*0.08, ease:[0.25,1,0.5,1] }}
                             className="bg-white rounded-3xl p-6 flex flex-col gap-4"
-                            style={{ border:"1px solid #B8EFD0", boxShadow:"0 4px 20px rgba(26,122,64,0.08)" }}>
+                            style={{ border:"1px solid #F0DCCB", boxShadow:"0 4px 20px rgba(61,32,16,0.06)" }}>
                   <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl" style={{ backgroundColor:b.bg }}>
                     {b.emoji}
                   </div>
-                  <h3 className="font-heading font-bold text-base" style={{ color:b.color }}>{b.title}</h3>
-                  <p className="text-sm leading-relaxed" style={{ color:"#4A8060" }}>{b.desc}</p>
+                  <h3 className="font-heading font-bold text-base" style={{ color:"#3D2010" }}>{b.title}</h3>
+                  <p className="text-sm leading-relaxed" style={{ color:"#9C7050" }}>{b.desc}</p>
                 </motion.div>
               ))}
             </div>
           </div>
         </section>
 
-        <div className="hidden sm:block"><SectionDivider fromColor="#F0FFF6" toColor="#FEF9E7"/></div>
+        <div className="hidden sm:block"><SectionDivider fromColor="#FDEEDD" toColor="#FEF9E7"/></div>
 
         {/* ══════════════════════════════════════════════════════
             MINIJUEGO — perro come raciones
@@ -1017,8 +942,16 @@ export default function Landing() {
 
       {/* Modal de detalle de producto */}
       {selectedProduct && (
-        <ProductModal p={selectedProduct} onClose={() => setSelectedProduct(null)}/>
+        <ProductModal
+          p={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+          onAgregar={agregarAlCarrito(selectedProduct.id)}
+        />
       )}
+
+      {/* Carrito */}
+      <BurbujaCarrito totales={carrito.totales} onClick={() => setCarritoAbierto(true)}/>
+      <CarritoDrawer abierto={carritoAbierto} onCerrar={() => setCarritoAbierto(false)} carrito={carrito}/>
     </>
   );
 }
