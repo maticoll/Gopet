@@ -7,16 +7,12 @@ import { formatearPrecio } from '@/lib/catalogo'
  * La "línea" de descuentos: se va llenando a medida que sumás al carrito y
  * marca los dos escalones ($6.000 → 10%, $10.000 → 20%).
  */
-export function BarraDescuento({ totales, titulo }: { totales: Totales; titulo?: string }) {
+export function BarraDescuento({ totales }: { totales: Totales }) {
   const { porcentaje, falta, tramoSiguiente, progreso } = totales
   const alMaximo = tramoSiguiente === null
 
   return (
     <div className="rounded-2xl p-4" style={{ backgroundColor:'#FFF5EE', border:'1px solid #F0DCCB' }}>
-      {titulo && (
-        <p className="font-heading font-black text-base mb-1" style={{ color:'#3D2010' }}>{titulo}</p>
-      )}
-
       {/* Mensaje */}
       <p className="text-sm font-heading font-bold mb-3 leading-snug" style={{ color:'#3D2010' }}>
         {alMaximo ? (

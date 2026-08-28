@@ -11,9 +11,8 @@ import { IG_HANDLE, igURL, waURL } from "@/lib/contacto";
 import { perros, gatos, tamaños, formatearPrecio, promoLagerAdulto, type Producto } from "@/lib/catalogo";
 import { useCarrito, type Carrito } from "@/components/carrito/use-carrito";
 import { CarritoDrawer } from "@/components/carrito/carrito-drawer";
-import { BotonCarrito, BurbujaCarrito } from "@/components/carrito/boton-carrito";
+import { BotonCarrito, BarraPedido } from "@/components/carrito/boton-carrito";
 import { SelectorVariantes } from "@/components/carrito/selector-variantes";
-import { BarraDescuento } from "@/components/carrito/barra-descuento";
 
 /*
   Paleta "Pet Friendly" — alegre, colorida, amigable
@@ -328,8 +327,13 @@ function ProductCard({ p, onClick, carrito }: { p: Producto; onClick: () => void
     <motion.div
       initial={{ opacity:0, y:20 }} whileInView={{ opacity:1, y:0 }}
       viewport={{ once:true }} transition={{ duration:0.4, ease:[0.25,1,0.5,1] }}
-      className="rounded-2xl overflow-hidden flex flex-col hover:shadow-xl transition-shadow relative"
-      style={{ border: isBestseller ? "1.5px solid #E87010" : "1px solid #E8D5BF", backgroundColor:"#FFFFFF" }}
+      className="rounded-3xl overflow-hidden flex flex-col transition-shadow relative"
+      style={{
+        backgroundColor:"#FFFFFF",
+        boxShadow: isBestseller
+          ? "0 0 0 1.5px #E87010, 0 6px 20px rgba(61,32,16,0.09)"
+          : "0 4px 16px rgba(61,32,16,0.07)",
+      }}
     >
       {isBestseller && (
         <div className="absolute top-0 right-4 z-10 flex flex-col items-center pt-2 pb-3"
@@ -347,7 +351,7 @@ function ProductCard({ p, onClick, carrito }: { p: Producto; onClick: () => void
       )}
       {/* Zona imagen — clickeable para abrir detalle */}
       <div className="relative h-36 sm:h-48 flex items-center justify-center overflow-hidden cursor-pointer group"
-           style={{ backgroundColor:"#FFFBF6" }}
+           style={{ background:`linear-gradient(180deg, ${p.color}14 0%, #FFFFFF 100%)` }}
            onClick={onClick}>
         <Image src={p.imagen} alt={`${p.marca} ${p.nombre}`} fill className="object-contain p-2 sm:p-3 group-hover:scale-105 transition-transform duration-300"
                sizes="(max-width:640px) 50vw,(max-width:1024px) 33vw,25vw"/>
@@ -361,10 +365,10 @@ function ProductCard({ p, onClick, carrito }: { p: Producto; onClick: () => void
           Ver más
         </span>
       </div>
-      <div className="p-3 sm:p-4 flex flex-col gap-2 sm:gap-3 flex-1">
+      <div className="p-3 sm:p-4 flex flex-col gap-2.5 sm:gap-3 flex-1">
         <div className="cursor-pointer" onClick={onClick}>
-          <h3 className="font-heading font-bold text-sm sm:text-base leading-tight" style={{ color:"#3D2010" }}>{p.nombre}</h3>
-          <p className="text-[10px] sm:text-xs mt-0.5" style={{ color:"#9C7050" }}>{p.desc}</p>
+          <h3 className="font-heading font-bold text-base sm:text-lg leading-tight" style={{ color:"#3D2010" }}>{p.nombre}</h3>
+          <p className="text-[11px] sm:text-sm mt-0.5" style={{ color:"#9C7050" }}>{p.marca} · {p.desc.toLowerCase()}</p>
         </div>
         <div className="mt-auto">
           <SelectorVariantes producto={p} carrito={carrito}/>
@@ -381,6 +385,7 @@ export default function Landing() {
   const [selectedProduct, setSelectedProduct] = useState<Producto | null>(null);
   const [headerVisible, setHeaderVisible] = useState(true);
   const [carritoAbierto, setCarritoAbierto] = useState(false);
+  const [categoria, setCategoria] = useState<"perros"|"gatos"|null>(null);
   const lastScrollY = useRef(0);
   const generalWA = waURL("Hola GoPet! Quiero hacer un pedido.");
 
@@ -551,24 +556,43 @@ export default function Landing() {
               <h2 className="font-heading font-black text-[clamp(2rem,5vw,3.5rem)] tracking-tighter mb-2" style={{ color:"#3D2010" }}>
                 Productos 🐶🐱
               </h2>
-              <p style={{ color:"#9C7050" }}>Marcas Maxine y Lager — Agrofeed Uruguay</p>
+              {/* Filtro por categoría. Sin tocar nada se ven las dos. */}
+              <div className="flex gap-2 mt-4">
+                {([
+                  { id:"perros" as const, texto:"🐶 Perros" },
+                  { id:"gatos"  as const, texto:"🐱 Gatos"  },
+                ]).map(cat => {
+                  const activa = categoria === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      onClick={() => setCategoria(activa ? null : cat.id)}
+                      aria-pressed={activa}
+                      className="px-5 py-2.5 rounded-full font-heading font-bold text-sm cursor-pointer transition-all"
+                      style={activa
+                        ? { backgroundColor:"#E87010", color:"#fff" }
+                        : { backgroundColor:"#FFFFFF", color:"#9C7050", boxShadow:"inset 0 0 0 1px #EADCCB" }}
+                    >
+                      {cat.texto}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* El camino al descuento, a la vista mientras armás el pedido. */}
-            <div className="mb-8 max-w-xl">
-              <BarraDescuento totales={carrito.totales} titulo="Cuanto más llevás, menos pagás 🏷️"/>
-            </div>
-
-            {/* Todo el catálogo a la vista, agrupado por especie. */}
+            {/* Con filtro se muestra una sola categoría y el título sobra;
+                sin filtro van las dos, cada una con su encabezado. */}
             {([
-              { titulo:"🐶 Perros", lista: perros },
-              { titulo:"🐱 Gatos",  lista: gatos },
-            ]).map(grupo => (
-              <div key={grupo.titulo} className="mb-10 last:mb-0">
-                <h3 className="font-heading font-black text-lg mb-4 flex items-center gap-2" style={{ color:"#3D2010" }}>
-                  {grupo.titulo}
-                  <span className="flex-1 h-px" style={{ backgroundColor:"#F0DCCB" }}/>
-                </h3>
+              { id:"perros", titulo:"🐶 Perros", lista: perros },
+              { id:"gatos",  titulo:"🐱 Gatos",  lista: gatos },
+            ]).filter(g => categoria === null || categoria === g.id).map(grupo => (
+              <div key={grupo.id} className="mb-10 last:mb-0">
+                {categoria === null && (
+                  <h3 className="font-heading font-black text-lg mb-4 flex items-center gap-2" style={{ color:"#3D2010" }}>
+                    {grupo.titulo}
+                    <span className="flex-1 h-px" style={{ backgroundColor:"#F0DCCB" }}/>
+                  </h3>
+                )}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                   {grupo.lista.map((p) => (
                     <ProductCard key={p.id} p={p} onClick={() => setSelectedProduct(p)} carrito={carrito}/>
@@ -583,7 +607,8 @@ export default function Landing() {
 
         {/* ══════════════════════════════════════════════════════
             PRODUCT SPOTLIGHT — salmón muy claro
-            La bolsa usa mix-blend-mode:multiply → fondo desaparece
+            La bolsa es un PNG con fondo transparente: va tal cual, con
+            drop-shadow siguiendo su silueta
             Container: 896×560px · viewBox 0 0 896 560
         ══════════════════════════════════════════════════════ */}
         <section className="order-4 sm:order-none py-24 px-6 overflow-hidden" style={{ backgroundColor:"#FFF5EE" }}>
@@ -597,7 +622,7 @@ export default function Landing() {
                 <span className="w-10 h-px inline-block" style={{ backgroundColor:"#E8C8A8" }}/>
               </span>
               <h2 className="font-heading font-black text-[clamp(2.2rem,5vw,4rem)] tracking-tighter mb-3" style={{ color:"#3D2010" }}>
-                Maxine Adultos <span style={{ color:"#E87010" }}>Super Premium</span>
+                Maxine Adulto <span style={{ color:"#E87010" }}>Super Premium</span>
               </h2>
               <p className="text-sm max-w-xs mx-auto leading-relaxed" style={{ color:"#9C7050" }}>
                 Fórmula de alto rendimiento para perros adultos de todas las razas.
@@ -616,22 +641,22 @@ export default function Landing() {
                     <circle cx="3" cy="3" r="2" fill="#C4804A" fillOpacity="0.5"/>
                   </marker>
                 </defs>
-                {/* Izquierda → bolsa (bolsa left edge ~258) */}
-                <line x1="196" y1="70"  x2="275" y2="200" stroke="#C4804A" strokeOpacity="0.3" strokeWidth="1" strokeDasharray="4 5" markerStart="url(#circ)"/>
-                <line x1="196" y1="340" x2="265" y2="340" stroke="#C4804A" strokeOpacity="0.3" strokeWidth="1" strokeDasharray="4 5" markerStart="url(#circ)"/>
-                <line x1="196" y1="610" x2="275" y2="500" stroke="#C4804A" strokeOpacity="0.3" strokeWidth="1" strokeDasharray="4 5" markerStart="url(#circ)"/>
-                {/* Derecha → bolsa (bolsa right edge ~638) */}
-                <line x1="700" y1="70"  x2="621" y2="200" stroke="#C4804A" strokeOpacity="0.3" strokeWidth="1" strokeDasharray="4 5" markerStart="url(#circ)"/>
-                <line x1="700" y1="340" x2="631" y2="340" stroke="#C4804A" strokeOpacity="0.3" strokeWidth="1" strokeDasharray="4 5" markerStart="url(#circ)"/>
-                <line x1="700" y1="610" x2="621" y2="500" stroke="#C4804A" strokeOpacity="0.3" strokeWidth="1" strokeDasharray="4 5" markerStart="url(#circ)"/>
+                {/* Izquierda → bolsa (borde pintado de la bolsa en x=308) */}
+                <line x1="196" y1="70"  x2="316" y2="200" stroke="#C4804A" strokeOpacity="0.3" strokeWidth="1" strokeDasharray="4 5" markerStart="url(#circ)"/>
+                <line x1="196" y1="340" x2="316" y2="340" stroke="#C4804A" strokeOpacity="0.3" strokeWidth="1" strokeDasharray="4 5" markerStart="url(#circ)"/>
+                <line x1="196" y1="610" x2="316" y2="500" stroke="#C4804A" strokeOpacity="0.3" strokeWidth="1" strokeDasharray="4 5" markerStart="url(#circ)"/>
+                {/* Derecha → bolsa (borde pintado de la bolsa en x=588) */}
+                <line x1="700" y1="70"  x2="580" y2="200" stroke="#C4804A" strokeOpacity="0.3" strokeWidth="1" strokeDasharray="4 5" markerStart="url(#circ)"/>
+                <line x1="700" y1="340" x2="580" y2="340" stroke="#C4804A" strokeOpacity="0.3" strokeWidth="1" strokeDasharray="4 5" markerStart="url(#circ)"/>
+                <line x1="700" y1="610" x2="580" y2="500" stroke="#C4804A" strokeOpacity="0.3" strokeWidth="1" strokeDasharray="4 5" markerStart="url(#circ)"/>
                 {/* Dots sobre la bolsa — izquierda */}
-                <circle cx="275" cy="200" r="4" fill="none" stroke="#E87010" strokeWidth="1.5"/><circle cx="275" cy="200" r="2" fill="#E87010"/>
-                <circle cx="265" cy="340" r="4" fill="none" stroke="#E87010" strokeWidth="1.5"/><circle cx="265" cy="340" r="2" fill="#E87010"/>
-                <circle cx="275" cy="500" r="4" fill="none" stroke="#E87010" strokeWidth="1.5"/><circle cx="275" cy="500" r="2" fill="#E87010"/>
+                <circle cx="316" cy="200" r="4" fill="none" stroke="#E87010" strokeWidth="1.5"/><circle cx="316" cy="200" r="2" fill="#E87010"/>
+                <circle cx="316" cy="340" r="4" fill="none" stroke="#E87010" strokeWidth="1.5"/><circle cx="316" cy="340" r="2" fill="#E87010"/>
+                <circle cx="316" cy="500" r="4" fill="none" stroke="#E87010" strokeWidth="1.5"/><circle cx="316" cy="500" r="2" fill="#E87010"/>
                 {/* Dots sobre la bolsa — derecha */}
-                <circle cx="621" cy="200" r="4" fill="none" stroke="#C20808" strokeWidth="1.5"/><circle cx="621" cy="200" r="2" fill="#C20808"/>
-                <circle cx="631" cy="340" r="4" fill="none" stroke="#C20808" strokeWidth="1.5"/><circle cx="631" cy="340" r="2" fill="#C20808"/>
-                <circle cx="621" cy="500" r="4" fill="none" stroke="#C20808" strokeWidth="1.5"/><circle cx="621" cy="500" r="2" fill="#C20808"/>
+                <circle cx="580" cy="200" r="4" fill="none" stroke="#C20808" strokeWidth="1.5"/><circle cx="580" cy="200" r="2" fill="#C20808"/>
+                <circle cx="580" cy="340" r="4" fill="none" stroke="#C20808" strokeWidth="1.5"/><circle cx="580" cy="340" r="2" fill="#C20808"/>
+                <circle cx="580" cy="500" r="4" fill="none" stroke="#C20808" strokeWidth="1.5"/><circle cx="580" cy="500" r="2" fill="#C20808"/>
               </svg>
 
               {/* ── Bolsa centrada ── 380×510px con float animation */}
@@ -639,9 +664,9 @@ export default function Landing() {
                 <motion.div
                   animate={{ y:[0,-14,0] }}
                   transition={{ repeat:Infinity, duration:4.5, ease:"easeInOut" }}
-                  style={{ width:"100%", height:"100%", mixBlendMode:"multiply" }}
+                  style={{ width:"100%", height:"100%", filter:"drop-shadow(0 22px 28px rgba(61,32,16,0.22))" }}
                 >
-                  <Image src="/images/maxine-adulto.png" alt="Maxine Adultos Super Premium 21 kg"
+                  <Image src="/images/maxine-adulto.png" alt="Maxine Adulto Super Premium 21 kg"
                          fill className="object-contain" sizes="380px" priority/>
                 </motion.div>
               </div>
@@ -688,8 +713,8 @@ export default function Landing() {
             {/* Mobile */}
             <div className="lg:hidden flex flex-col items-center gap-6 mt-2">
               <div className="relative" style={{ width:"240px", height:"320px" }}>
-                <div style={{ position:"absolute", inset:0, mixBlendMode:"multiply" as const }}>
-                  <Image src="/images/maxine-adulto.png" alt="Maxine Adultos 21+4 kg gratis" fill className="object-contain" sizes="240px"/>
+                <div style={{ position:"absolute", inset:0, filter:"drop-shadow(0 14px 20px rgba(61,32,16,0.2))" }}>
+                  <Image src="/images/maxine-adulto.png" alt="Maxine Adulto 21+4 kg gratis" fill className="object-contain" sizes="240px"/>
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-2 w-full max-w-sm">
@@ -705,11 +730,11 @@ export default function Landing() {
 
             <motion.div initial={{ opacity:0, y:12 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }} transition={{ duration:0.5, delay:0.4 }}
                         className="text-center mt-16">
-              <a href={waURL("Hola GoPet! Quiero pedir Maxine Adultos Super Premium 21 kg.")}
+              <a href={waURL("Hola GoPet! Quiero pedir Maxine Adulto Super Premium 21 kg.")}
                  target="_blank" rel="noopener noreferrer"
                  className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full text-white font-heading font-bold text-sm hover:opacity-90 transition-opacity cursor-pointer"
                  style={{ backgroundColor:"#E87010" }}>
-                <WaIcon className="w-4 h-4"/> Pedir Maxine Adultos
+                <WaIcon className="w-4 h-4"/> Pedir Maxine Adulto
               </a>
               <p className="text-[11px] mt-3" style={{ color:"#C4804A" }}>También disponible: Cachorros · Senior · Razas Pequeñas · Gatos</p>
             </motion.div>
@@ -917,7 +942,7 @@ export default function Landing() {
         </section>
 
         {/* ── FOOTER ── */}
-        <footer className="order-10 sm:order-none py-8 px-6 text-white/50" style={{ backgroundColor:"#3D2010" }}>
+        <footer className="order-10 sm:order-none pt-8 pb-28 px-6 text-white/50" style={{ backgroundColor:"#3D2010" }}>
           <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-1.5 font-heading font-black">
               <span style={{ color:"#FFB347" }}>Go</span>
@@ -943,7 +968,7 @@ export default function Landing() {
       )}
 
       {/* Carrito */}
-      <BurbujaCarrito totales={carrito.totales} onClick={() => setCarritoAbierto(true)}/>
+      <BarraPedido totales={carrito.totales} onClick={() => setCarritoAbierto(true)}/>
       <CarritoDrawer abierto={carritoAbierto} onCerrar={() => setCarritoAbierto(false)} carrito={carrito}/>
     </>
   );
