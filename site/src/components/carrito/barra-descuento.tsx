@@ -1,6 +1,5 @@
 'use client'
 
-import { motion } from 'framer-motion'
 import { TRAMOS, TOPE_BARRA, type Totales } from '@/lib/carrito'
 import { formatearPrecio } from '@/lib/catalogo'
 
@@ -8,12 +7,16 @@ import { formatearPrecio } from '@/lib/catalogo'
  * La "línea" de descuentos: se va llenando a medida que sumás al carrito y
  * marca los dos escalones ($6.000 → 10%, $10.000 → 20%).
  */
-export function BarraDescuento({ totales }: { totales: Totales }) {
+export function BarraDescuento({ totales, titulo }: { totales: Totales; titulo?: string }) {
   const { porcentaje, falta, tramoSiguiente, progreso } = totales
   const alMaximo = tramoSiguiente === null
 
   return (
     <div className="rounded-2xl p-4" style={{ backgroundColor:'#FFF5EE', border:'1px solid #F0DCCB' }}>
+      {titulo && (
+        <p className="font-heading font-black text-base mb-1" style={{ color:'#3D2010' }}>{titulo}</p>
+      )}
+
       {/* Mensaje */}
       <p className="text-sm font-heading font-bold mb-3 leading-snug" style={{ color:'#3D2010' }}>
         {alMaximo ? (
@@ -35,12 +38,15 @@ export function BarraDescuento({ totales }: { totales: Totales }) {
 
       {/* Riel */}
       <div className="relative h-2.5 rounded-full" style={{ backgroundColor:'#F0DCCB' }}>
-        <motion.div
+        {/* El ancho va por CSS y no por framer-motion: así queda pintado desde el
+            primer render, sin depender de que llegue a correr un frame. */}
+        <div
           className="absolute inset-y-0 left-0 rounded-full"
-          style={{ background: alMaximo ? '#25A244' : 'linear-gradient(90deg,#F5A800,#E87010)' }}
-          initial={false}
-          animate={{ width: `${progreso}%` }}
-          transition={{ type:'spring', damping:26, stiffness:220 }}
+          style={{
+            width: `${progreso}%`,
+            background: alMaximo ? '#25A244' : 'linear-gradient(90deg,#F5A800,#E87010)',
+            transition: 'background 0.3s ease',
+          }}
         />
 
         {/* Marcas de cada escalón */}
@@ -95,24 +101,6 @@ export function BarraDescuento({ totales }: { totales: Totales }) {
           )
         })}
       </div>
-    </div>
-  )
-}
-
-/** Versión de una sola línea, para mostrar el beneficio antes de tener carrito. */
-export function AvisoDescuentos({ className = '' }: { className?: string }) {
-  return (
-    <div className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl px-4 py-3 ${className}`}
-         style={{ backgroundColor:'#FFF5EE', border:'1px dashed #E8C8A8' }}>
-      <span className="text-sm font-heading font-black" style={{ color:'#3D2010' }}>
-        Cuanto más llevás, menos pagás 🏷️
-      </span>
-      {TRAMOS.map(tramo => (
-        <span key={tramo.minimo} className="text-xs font-bold px-2.5 py-1 rounded-full whitespace-nowrap"
-              style={{ backgroundColor:'#FEE8D0', color:'#3D2010' }}>
-          Desde {formatearPrecio(tramo.minimo)} → <span style={{ color:'#E87010' }}>{tramo.porcentaje}% OFF</span>
-        </span>
-      ))}
     </div>
   )
 }

@@ -13,7 +13,7 @@ import { useCarrito, type Carrito } from "@/components/carrito/use-carrito";
 import { CarritoDrawer } from "@/components/carrito/carrito-drawer";
 import { BotonCarrito, BurbujaCarrito } from "@/components/carrito/boton-carrito";
 import { SelectorVariantes } from "@/components/carrito/selector-variantes";
-import { AvisoDescuentos } from "@/components/carrito/barra-descuento";
+import { BarraDescuento } from "@/components/carrito/barra-descuento";
 
 /*
   Paleta "Pet Friendly" — alegre, colorida, amigable
@@ -554,7 +554,10 @@ export default function Landing() {
               <p style={{ color:"#9C7050" }}>Marcas Maxine y Lager — Agrofeed Uruguay</p>
             </div>
 
-            <AvisoDescuentos className="mb-6"/>
+            {/* El camino al descuento, a la vista mientras armás el pedido. */}
+            <div className="mb-8 max-w-xl">
+              <BarraDescuento totales={carrito.totales} titulo="Cuanto más llevás, menos pagás 🏷️"/>
+            </div>
 
             {/* Todo el catálogo a la vista, agrupado por especie. */}
             {([

@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import { ShoppingBag } from 'lucide-react'
 import { formatearPrecio } from '@/lib/catalogo'
-import type { Totales } from '@/lib/carrito'
+import { TRAMOS, TOPE_BARRA, type Totales } from '@/lib/carrito'
 
 /** Botón del navbar. Muestra la cantidad de bolsas como globito. */
 export function BotonCarrito({
@@ -70,12 +70,32 @@ export function BurbujaCarrito({ totales, onClick }: { totales: Totales; onClick
 
             <span className="flex flex-col items-start leading-tight flex-1 min-w-0">
               <span className="text-[11px] text-white/60">
-                {totales.porcentaje > 0
-                  ? `${totales.porcentaje}% OFF aplicado`
-                  : `Te faltan ${formatearPrecio(totales.falta)} para ${totales.tramoSiguiente?.porcentaje}% OFF`}
+                {totales.tramoSiguiente
+                  ? `Te faltan ${formatearPrecio(totales.falta)} para ${totales.tramoSiguiente.porcentaje}% OFF`
+                  : `${totales.porcentaje}% OFF aplicado 🎉`}
               </span>
               <span className="font-heading font-black text-white text-base tabular-nums">
                 {formatearPrecio(totales.total)}
+              </span>
+
+              {/* El mismo camino al descuento, en chiquito, para verlo al scrollear */}
+              <span className="relative block w-full h-1 rounded-full mt-1.5 overflow-hidden"
+                    style={{ backgroundColor:'rgba(255,255,255,0.18)' }}>
+                <span
+                  className="absolute inset-y-0 left-0 rounded-full"
+                  style={{
+                    width: `${totales.progreso}%`,
+                    background: totales.tramoSiguiente ? 'linear-gradient(90deg,#F5A800,#E87010)' : '#3DDC7A',
+                  }}
+                />
+                {TRAMOS.map(tramo => (
+                  <span key={tramo.minimo}
+                        className="absolute top-0 bottom-0 w-px"
+                        style={{
+                          left: `${(tramo.minimo / TOPE_BARRA) * 100}%`,
+                          backgroundColor: 'rgba(255,255,255,0.55)',
+                        }}/>
+                ))}
               </span>
             </span>
 
