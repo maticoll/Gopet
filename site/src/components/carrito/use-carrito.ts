@@ -115,7 +115,14 @@ export function useCarrito() {
   const resueltos = useMemo(() => resolverItems(crudos), [crudos])
   const totales = useMemo(() => calcularTotales(resueltos), [resueltos])
 
-  return { items: resueltos, totales, agregar, cambiarCantidad, quitar, vaciar }
+  /** Cuántas unidades hay de un tamaño concreto. 0 si no está en el carrito. */
+  const cantidadDe = useCallback(
+    (productoId: string, varianteIdx: number) =>
+      crudos.find(it => it.productoId === productoId && it.varianteIdx === varianteIdx)?.cantidad ?? 0,
+    [crudos]
+  )
+
+  return { items: resueltos, totales, agregar, cambiarCantidad, quitar, vaciar, cantidadDe }
 }
 
 export type Carrito = ReturnType<typeof useCarrito>

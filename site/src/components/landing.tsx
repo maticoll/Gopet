@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { IgIcon, WaIcon } from "@/components/iconos";
 import { IG_HANDLE, igURL, waURL } from "@/lib/contacto";
 import { perros, gatos, tamaños, formatearPrecio, promoLagerAdulto, type Producto } from "@/lib/catalogo";
-import { useCarrito } from "@/components/carrito/use-carrito";
+import { useCarrito, type Carrito } from "@/components/carrito/use-carrito";
 import { CarritoDrawer } from "@/components/carrito/carrito-drawer";
 import { BotonCarrito, BurbujaCarrito } from "@/components/carrito/boton-carrito";
 import { SelectorVariantes } from "@/components/carrito/selector-variantes";
@@ -218,7 +218,7 @@ function SectionDivider({ fromColor, toColor = "#FFFFFF" }: { fromColor: string;
 
 // ── Product Modal ─────────────────────────────────────────────────────────────
 
-function ProductModal({ p, onClose, onAgregar }: { p: Producto; onClose: () => void; onAgregar: (varianteIdx: number) => void }) {
+function ProductModal({ p, onClose, carrito }: { p: Producto; onClose: () => void; carrito: Carrito }) {
   const det = productDetails[p.id];
   const msg = `Hola GoPet! Quiero pedir ${p.marca} ${p.nombre} (${tamaños(p)}). ¿Está disponible?`;
 
@@ -287,7 +287,7 @@ function ProductModal({ p, onClose, onAgregar }: { p: Producto; onClose: () => v
             {/* Presentaciones — tamaño, precio y botón para sumarlo al carrito */}
             <div className="mb-5">
               <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color:"#C4804A" }}>Presentaciones</p>
-              <SelectorVariantes producto={p} onAgregar={onAgregar} tamaño="grande"/>
+              <SelectorVariantes producto={p} carrito={carrito} tamaño="grande"/>
             </div>
 
             {/* Beneficios */}
@@ -322,7 +322,7 @@ function ProductModal({ p, onClose, onAgregar }: { p: Producto; onClose: () => v
 
 // ── Product card ──────────────────────────────────────────────────────────────
 
-function ProductCard({ p, onClick, onAgregar }: { p: Producto; onClick: () => void; onAgregar: (varianteIdx: number) => void }) {
+function ProductCard({ p, onClick, carrito }: { p: Producto; onClick: () => void; carrito: Carrito }) {
   const isBestseller = p.id === "mx-a";
   return (
     <motion.div
@@ -367,7 +367,7 @@ function ProductCard({ p, onClick, onAgregar }: { p: Producto; onClick: () => vo
           <p className="text-[10px] sm:text-xs mt-0.5" style={{ color:"#9C7050" }}>{p.desc}</p>
         </div>
         <div className="mt-auto">
-          <SelectorVariantes producto={p} onAgregar={onAgregar}/>
+          <SelectorVariantes producto={p} carrito={carrito}/>
         </div>
       </div>
     </motion.div>
@@ -378,7 +378,6 @@ function ProductCard({ p, onClick, onAgregar }: { p: Producto; onClick: () => vo
 
 export default function Landing() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"perros"|"gatos">("perros");
   const [selectedProduct, setSelectedProduct] = useState<Producto | null>(null);
   const [headerVisible, setHeaderVisible] = useState(true);
   const [carritoAbierto, setCarritoAbierto] = useState(false);
@@ -387,13 +386,6 @@ export default function Landing() {
 
   const carrito = useCarrito();
   const promo = promoLagerAdulto();
-
-  /** Suma una bolsa y abre el carrito la primera vez, para que se vea qué pasó. */
-  const agregarAlCarrito = (productoId: string) => (varianteIdx: number) => {
-    const primeraVez = carrito.items.length === 0;
-    carrito.agregar(productoId, varianteIdx);
-    if (primeraVez) setCarritoAbierto(true);
-  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -564,25 +556,23 @@ export default function Landing() {
 
             <AvisoDescuentos className="mb-6"/>
 
-            <div className="flex gap-2 mb-8">
-              {(["perros","gatos"] as const).map((tab) => (
-                <button key={tab} onClick={()=>setActiveTab(tab)}
-                  className="px-5 py-2.5 rounded-full font-heading font-bold text-sm transition-all cursor-pointer capitalize"
-                  style={activeTab===tab ? { backgroundColor:"#E87010", color:"#fff" } : { backgroundColor:"#FEE8D0", color:"#9C7050" }}>
-                  {tab==="perros" ? "🐶 Perros" : "🐱 Gatos"}
-                </button>
-              ))}
-            </div>
-
-            <AnimatePresence mode="wait">
-              <motion.div key={activeTab} initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0, y:-12 }}
-                          transition={{ duration:0.25, ease:[0.25,1,0.5,1] }}
-                          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {(activeTab==="perros" ? perros : gatos).map((p) => (
-                  <ProductCard key={p.id} p={p} onClick={() => setSelectedProduct(p)} onAgregar={agregarAlCarrito(p.id)}/>
-                ))}
-              </motion.div>
-            </AnimatePresence>
+            {/* Todo el catálogo a la vista, agrupado por especie. */}
+            {([
+              { titulo:"🐶 Perros", lista: perros },
+              { titulo:"🐱 Gatos",  lista: gatos },
+            ]).map(grupo => (
+              <div key={grupo.titulo} className="mb-10 last:mb-0">
+                <h3 className="font-heading font-black text-lg mb-4 flex items-center gap-2" style={{ color:"#3D2010" }}>
+                  {grupo.titulo}
+                  <span className="flex-1 h-px" style={{ backgroundColor:"#F0DCCB" }}/>
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {grupo.lista.map((p) => (
+                    <ProductCard key={p.id} p={p} onClick={() => setSelectedProduct(p)} carrito={carrito}/>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -945,7 +935,7 @@ export default function Landing() {
         <ProductModal
           p={selectedProduct}
           onClose={() => setSelectedProduct(null)}
-          onAgregar={agregarAlCarrito(selectedProduct.id)}
+          carrito={carrito}
         />
       )}
 
