@@ -7,7 +7,7 @@ import { X, Minus, Plus, Trash2, ShoppingBag } from 'lucide-react'
 import { WaIcon } from '@/components/iconos'
 import { waURL } from '@/lib/contacto'
 import { formatearPrecio } from '@/lib/catalogo'
-import { mensajeDePedido } from '@/lib/carrito'
+import { mensajeDePedido, TRAMOS } from '@/lib/carrito'
 import { BarraDescuento } from './barra-descuento'
 import type { Carrito } from './use-carrito'
 
@@ -85,7 +85,7 @@ export function CarritoDrawer({
                 </div>
                 <p className="font-heading font-black text-lg" style={{ color:'#3D2010' }}>Todavía no agregaste nada</p>
                 <p className="text-sm leading-relaxed" style={{ color:'#9C7050' }}>
-                  Sumá bolsas y mirá cómo baja el precio: desde $6.000 tenés 10% off, y desde $10.000, 20%.
+                  Sumá bolsas y mirá cómo baja el precio: desde {formatearPrecio(TRAMOS[0].minimo)} tenés {TRAMOS[0].porcentaje}% off.
                 </p>
                 <button onClick={onCerrar}
                         className="mt-2 px-6 py-3 rounded-2xl font-heading font-bold text-sm text-white cursor-pointer transition-all hover:brightness-110"

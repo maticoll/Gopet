@@ -8,11 +8,12 @@ import { PawPrint, ChevronRight, Menu, X, Zap, ShieldCheck, Leaf } from "lucide-
 import { motion, AnimatePresence } from "framer-motion";
 import { IgIcon, WaIcon } from "@/components/iconos";
 import { IG_HANDLE, igURL, waURL } from "@/lib/contacto";
-import { perros, gatos, tamaños, formatearPrecio, promoLagerAdulto, type Producto } from "@/lib/catalogo";
+import { perros, gatos, tamaños, buscarProducto, descuentoProducto, type Producto } from "@/lib/catalogo";
 import { useCarrito, type Carrito } from "@/components/carrito/use-carrito";
 import { CarritoDrawer } from "@/components/carrito/carrito-drawer";
 import { BotonCarrito, BarraPedido } from "@/components/carrito/boton-carrito";
-import { SelectorVariantes } from "@/components/carrito/selector-variantes";
+import { SelectorVariantes, BolsaDestacada } from "@/components/carrito/selector-variantes";
+import { CarruselPromos } from "@/components/promos/carrusel-promos";
 
 /*
   Paleta "Pet Friendly" — alegre, colorida, amigable
@@ -310,7 +311,7 @@ function ProductModal({ p, onClose, carrito }: { p: Producto; onClose: () => voi
             <a href={waURL(msg)} target="_blank" rel="noopener noreferrer"
                className="flex items-center justify-center gap-2.5 w-full py-4 rounded-2xl font-heading font-black text-base text-white transition-all hover:brightness-110 cursor-pointer"
                style={{ backgroundColor:"#E87010", boxShadow:"0 8px 24px rgba(232,112,16,0.35)" }}>
-              <WaIcon className="w-5 h-5"/> Pedir por WhatsApp
+              <WaIcon className="w-5 h-5"/> Consultar por WhatsApp
             </a>
           </div>
         </motion.div>
@@ -323,6 +324,7 @@ function ProductModal({ p, onClose, carrito }: { p: Producto; onClose: () => voi
 
 function ProductCard({ p, onClick, carrito }: { p: Producto; onClick: () => void; carrito: Carrito }) {
   const isBestseller = p.id === "mx-a";
+  const oferta = descuentoProducto(p);
   return (
     <motion.div
       initial={{ opacity:0, y:20 }} whileInView={{ opacity:1, y:0 }}
@@ -359,6 +361,18 @@ function ProductCard({ p, onClick, carrito }: { p: Producto; onClick: () => void
               style={{ backgroundColor: p.color }}>
           {p.marca}
         </span>
+        {oferta > 0 && (
+          /* Ocupa toda la esquina de arriba a la derecha: la tarjeta recorta con
+             overflow-hidden, así el sello copia el redondeo del bloque. */
+          <div className="absolute top-0 right-0 z-10 flex flex-col items-center justify-center px-3 sm:px-4 py-2 sm:py-2.5 rounded-bl-3xl"
+               style={{ backgroundColor:"#C20808", boxShadow:"0 3px 12px rgba(194,8,8,0.35)" }}>
+            <span className="font-heading font-black text-white leading-none text-lg sm:text-2xl">−{oferta}%</span>
+            <span className="font-heading font-bold text-white uppercase leading-none mt-0.5 text-[9px] sm:text-[11px]"
+                  style={{ letterSpacing:"0.18em" }}>
+              off
+            </span>
+          </div>
+        )}
         {/* Indicador "Ver más" */}
         <span className="absolute bottom-2 right-2 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
               style={{ backgroundColor:"rgba(61,32,16,0.75)", color:"#fff" }}>
@@ -390,7 +404,8 @@ export default function Landing() {
   const generalWA = waURL("Hola GoPet! Quiero hacer un pedido.");
 
   const carrito = useCarrito();
-  const promo = promoLagerAdulto();
+  // El producto estrella del spotlight: Maxine Adultos, bolsa de 21+4 kg.
+  const estrella = buscarProducto("mx-a");
 
   useEffect(() => {
     const handleScroll = () => {
@@ -430,10 +445,6 @@ export default function Landing() {
                style={{ background:"linear-gradient(135deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)" }}>
               <IgIcon className="w-4 h-4"/> @{IG_HANDLE}
             </a>
-            <a href={generalWA} target="_blank" rel="noopener noreferrer"
-               className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#25D366] text-white text-sm font-heading font-bold hover:bg-[#1eba58] transition-colors cursor-pointer">
-              <WaIcon className="w-4 h-4"/> Pedir ahora
-            </a>
             <BotonCarrito totales={carrito.totales} onClick={() => setCarritoAbierto(true)}/>
           </div>
 
@@ -453,10 +464,6 @@ export default function Landing() {
                 <a href="#como-funciona" onClick={()=>setMobileOpen(false)} className="text-sm font-medium" style={{ color:"#3D2010" }}>Cómo funciona</a>
                 <a href="#productos"     onClick={()=>setMobileOpen(false)} className="text-sm font-medium" style={{ color:"#3D2010" }}>Productos</a>
                 <a href="#beneficios"    onClick={()=>setMobileOpen(false)} className="text-sm font-medium" style={{ color:"#3D2010" }}>Beneficios</a>
-                <a href={generalWA} target="_blank" rel="noopener noreferrer"
-                   className="flex items-center justify-center gap-2 py-3 rounded-full bg-[#25D366] text-white font-heading font-bold text-sm">
-                  <WaIcon className="w-4 h-4"/> Pedir ahora
-                </a>
               </div>
             </motion.div>
           )}
@@ -502,11 +509,11 @@ export default function Landing() {
               <div className="flex flex-col sm:flex-row gap-3">
                 <a href={generalWA} target="_blank" rel="noopener noreferrer"
                    className="inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-full bg-[#25D366] text-white font-heading font-bold text-base hover:bg-[#1eba58] transition-colors cursor-pointer shadow-xl shadow-black/40">
-                  <WaIcon className="w-5 h-5"/> Hacer un pedido
+                  <WaIcon className="w-5 h-5"/> Hacer una consulta
                 </a>
                 <a href="#productos"
                    className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full border border-white/30 bg-white/10 text-white font-heading font-bold text-base hover:bg-white/20 transition-colors cursor-pointer" style={{ backdropFilter:"blur(8px)" }}>
-                  Ver productos <ChevronRight className="w-4 h-4"/>
+                  Armar pedido <ChevronRight className="w-4 h-4"/>
                 </a>
               </div>
             </motion.div>
@@ -730,86 +737,16 @@ export default function Landing() {
 
             <motion.div initial={{ opacity:0, y:12 }} whileInView={{ opacity:1, y:0 }} viewport={{ once:true }} transition={{ duration:0.5, delay:0.4 }}
                         className="text-center mt-16">
-              <a href={waURL("Hola GoPet! Quiero pedir Maxine Adulto Super Premium 21 kg.")}
-                 target="_blank" rel="noopener noreferrer"
-                 className="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-full text-white font-heading font-bold text-sm hover:opacity-90 transition-opacity cursor-pointer"
-                 style={{ backgroundColor:"#E87010" }}>
-                <WaIcon className="w-4 h-4"/> Pedir Maxine Adulto
-              </a>
+              {estrella && <BolsaDestacada producto={estrella} varianteIdx={0} carrito={carrito}/>}
               <p className="text-[11px] mt-3" style={{ color:"#C4804A" }}>También disponible: Cachorros · Senior · Razas Pequeñas · Gatos</p>
             </motion.div>
           </div>
         </section>
 
         {/* ══════════════════════════════════════════════════════
-            PROMO LAGER ADULTO
+            PROMOS — carrusel: se arrastran, van con flechas y pasan solas
         ══════════════════════════════════════════════════════ */}
-        <section className="force-white order-5 sm:order-none relative overflow-hidden" style={{ backgroundColor:"#1A0F00" }}>
-          {/* Imagen de fondo */}
-          <div className="absolute inset-0">
-            <Image src="/images/promo-lager-2.png" alt="Lager Adulto promoción" fill
-              className="object-cover object-center" sizes="100vw" quality={100} priority/>
-            <div className="absolute inset-0" style={{
-              background:"linear-gradient(to right, rgba(14,7,0,0.93) 0%, rgba(14,7,0,0.7) 50%, rgba(14,7,0,0.2) 100%)"
-            }}/>
-          </div>
-
-          <div className="relative z-10 max-w-6xl mx-auto px-6 sm:px-10 py-20 lg:py-32">
-            <motion.div initial={{ opacity:0, y:24 }} whileInView={{ opacity:1, y:0 }}
-                        viewport={{ once:true }} transition={{ duration:0.6, ease:[0.25,1,0.5,1] }}
-                        className="max-w-xl">
-
-              {/* Eyebrow */}
-              <p className="text-xs font-bold uppercase tracking-[0.2em] mb-4" style={{ color:"#E87010" }}>
-                Oferta especial · Lager Adulto
-              </p>
-
-              {/* Título */}
-              <h2 className="font-heading font-black tracking-tighter text-white mb-4"
-                  style={{ fontSize:"clamp(3rem,7vw,5.5rem)", lineHeight:0.9 }}>
-                22 kg<br/>
-                <span style={{ color:"#F5A623" }}>+ 13 kg</span>
-              </h2>
-
-              {/* Descripción */}
-              <p className="mb-8 leading-relaxed max-w-xs" style={{ color:"rgba(255,255,255,0.55)", fontSize:"1rem" }}>
-                Alimento premium para perros adultos al mejor precio del mercado.
-              </p>
-
-              {/* Precios */}
-              <div className="flex items-center gap-5 mb-10">
-                <div className="flex flex-col">
-                  <span className="text-[11px] uppercase tracking-widest font-semibold mb-0.5" style={{ color:"rgba(255,255,255,0.35)" }}>Antes</span>
-                  <span className="font-heading font-bold text-xl line-through" style={{ color:"rgba(255,255,255,0.3)" }}>{formatearPrecio(promo.lista)}</span>
-                </div>
-                <div className="w-px h-10 self-center" style={{ backgroundColor:"rgba(255,255,255,0.15)" }}/>
-                <div className="flex flex-col">
-                  <span className="text-[11px] uppercase tracking-widest font-semibold mb-0.5" style={{ color:"#E87010" }}>Precio oferta</span>
-                  <span className="font-heading font-black" style={{ fontSize:"clamp(2.4rem,5vw,3.5rem)", color:"#fff", lineHeight:1 }}>{formatearPrecio(promo.precio)}</span>
-                </div>
-                <div className="self-end mb-1 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider"
-                     style={{ backgroundColor:"rgba(232,112,16,0.2)", border:"1px solid rgba(232,112,16,0.5)", color:"#F5A623" }}>
-                  {promo.off}% OFF
-                </div>
-              </div>
-
-              {/* CTA */}
-              <div className="flex flex-col sm:flex-row items-start gap-3">
-                <a href={waURL(`Hola GoPet! Quiero aprovechar la promo de Lager Adulto 22+13 kg a ${formatearPrecio(promo.precio)}. ¿Está disponible?`)}
-                   target="_blank" rel="noopener noreferrer"
-                   className="inline-flex items-center gap-2.5 px-7 py-4 rounded-2xl font-heading font-black text-base transition-all hover:brightness-110 cursor-pointer"
-                   style={{ backgroundColor:"#E87010", color:"#fff", boxShadow:"0 8px 32px rgba(232,112,16,0.4)" }}>
-                  <WaIcon className="w-5 h-5"/> Pedir esta promo
-                </a>
-                <div className="inline-flex items-center gap-2 px-5 py-4 rounded-2xl text-sm font-semibold"
-                     style={{ border:"1px solid rgba(255,255,255,0.15)", color:"rgba(255,255,255,0.6)" }}>
-                  🚚 Envío gratis a domicilio
-                </div>
-              </div>
-
-            </motion.div>
-          </div>
-        </section>
+        <CarruselPromos carrito={carrito} className="order-5 sm:order-none"/>
 
         <div className="hidden sm:block"><SectionDivider fromColor="#1A0F00" toColor="#FFF8F0"/></div>
 

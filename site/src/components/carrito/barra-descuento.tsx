@@ -5,7 +5,7 @@ import { formatearPrecio } from '@/lib/catalogo'
 
 /**
  * La "línea" de descuentos: se va llenando a medida que sumás al carrito y
- * marca los dos escalones ($6.000 → 10%, $10.000 → 20%).
+ * marca el escalón ($6.000 → 10%, que es el descuento máximo).
  */
 export function BarraDescuento({ totales }: { totales: Totales }) {
   const { porcentaje, falta, tramoSiguiente, progreso } = totales

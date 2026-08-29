@@ -12,9 +12,12 @@
 export type Variante = {
   /** Cómo se muestra el tamaño en la web. Ej: "21+4 kg" */
   etiqueta: string
+  /** Lo que se cobra. Si la bolsa está en oferta, este ya es el precio con descuento. */
   precio: number
   /** true → muestra el sellito "gratis" al lado del tamaño (bolsas con kilos de regalo) */
   gratis?: boolean
+  /** Precio de lista cuando la bolsa está en oferta: se muestra tachado al lado. */
+  antes?: number
 }
 
 export type Producto = {
@@ -36,8 +39,9 @@ export const perros: Producto[] = [
     variantes:[{ etiqueta:'21+4 kg', precio:2440, gratis:true }, { etiqueta:'7,5 kg', precio:1090 }] },
   { id:'mx-s', marca:'Maxine', nombre:'Senior',        especie:'perro', label:'S', color:'#4E9A1A', desc:'Para perros mayores de 7 años', imagen:'/images/p03.png',
     variantes:[{ etiqueta:'21 kg', precio:2920 }, { etiqueta:'7,5 kg', precio:1220 }] },
+  // Los dos tamaños están con 8% off: se cobra el precio nuevo y se muestra tachado el viejo.
   { id:'mx-p', marca:'Maxine', nombre:'Razas Pequeñas', especie:'perro', label:'P', color:'#9A2A80', desc:'Adultos razas pequeñas', imagen:'/images/p04.png',
-    variantes:[{ etiqueta:'21 kg', precio:2990 }, { etiqueta:'7,5 kg', precio:1170 }] },
+    variantes:[{ etiqueta:'21 kg', precio:2750, antes:2990 }, { etiqueta:'7,5 kg', precio:1075, antes:1170 }] },
   { id:'lg-c', marca:'Lager', nombre:'Cachorros',      especie:'perro', label:'C', color:'#6AAE18', desc:'Para cachorros de todas las razas', imagen:'/images/p09.png',
     variantes:[{ etiqueta:'22 kg', precio:2190 }, { etiqueta:'10 kg', precio:1200 }] },
   { id:'lg-a', marca:'Lager', nombre:'Adultos',        especie:'perro', label:'A', color:'#D07010', desc:'Para perros adultos', imagen:'/images/p12.png',
@@ -59,28 +63,53 @@ export const gatos: Producto[] = [
     variantes:[{ etiqueta:'22 kg', precio:2740 }, { etiqueta:'10 kg', precio:1530 }] },
 ]
 
-export const catalogo: Producto[] = [...perros, ...gatos]
+/**
+ * Combos: no se muestran en el grid (son las promos de la landing) pero sí van
+ * en `catalogo`, así el carrito los resuelve como a cualquier otra bolsa y el
+ * precio de promo llega hasta el mensaje de WhatsApp.
+ */
+export const combos: Producto[] = [
+  { id:'lg-a-promo', marca:'Lager', nombre:'Promo Adultos', especie:'perro', label:'A', color:'#D07010', desc:'La bolsa de 22+3 kg y la de 10 kg juntas', imagen:'/images/p12.png',
+    variantes:[{ etiqueta:'22+13 kg', precio:2450 }] },
+]
+
+export const catalogo: Producto[] = [...perros, ...gatos, ...combos]
 
 export function buscarProducto(id: string): Producto | undefined {
   return catalogo.find(p => p.id === id)
 }
 
 /** La promo destacada de la landing: las dos bolsas de Lager Adultos juntas. */
-const PROMO_LAGER_ADULTO = { productoId: 'lg-a', precio: 2450 }
+const COMBO_LAGER_ADULTO = 'lg-a-promo'
+/** Contra esto se compara para mostrar el "antes": las dos bolsas por separado. */
+const LAGER_ADULTO = 'lg-a'
 
 /**
- * Precio de lista, precio de promo y descuento real de la promo destacada.
+ * El combo que se suma al carrito, más el precio de lista y el descuento real.
  * El % y el "antes" se calculan solos: si cambian los precios de las bolsas,
  * la promo se actualiza sola en vez de quedar mostrando números viejos.
  */
 export function promoLagerAdulto() {
-  const p = buscarProducto(PROMO_LAGER_ADULTO.productoId)
-  const lista = p ? p.variantes.reduce((acc, v) => acc + v.precio, 0) : 0
+  const combo = buscarProducto(COMBO_LAGER_ADULTO)
+  const suelto = buscarProducto(LAGER_ADULTO)
+  const lista = suelto ? suelto.variantes.reduce((acc, v) => acc + v.precio, 0) : 0
+  const precio = combo?.variantes[0]?.precio ?? 0
   return {
+    combo,
     lista,
-    precio: PROMO_LAGER_ADULTO.precio,
-    off: lista > 0 ? Math.round((1 - PROMO_LAGER_ADULTO.precio / lista) * 100) : 0,
+    precio,
+    off: lista > 0 && precio > 0 ? Math.round((1 - precio / lista) * 100) : 0,
   }
+}
+
+/** Cuánto % off tiene una bolsa. 0 si no está en oferta. */
+export function descuento(v: Variante): number {
+  return v.antes && v.antes > v.precio ? Math.round((1 - v.precio / v.antes) * 100) : 0
+}
+
+/** El mayor descuento entre los tamaños de un producto. 0 si ninguno está en oferta. */
+export function descuentoProducto(p: Producto): number {
+  return p.variantes.reduce((max, v) => Math.max(max, descuento(v)), 0)
 }
 
 /** "21+4 kg / 7,5 kg" — para textos donde se listan todos los tamaños juntos. */

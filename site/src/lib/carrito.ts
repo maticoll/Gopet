@@ -2,9 +2,9 @@
 // Carrito de la web pública: descuentos por monto y armado del pedido.
 //
 // La regla del descuento es por escalones sobre el subtotal (precio de lista):
-//   $6.000 o más  → 10% off
-//   $10.000 o más → 20% off
-// Solo aplica un escalón, el más alto que se alcance. No se acumulan.
+//   $6.000 o más → 10% off
+// Hoy hay un solo escalón y es el tope: el máximo que se hace es 10%.
+// El cálculo igual recorre la lista, así sumar otro escalón es tocar TRAMOS.
 // ──────────────────────────────────────────────────────────────────────────────
 
 import { buscarProducto, formatearPrecio, type Producto, type Variante } from './catalogo'
@@ -13,8 +13,7 @@ export type Tramo = { minimo: number; porcentaje: number }
 
 /** Ordenados de menor a mayor. La UI recorre esta lista para dibujar la barra. */
 export const TRAMOS: Tramo[] = [
-  { minimo: 6000,  porcentaje: 10 },
-  { minimo: 10000, porcentaje: 20 },
+  { minimo: 6000, porcentaje: 10 },
 ]
 
 export const TOPE_BARRA = TRAMOS[TRAMOS.length - 1].minimo

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Plus, Minus } from 'lucide-react'
-import { formatearPrecio, type Producto, type Variante } from '@/lib/catalogo'
+import { descuento, formatearPrecio, type Producto, type Variante } from '@/lib/catalogo'
 import type { Carrito } from './use-carrito'
 
 /**
@@ -13,6 +13,9 @@ import type { Carrito } from './use-carrito'
  *
  * En el detalle del producto se listan todos los tamaños con su precio, que ahí
  * lo que querés es comparar.
+ *
+ * Para una bolsa sola (el producto estrella de la landing) está BolsaDestacada,
+ * más abajo.
  */
 export function SelectorVariantes({
   producto,
@@ -37,9 +40,13 @@ export function SelectorVariantes({
                 <span className="text-sm font-semibold whitespace-nowrap" style={{ color:'#9C7050' }}>{v.etiqueta}</span>
                 {v.gratis && <SelloGratis/>}
               </div>
-              <span className="font-black text-lg tabular-nums" style={{ color:'#3D2010' }}>
-                {formatearPrecio(v.precio)}
-              </span>
+              <div className="flex items-baseline gap-1.5 min-w-0">
+                <span className="font-black text-lg tabular-nums" style={{ color:'#3D2010' }}>
+                  {formatearPrecio(v.precio)}
+                </span>
+                <PrecioAnterior variante={v}/>
+              </div>
+              <SelloOferta variante={v}/>
             </div>
             <Control producto={producto} variante={v} varianteIdx={idx} carrito={carrito} grande/>
           </div>
@@ -84,12 +91,97 @@ export function SelectorVariantes({
 
       {/* Precio del tamaño elegido + botón */}
       <div className="flex items-center justify-between gap-2">
-        <span className="font-heading font-black text-base sm:text-2xl tabular-nums leading-none" style={{ color:'#3D2010' }}>
-          {formatearPrecio(variante.precio)}
-        </span>
+        {/* En la tarjeta el precio de lista va arriba y chiquito: al lado no entra
+            en pantallas angostas y se le encima al botón. */}
+        <div className="flex flex-col min-w-0">
+          <PrecioAnterior variante={variante}/>
+          <span className="font-heading font-black text-base sm:text-2xl tabular-nums leading-none" style={{ color:'#3D2010' }}>
+            {formatearPrecio(variante.precio)}
+          </span>
+        </div>
         <Control producto={producto} variante={variante} varianteIdx={elegida} carrito={carrito}/>
       </div>
     </div>
+  )
+}
+
+/**
+ * Una bolsa concreta con su precio y el botón para sumarla al pedido. Se usa en
+ * el spotlight del producto estrella, donde el tamaño ya viene elegido y no hay
+ * nada para comparar.
+ */
+export function BolsaDestacada({
+  producto,
+  varianteIdx,
+  carrito,
+}: {
+  producto: Producto
+  varianteIdx: number
+  carrito: Carrito
+}) {
+  const variante = producto.variantes[varianteIdx]
+  if (!variante) return null
+
+  return (
+    <div className="inline-flex flex-col sm:flex-row items-center gap-3 sm:gap-5 px-5 py-4 sm:py-2 sm:pl-6 sm:pr-2 rounded-3xl sm:rounded-full"
+         style={{ backgroundColor:'#FFFFFF', boxShadow:'0 0 0 1.5px #F0DCCB, 0 8px 24px rgba(61,32,16,0.08)' }}>
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-semibold whitespace-nowrap" style={{ color:'#9C7050' }}>{variante.etiqueta}</span>
+        {variante.gratis && <SelloGratis/>}
+        <span className="font-heading font-black text-xl tabular-nums" style={{ color:'#3D2010' }}>
+          {formatearPrecio(variante.precio)}
+        </span>
+      </div>
+      <Control producto={producto} variante={variante} varianteIdx={varianteIdx} carrito={carrito}
+               grande textoAgregar="Agregar al pedido"/>
+    </div>
+  )
+}
+
+/**
+ * Solo el botón (o el contador, si ya la sumaste) de una bolsa concreta. Para
+ * lugares donde el tamaño y el precio ya están escritos alrededor, como la
+ * promo de Maxine en el carrusel.
+ */
+export function BotonAgregarBolsa({
+  producto,
+  varianteIdx,
+  carrito,
+  texto = 'Agregar al pedido',
+}: {
+  producto: Producto
+  varianteIdx: number
+  carrito: Carrito
+  texto?: string
+}) {
+  const variante = producto.variantes[varianteIdx]
+  if (!variante) return null
+
+  return (
+    <Control producto={producto} variante={variante} varianteIdx={varianteIdx} carrito={carrito}
+             grande textoAgregar={texto}/>
+  )
+}
+
+/** El precio de lista tachado, cuando la bolsa está en oferta. */
+function PrecioAnterior({ variante }: { variante: Variante }) {
+  if (!descuento(variante)) return null
+  return (
+    <span className="text-[11px] sm:text-xs line-through tabular-nums whitespace-nowrap" style={{ color:'#C4804A' }}>
+      {formatearPrecio(variante.antes!)}
+    </span>
+  )
+}
+
+/** Chapita "-8%" para las bolsas en oferta. */
+function SelloOferta({ variante }: { variante: Variante }) {
+  const off = descuento(variante)
+  if (!off) return null
+  return (
+    <span className="inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded-full text-white flex-shrink-0"
+          style={{ backgroundColor:'#C20808' }}>
+      −{off}%
+    </span>
   )
 }
 
@@ -104,13 +196,14 @@ function SelloGratis() {
 
 /** Botón sólido cuando no hay ninguno; contador cuando ya sumaste. */
 function Control({
-  producto, variante, varianteIdx, carrito, grande,
+  producto, variante, varianteIdx, carrito, grande, textoAgregar = 'Agregar',
 }: {
   producto: Producto
   variante: Variante
   varianteIdx: number
   carrito: Carrito
   grande?: boolean
+  textoAgregar?: string
 }) {
   const cantidad = carrito.cantidadDe(producto.id, varianteIdx)
   const etiqueta = `${producto.marca} ${producto.nombre} ${variante.etiqueta}`
@@ -125,7 +218,7 @@ function Control({
         }`}
         style={{ backgroundColor:'#E87010' }}
       >
-        Agregar
+        {textoAgregar}
       </button>
     )
   }

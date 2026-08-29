@@ -78,7 +78,7 @@ describe('calcularTotales — escalones de descuento', () => {
     expect(t.porcentaje).toBe(0)
   })
 
-  it('entre $6.000 y $10.000 hace 10%', () => {
+  it('arriba de $6.000 hace 10%', () => {
     // Lager Adulto 22+3 kg × 4 = $7.760
     const t = calcularTotales(armar(['lg-a', 0, 4]))
     expect(t.subtotal).toBe(7760)
@@ -87,22 +87,13 @@ describe('calcularTotales — escalones de descuento', () => {
     expect(t.total).toBe(6984)
   })
 
-  it('justo en $10.000 salta al 20%', () => {
-    const t = calcularTotales([
-      { productoId: 'x', varianteIdx: 0, cantidad: 1, producto: catalogo[0], variante: { etiqueta: 'test', precio: 10000 }, importe: 10000 },
-    ])
-    expect(t.porcentaje).toBe(20)
-    expect(t.descuento).toBe(2000)
-    expect(t.total).toBe(8000)
-  })
-
-  it('arriba de $10.000 sigue en 20% y no se acumula con el 10%', () => {
+  it('el 10% es el techo: por más que sume, no sube', () => {
     // Maxine Gatos 21 kg ($3.860) × 4 = $15.440
     const t = calcularTotales(armar(['mx-g', 0, 4]))
     expect(t.subtotal).toBe(15440)
-    expect(t.porcentaje).toBe(20)
-    expect(t.descuento).toBe(3088)
-    expect(t.total).toBe(12352)
+    expect(t.porcentaje).toBe(10)
+    expect(t.descuento).toBe(1544)
+    expect(t.total).toBe(13896)
   })
 
   it('el descuento queda redondeado a peso entero', () => {
@@ -131,11 +122,11 @@ describe('calcularTotales — datos para la barra de progreso', () => {
     expect(t.tramoSiguiente?.porcentaje).toBe(10)
   })
 
-  it('pasado el primer escalón, apunta al segundo', () => {
+  it('pasado el escalón no queda ninguno más por alcanzar', () => {
     const t = calcularTotales(armar(['lg-a', 0, 4])) // $7.760
     expect(t.tramoActual?.porcentaje).toBe(10)
-    expect(t.tramoSiguiente?.porcentaje).toBe(20)
-    expect(t.falta).toBe(2240)
+    expect(t.tramoSiguiente).toBeNull()
+    expect(t.falta).toBe(0)
   })
 
   it('en el escalón máximo no falta nada más', () => {

@@ -31,12 +31,15 @@ App interna para una empresa que vende comida para perros y gatos (marca Maxiene
 Catálogo con carrito. El pedido no se cobra online: se arma el mensaje y se abre
 WhatsApp con el detalle escrito.
 
-- `src/lib/catalogo.ts` — Productos y precios de la web (número, no string)
+- `src/lib/catalogo.ts` — Productos y precios de la web (número, no string). `combos` son las
+  promos de la landing: no se muestran en el grid pero sí entran al carrito con su precio de promo
 - `src/lib/carrito.ts` — Escalones de descuento y armado del mensaje de pedido
 - `src/components/carrito/` — Hook del carrito (localStorage) + drawer + barra de descuentos
+- `src/components/promos/carrusel-promos.tsx` — Carrusel de promos de la landing (arrastre, flechas y autoplay)
 
-**Descuentos por monto:** $6.000 → 10% off, $10.000 → 20% off. Aplica un solo
-escalón (el más alto alcanzado), sobre el subtotal a precio de lista.
+**Descuentos por monto:** $6.000 → 10% off, que hoy es el único escalón y el
+máximo. Se aplica sobre el subtotal a precio de lista. Los escalones viven en
+`TRAMOS` (`src/lib/carrito.ts`) y la UI se dibuja sola desde esa lista.
 
 **OJO con los precios:** viven en dos lados y hay que cambiarlos en los dos.
 `src/lib/catalogo.ts` es lo que ve el cliente en la web; `productos.precio_venta`
