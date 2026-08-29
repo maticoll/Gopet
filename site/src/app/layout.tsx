@@ -10,11 +10,11 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "GoPet | Tu Ración Al Instante",
   description:
-    "Alimento para mascotas con envío gratis a domicilio. Mejores precios, seguimiento personalizado y atención directa. Uruguay.",
+    "Alimento para mascotas con envío a domicilio. Mejores precios, seguimiento personalizado y atención directa. Uruguay.",
   openGraph: {
     title: "GoPet | Tu Ración Al Instante",
     description:
-      "Alimento para mascotas con envío gratis. Pedí por WhatsApp, recibís en tu puerta.",
+      "Alimento para mascotas. Pedí por WhatsApp, recibís en tu puerta.",
     type: "website",
     locale: "es_UY",
   },

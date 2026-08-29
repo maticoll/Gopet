@@ -492,7 +492,7 @@ export default function Landing() {
               <div className="inline-flex items-center gap-2 mb-7 px-4 py-2 rounded-full text-xs text-white/80"
                    style={{ border:"1px solid rgba(255,255,255,0.25)", backgroundColor:"rgba(0,0,0,0.3)", backdropFilter:"blur(10px)" }}>
                 <span className="w-1.5 h-1.5 rounded-full bg-[#25D366]"/>
-                Uruguay · Envío gratis a domicilio
+                Uruguay · Envío a domicilio
               </div>
 
               <h1 className="font-heading font-black leading-[0.88] tracking-tighter mb-6 text-[clamp(2.8rem,9vw,7rem)]">
@@ -503,7 +503,7 @@ export default function Landing() {
 
               <p className="text-white/75 text-base sm:text-xl max-w-lg mb-10 leading-relaxed">
                 Alimento premium Maxine y Lager — Agrofeed Uruguay.<br className="hidden sm:block"/>
-                Envío gratis a domicilio. Todo por WhatsApp.
+                Envío a domicilio. Todo por WhatsApp.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3">
@@ -532,7 +532,7 @@ export default function Landing() {
           <div className="max-w-6xl mx-auto px-6">
             <div className="grid grid-cols-1 md:grid-cols-3" style={{}}>
               {[
-                { icon:<Zap className="w-4 h-4" style={{ color:"#E87010" }}/>,       bg:"#FDE8C8", title:"Entrega express",        desc:"Coordinamos la entrega en tu horario. Envío gratis." },
+                { icon:<Zap className="w-4 h-4" style={{ color:"#E87010" }}/>,       bg:"#FDE8C8", title:"Entrega express",        desc:"Coordinamos la entrega en el horario que te quede bien." },
                 { icon:<ShieldCheck className="w-4 h-4" style={{ color:"#C20808" }}/>, bg:"#FAD0D0", title:"Marcas de confianza",    desc:"Maxine y Lager · Agrofeed Uruguay. Calidad comprobada." },
                 { icon:<Leaf className="w-4 h-4" style={{ color:"#2D9B4A" }}/>,        bg:"#C8F0D8", title:"Asesoría personalizada", desc:"Te ayudamos a elegir la ración correcta. Por WhatsApp." },
               ].map((f, i, arr) => (
@@ -766,7 +766,7 @@ export default function Landing() {
               {[
                 { n:"01", title:"Elegís tu ración",     desc:"Mirá nuestro catálogo y elegí el alimento que mejor le va a tu mascota.", emoji:"🦴" },
                 { n:"02", title:"Pedís por WhatsApp",   desc:"Nos mandás un mensaje con tu pedido. Te respondemos al toque.", emoji:"💬" },
-                { n:"03", title:"Recibís en tu puerta", desc:"Envío gratis y rápido. Coordinamos el horario que más te convenga.", emoji:"🏠" },
+                { n:"03", title:"Recibís en tu puerta", desc:"Te lo llevamos a domicilio. Coordinamos el horario que más te convenga.", emoji:"🏠" },
               ].map((step, i) => (
                 <motion.div key={step.n} initial={{ opacity:0, y:24 }} whileInView={{ opacity:1, y:0 }}
                             viewport={{ once:true }} transition={{ duration:0.45, delay:i*0.1, ease:[0.25,1,0.5,1] }}
@@ -798,7 +798,7 @@ export default function Landing() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {[
-                { emoji:"🚚", bg:"#FDE8C8", title:"Envío gratis y rápido",     desc:"Coordinamos la entrega en el horario que mejor te quede. Sin costo extra." },
+                { emoji:"🚚", bg:"#FDE8C8", title:"Envío rápido a domicilio", desc:"Coordinamos la entrega en el horario que mejor te quede." },
                 { emoji:"🏷️", bg:"#FBDCC0", title:"Los mejores precios",       desc:"Sin intermediarios, sin locales caros. El precio justo para vos y tu mascota." },
                 { emoji:"❤️", bg:"#FFD0DC", title:"Seguimiento de tu mascota", desc:"Te ayudamos a elegir la ración correcta según la edad y raza de tu mascota." },
                 { emoji:"🎧", bg:"#F5E2C0", title:"Atención personalizada",    desc:"Respondemos rápido. Consultas, pedidos y soporte — todo por WhatsApp." },
