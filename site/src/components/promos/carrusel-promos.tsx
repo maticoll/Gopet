@@ -15,8 +15,9 @@ import type { Carrito } from '@/components/carrito/use-carrito'
 // se pueden arrastrar con el dedo, mover con las flechas o saltar con los
 // puntitos. Cada promo tiene su propia foto y su paleta, y las dos se suman al
 // pedido: el combo de Lager entra al carrito como un producto más (vive en
-// `combos`, dentro de catalogo.ts, con el precio de promo ya puesto) y la bolsa
-// de Razas Pequeñas se suma como cualquier otra, ya con su 8% off.
+// `combos`, dentro de catalogo.ts, con el precio de promo ya puesto) y en la de
+// Razas Pequeñas elegís el tamaño de bolsa, que se suma como cualquier otra ya
+// con su 8% off.
 // ──────────────────────────────────────────────────────────────────────────────
 
 /** Cuánto queda cada promo en pantalla antes de pasar sola. */
@@ -35,7 +36,7 @@ type Slide = {
 export function CarruselPromos({ carrito, className = '' }: { carrito: Carrito; className?: string }) {
   const slides: Slide[] = [
     { id: 'lager',  titulo: 'Lager Adulto 22+13 kg',  contenido: <PromoLager carrito={carrito}/> },
-    { id: 'rp',     titulo: 'Maxine Razas Pequeñas 21 kg', contenido: <PromoRazasPequenas carrito={carrito}/> },
+    { id: 'rp',     titulo: 'Maxine Razas Pequeñas',  contenido: <PromoRazasPequenas carrito={carrito}/> },
   ]
   const total = slides.length
 
@@ -179,12 +180,11 @@ function PromoLager({ carrito }: { carrito: Carrito }) {
   return (
     <div className="relative w-full h-full">
       {/* Foto cuadrada: en la franja panorámica entra el plano largo con los dos
-          perros enteros. El encuadre va bajo (72%) para no cortarles las patas y
-          lleva un desenfoque suave para que sea ambiente y no le pelee al texto.
-          El scale tapa el borde que deja el blur. */}
+          perros enteros. El encuadre va bajo (72%) para no cortarles las patas.
+          Va nítida: el degradado de abajo es el que separa la foto del texto. */}
       <Image src="/images/lager-promo-22.png" alt="Perros corriendo en el campo al atardecer" fill draggable={false}
              className="object-cover" sizes="100vw" quality={90} priority
-             style={{ objectPosition: '50% 72%', filter: 'blur(4px)', transform: 'scale(1.05)' }}/>
+             style={{ objectPosition: '50% 72%' }}/>
       <div className="absolute inset-0" style={{
         background: 'linear-gradient(to right, rgba(14,7,0,0.93) 0%, rgba(14,7,0,0.7) 50%, rgba(14,7,0,0.2) 100%)',
       }}/>
@@ -238,34 +238,38 @@ function PromoLager({ carrito }: { carrito: Carrito }) {
   )
 }
 
-// ── Promo 2: Maxine Razas Pequeñas, la bolsa de 21 kg con 8% off ─────────────
+// ── Promo 2: Maxine Razas Pequeñas, elegís qué bolsa te llevás ────────────────
 
 function PromoRazasPequenas({ carrito }: { carrito: Carrito }) {
   const producto = buscarProducto('mx-p')
-  const variante = producto?.variantes[0]
+  // Los dos tamaños están en oferta, así que la promo deja elegir cuál sumar.
+  const [elegida, setElegida] = useState(0)
+
+  const variante = producto?.variantes[elegida]
   if (!producto || !variante) return null
 
   const off = descuento(variante)
-  // La bolsa chica: se muestra al lado, con el mismo formato que la grande.
-  const chica = producto.variantes[1]
 
   return (
     <div className="relative w-full h-full">
       <Image src="/images/promo-rp.png" alt="Dos perros chicos corriendo en el campo al atardecer" fill draggable={false}
              className="object-cover" style={{ objectPosition: '50% 72%' }} sizes="100vw" quality={90}/>
-      {/* Verde profundo desde la izquierda, que es donde va el texto */}
+      {/* Verde desde la izquierda, que es donde va el texto. Va suave: el texto
+          se lee igual porque tiene su propia tarjeta con fondo, así que el
+          degradado solo asienta la foto en vez de taparla. */}
       <div className="absolute inset-0" style={{
-        background: 'linear-gradient(to right, rgba(6,18,4,0.94) 0%, rgba(6,18,4,0.74) 45%, rgba(6,18,4,0.15) 100%)',
+        background: 'linear-gradient(to right, rgba(6,18,4,0.7) 0%, rgba(6,18,4,0.4) 45%, rgba(6,18,4,0.04) 100%)',
       }}/>
-      {/* Y el borde de abajo bien oscuro, para empalmar con la ola de la sección siguiente */}
+      {/* Y el borde de abajo oscuro, para empalmar con la ola de la sección
+          siguiente. Arranca recién a mitad de la franja: arriba queda el cielo. */}
       <div className="absolute inset-0" style={{
-        background: 'linear-gradient(to bottom, rgba(26,15,0,0.35) 0%, rgba(26,15,0,0) 40%, rgba(26,15,0,0.92) 100%)',
+        background: 'linear-gradient(to bottom, rgba(26,15,0,0) 55%, rgba(26,15,0,0.9) 100%)',
       }}/>
 
       <div className="relative z-10 h-full max-w-6xl mx-auto px-6 sm:px-10 py-16 flex items-center">
         {/* max-w-lg: con los dos precios tachados, en md los tamaños se apilaban */}
         <div className="w-full max-w-lg rounded-[28px] px-6 py-7 sm:px-8 sm:py-8"
-             style={{ backgroundColor: 'rgba(8,20,6,0.55)', border: '1px solid rgba(255,255,255,0.16)', backdropFilter: 'blur(14px)' }}>
+             style={{ backgroundColor: 'rgba(6,16,4,0.66)', border: '1px solid rgba(255,255,255,0.18)', backdropFilter: 'blur(16px)' }}>
 
           {off > 0 && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest text-white"
@@ -280,22 +284,32 @@ function PromoRazasPequenas({ carrito }: { carrito: Carrito }) {
             <span style={{ color: '#FFD166' }}>Pequeñas</span>
           </h2>
 
-          <p className="leading-relaxed mb-6" style={{ color: 'rgba(255,255,255,0.62)', fontSize: '0.95rem' }}>
+          <p className="leading-relaxed mb-5" style={{ color: 'rgba(255,255,255,0.62)', fontSize: '0.95rem' }}>
             Alta concentración de energía para el metabolismo acelerado de los
             perros chicos. Pollo y arroz, super premium.
           </p>
 
-          {/* Los dos tamaños se muestran igual: etiqueta arriba y precio grande.
-              El de 21 kg además lleva tachado el precio de lista. */}
-          <div className="flex flex-wrap items-end gap-x-8 gap-y-4 mb-6 pb-6"
+          {/* Los dos tamaños son botones: el que elegís es el que se suma al
+              pedido, y cada uno avisa cuántos llevás. */}
+          <p className="text-[11px] uppercase tracking-widest font-semibold mb-2.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
+            Elegí tu bolsa
+          </p>
+          <div className="grid grid-cols-2 gap-2.5 mb-6 pb-6"
                style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
-            <TamañoPromo variante={variante}/>
-            {chica && <TamañoPromo variante={chica}/>}
+            {producto.variantes.map((v, idx) => (
+              <TamañoPromo
+                key={v.etiqueta}
+                variante={v}
+                activa={idx === elegida}
+                enCarrito={carrito.cantidadDe(producto.id, idx)}
+                onClick={() => setElegida(idx)}
+              />
+            ))}
           </div>
 
           <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-            <BotonAgregarBolsa producto={producto} varianteIdx={0} carrito={carrito}/>
-            <a href={waURL('Hola GoPet! Quiero saber más de la bolsa de Maxine Razas Pequeñas 21 kg.')}
+            <BotonAgregarBolsa producto={producto} varianteIdx={elegida} carrito={carrito}/>
+            <a href={waURL(`Hola GoPet! Quiero saber más de la bolsa de Maxine Razas Pequeñas ${variante.etiqueta}.`)}
                target="_blank" rel="noopener noreferrer"
                className="inline-flex items-center gap-2 text-sm font-semibold transition-colors hover:text-white cursor-pointer"
                style={{ color: 'rgba(255,255,255,0.6)' }}>
@@ -308,23 +322,51 @@ function PromoRazasPequenas({ carrito }: { carrito: Carrito }) {
   )
 }
 
-/** Un tamaño de la promo: la etiqueta en dorado y abajo el precio bien grande. */
-function TamañoPromo({ variante }: { variante: Variante }) {
+/**
+ * Un tamaño de la promo, como botón: la etiqueta arriba y abajo el precio.
+ * El elegido queda marcado en dorado; el otro, apagado.
+ */
+function TamañoPromo({
+  variante,
+  activa,
+  enCarrito,
+  onClick,
+}: {
+  variante: Variante
+  activa: boolean
+  enCarrito: number
+  onClick: () => void
+}) {
   return (
-    <div className="flex flex-col">
-      <span className="text-[11px] uppercase tracking-widest font-semibold mb-0.5" style={{ color: '#FFD166' }}>
+    <button
+      onClick={onClick}
+      aria-pressed={activa}
+      aria-label={`Elegir la bolsa de ${variante.etiqueta}`}
+      className="flex flex-col items-start text-left min-w-0 rounded-2xl px-3.5 py-3 cursor-pointer transition-all"
+      style={activa
+        ? { backgroundColor: 'rgba(255,209,102,0.14)', boxShadow: 'inset 0 0 0 1.5px #FFD166' }
+        : { backgroundColor: 'rgba(255,255,255,0.06)', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.16)' }}
+    >
+      <span className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest font-semibold mb-1"
+            style={{ color: activa ? '#FFD166' : 'rgba(255,255,255,0.5)' }}>
         {variante.etiqueta}
+        {enCarrito > 0 && (
+          <span className="w-4 h-4 flex items-center justify-center rounded-full text-[9px] font-black text-white tabular-nums flex-shrink-0"
+                style={{ backgroundColor: '#E87010' }}>
+            {enCarrito}
+          </span>
+        )}
       </span>
-      <div className="flex items-baseline gap-2">
-        <span className="font-heading font-black text-white" style={{ fontSize: 'clamp(2.2rem,5vw,3rem)', lineHeight: 1 }}>
+      <div className="flex items-baseline flex-wrap gap-x-2">
+        <span className="font-heading font-black text-white" style={{ fontSize: 'clamp(1.5rem,4.2vw,2.4rem)', lineHeight: 1 }}>
           {formatearPrecio(variante.precio)}
         </span>
         {variante.antes && (
-          <span className="font-heading font-bold text-lg line-through" style={{ color: 'rgba(255,255,255,0.35)' }}>
+          <span className="font-heading font-bold text-sm line-through" style={{ color: 'rgba(255,255,255,0.35)' }}>
             {formatearPrecio(variante.antes)}
           </span>
         )}
       </div>
-    </div>
+    </button>
   )
 }
