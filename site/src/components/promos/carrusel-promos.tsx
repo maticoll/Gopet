@@ -254,10 +254,16 @@ function PromoRazasPequenas({ carrito }: { carrito: Carrito }) {
     <div className="relative w-full h-full">
       <Image src="/images/promo-rp.png" alt="Dos perros chicos corriendo en el campo al atardecer" fill draggable={false}
              className="object-cover" style={{ objectPosition: '50% 72%' }} sizes="100vw" quality={90}/>
-      {/* Verde desde la izquierda, que es donde va el texto. Va suave: el texto
-          se lee igual porque tiene su propia tarjeta con fondo, así que el
-          degradado solo asienta la foto en vez de taparla. */}
-      <div className="absolute inset-0" style={{
+      {/* En el celular el texto va apoyado sobre la foto, como en la de Lager: no
+          hay tarjeta que la tape, así que el que hace legible el texto es este
+          degradado, cerrado a la izquierda y abierto a la derecha, que es por
+          donde vienen corriendo los perros. */}
+      <div className="absolute inset-0 sm:hidden" style={{
+        background: 'linear-gradient(to right, rgba(6,16,4,0.92) 0%, rgba(6,16,4,0.74) 42%, rgba(6,16,4,0.3) 100%)',
+      }}/>
+      {/* De ahí para arriba sí hay tarjeta, así que el verde va suave: solo
+          asienta la foto en vez de taparla. */}
+      <div className="absolute inset-0 hidden sm:block" style={{
         background: 'linear-gradient(to right, rgba(6,18,4,0.7) 0%, rgba(6,18,4,0.4) 45%, rgba(6,18,4,0.04) 100%)',
       }}/>
       {/* Y el borde de abajo oscuro, para empalmar con la ola de la sección
@@ -267,9 +273,11 @@ function PromoRazasPequenas({ carrito }: { carrito: Carrito }) {
       }}/>
 
       <div className="relative z-10 h-full max-w-6xl mx-auto px-6 sm:px-10 py-16 flex items-center">
-        {/* max-w-lg: con los dos precios tachados, en md los tamaños se apilaban */}
-        <div className="w-full max-w-lg rounded-[28px] px-6 py-7 sm:px-8 sm:py-8"
-             style={{ backgroundColor: 'rgba(6,16,4,0.66)', border: '1px solid rgba(255,255,255,0.18)', backdropFilter: 'blur(16px)' }}>
+        {/* max-w-lg: con los dos precios tachados, en md los tamaños se apilaban.
+            La tarjeta (fondo, borde y blur) arranca recién en sm: en el celular
+            ocupaba todo el ancho y tapaba la foto, y la promo quedaba como un
+            cuadrado con texto. */}
+        <div className="w-full max-w-lg max-sm:[text-shadow:0_2px_14px_rgba(0,0,0,0.65)] sm:rounded-[28px] sm:px-8 sm:py-8 sm:bg-[rgba(6,16,4,0.66)] sm:border sm:border-white/[0.18] sm:backdrop-blur-[16px]">
 
           {off > 0 && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest text-white"
@@ -284,7 +292,7 @@ function PromoRazasPequenas({ carrito }: { carrito: Carrito }) {
             <span style={{ color: '#FFD166' }}>Pequeñas</span>
           </h2>
 
-          <p className="leading-relaxed mb-5" style={{ color: 'rgba(255,255,255,0.62)', fontSize: '0.95rem' }}>
+          <p className="leading-relaxed mb-5 max-w-xs sm:max-w-none" style={{ color: 'rgba(255,255,255,0.62)', fontSize: '0.95rem' }}>
             Alta concentración de energía para el metabolismo acelerado de los
             perros chicos. Pollo y arroz, super premium.
           </p>
@@ -294,8 +302,7 @@ function PromoRazasPequenas({ carrito }: { carrito: Carrito }) {
           <p className="text-[11px] uppercase tracking-widest font-semibold mb-2.5" style={{ color: 'rgba(255,255,255,0.45)' }}>
             Elegí tu bolsa
           </p>
-          <div className="grid grid-cols-2 gap-2.5 mb-6 pb-6"
-               style={{ borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+          <div className="grid grid-cols-2 gap-2.5 mb-6 sm:pb-6 sm:border-b sm:border-white/[0.12]">
             {producto.variantes.map((v, idx) => (
               <TamañoPromo
                 key={v.etiqueta}
