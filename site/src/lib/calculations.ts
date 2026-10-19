@@ -54,6 +54,20 @@ export function calcularFechaFinPorGramosDia(
   return fechaFin
 }
 
+/**
+ * Kilos de comida de una bolsa, leídos del nombre del producto.
+ * "Maxine Adulto 7,5 kg" → 7.5 · "Lager Adulto 22+3 kg" → 25 (los kilos de
+ * regalo también se comen, así que cuentan para la fecha de fin de bolsa).
+ * Devuelve null si el nombre no dice los kilos.
+ */
+export function kilosDeBolsa(nombreProducto: string): number | null {
+  const m = nombreProducto.match(/(\d+(?:[.,]\d+)?)(?:\s*\+\s*(\d+(?:[.,]\d+)?))?\s*kg/i)
+  if (!m) return null
+  const base = parseFloat(m[1].replace(',', '.'))
+  const regalo = m[2] ? parseFloat(m[2].replace(',', '.')) : 0
+  return base + regalo
+}
+
 export function calcularFechaFinGato(fechaVenta: Date, intervaloDias: number): Date {
   const fechaFin = new Date(fechaVenta)
   fechaFin.setDate(fechaFin.getDate() + intervaloDias)

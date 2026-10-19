@@ -3,6 +3,7 @@ import {
   calcularFechaFinGato,
   calcularGramosPorDia,
   diasHastaFin,
+  kilosDeBolsa,
 } from '@/lib/calculations'
 
 describe('calcularGramosPorDia', () => {
@@ -52,5 +53,25 @@ describe('diasHastaFin', () => {
     const pasado = new Date()
     pasado.setDate(pasado.getDate() - 3)
     expect(diasHastaFin(pasado)).toBe(-3)
+  })
+})
+
+describe('kilosDeBolsa', () => {
+  it('lee los kilos del nombre del producto', () => {
+    expect(kilosDeBolsa('Maxine Senior 21 kg')).toBe(21)
+    expect(kilosDeBolsa('Lager Cachorro 10 kg')).toBe(10)
+  })
+
+  it('acepta coma decimal', () => {
+    expect(kilosDeBolsa('Maxine Adulto 7,5 kg')).toBe(7.5)
+  })
+
+  it('suma los kilos de regalo', () => {
+    expect(kilosDeBolsa('Lager Adulto 22+3 kg')).toBe(25)
+    expect(kilosDeBolsa('Maxine Adulto 21+4 kg')).toBe(25)
+  })
+
+  it('devuelve null si el nombre no dice los kilos', () => {
+    expect(kilosDeBolsa('Promo Adultos')).toBeNull()
   })
 })

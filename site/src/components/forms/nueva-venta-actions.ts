@@ -2,13 +2,15 @@
 
 import { sql } from '@/lib/db'
 import { appendVentaToSheet } from '@/lib/google-sheets'
-import { buscarClienteSimilar, completarDatosContacto } from '@/lib/clientes'
+import { buscarClienteSimilar, completarDatosContacto, type ClienteEncontrado } from '@/lib/clientes'
 import { revalidatePath } from 'next/cache'
 
 interface VentaInput {
+  clienteId:        string | null   // elegido de la lista de clientes existentes
   clienteNombre:    string
   clienteTelefono:  string | null
   clienteDireccion: string | null
+  perroId:          string | null   // mascota existente elegida
   mascotaNombre:    string
   mascotaPeso:      number | null
   especie:          'perro' | 'gato'
@@ -27,14 +29,21 @@ export async function registrarVentaAction(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // 1. Buscar o crear cliente.
-    // Antes acá se comparaba con lower(nombre) = lower(...): escribir "Nacho
-    // Merlí" cuando en la base estaba "Nacho Merli" creaba una segunda ficha.
-    // Ahora usa el mismo matcher que el bot (ignora acentos y typos).
-    const clienteExistente = await buscarClienteSimilar(d.clienteNombre)
+    // Si lo eligieron de la lista se usa esa ficha tal cual. Si lo escribieron a
+    // mano, se busca con el mismo matcher que el bot (ignora acentos y typos):
+    // antes "Nacho Merlí" con "Nacho Merli" en la base creaba una segunda ficha.
+    let clienteExistente: ClienteEncontrado | null = null
+    if (d.clienteId) {
+      const rows = await sql`SELECT id, nombre, telefono, direccion, activo FROM clientes WHERE id = ${d.clienteId}`
+      clienteExistente = (rows[0] as unknown as ClienteEncontrado) ?? null
+    }
+    if (!clienteExistente) clienteExistente = await buscarClienteSimilar(d.clienteNombre)
     let clienteId: string
 
     if (clienteExistente) {
       clienteId = clienteExistente.id
+      // Igual que el bot: si estaba de baja y vuelve a comprar, vuelve a estar activo.
+      if (!clienteExistente.activo) await sql`UPDATE clientes SET activo = true WHERE id = ${clienteId}`
       // Sólo completa lo que está vacío: no pisa un teléfono o dirección ya cargados.
       await completarDatosContacto(clienteExistente, d.clienteTelefono, d.clienteDireccion)
     } else {
@@ -46,17 +55,23 @@ export async function registrarVentaAction(
       clienteId = nuevo[0].id as string
     }
 
-    // 2. Buscar o crear mascota
-    const mascotaRows = await sql`
-      SELECT id FROM perros
-      WHERE cliente_id = ${clienteId} AND lower(nombre) = lower(${d.mascotaNombre})
-      ORDER BY created_at ASC
-      LIMIT 1
-    `
-    let perroId: string
+    // 2. Buscar o crear mascota (la elegida tiene que ser de este cliente)
+    let perroId: string | null = null
+    if (d.perroId) {
+      const rows = await sql`SELECT id FROM perros WHERE id = ${d.perroId} AND cliente_id = ${clienteId}`
+      perroId = (rows[0]?.id as string) ?? null
+    }
+    if (!perroId) {
+      const mascotaRows = await sql`
+        SELECT id FROM perros
+        WHERE cliente_id = ${clienteId} AND lower(nombre) = lower(${d.mascotaNombre})
+        ORDER BY created_at ASC
+        LIMIT 1
+      `
+      perroId = (mascotaRows[0]?.id as string) ?? null
+    }
 
-    if (mascotaRows.length) {
-      perroId = mascotaRows[0].id as string
+    if (perroId) {
       if (d.especie === 'gato' && d.intervaloDias) {
         await sql`UPDATE perros SET intervalo_compra_dias = ${d.intervaloDias}, peso_kg = ${d.mascotaPeso} WHERE id = ${perroId}`
       }
