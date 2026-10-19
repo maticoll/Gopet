@@ -25,7 +25,7 @@ export default async function NuevaVentaPage() {
       LEFT JOIN ventas v ON v.perro_id = p.id
       ORDER BY p.id, v.fecha_venta DESC NULLS LAST, v.created_at DESC NULLS LAST
     `,
-    sql`SELECT nombre, marca, precio_venta FROM productos ORDER BY marca, nombre`,
+    sql`SELECT nombre, marca, precio_venta, stock_shangrila, stock_departamento FROM productos ORDER BY marca, nombre`,
   ])
 
   const mascotasPorCliente = new Map<string, MascotaOpcion[]>()
@@ -55,9 +55,11 @@ export default async function NuevaVentaPage() {
   }))
 
   const productos: ProductoOpcion[] = productosRows.map(p => ({
-    nombre: p.nombre as string,
-    marca:  (p.marca as string | null) ?? 'Otras marcas',
-    precio: numeroONull(p.precio_venta),
+    nombre:            p.nombre as string,
+    marca:             (p.marca as string | null) ?? 'Otras marcas',
+    precio:            numeroONull(p.precio_venta),
+    stockShangrila:    numeroONull(p.stock_shangrila) ?? 0,
+    stockDepartamento: numeroONull(p.stock_departamento) ?? 0,
   }))
 
   return (

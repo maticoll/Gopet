@@ -31,10 +31,19 @@ export interface ProductoOpcion {
   nombre: string
   marca: string
   precio: number | null
+  stockShangrila: number
+  stockDepartamento: number
 }
+
+type Casa = 'shangrila' | 'departamento'
 
 const OTRO_PRODUCTO = '__otro__'
 const MAX_RESULTADOS = 8
+
+const CASA_LABELS: Record<Casa, string> = {
+  shangrila:    '🏠 Shangrila',
+  departamento: '🏢 Departamento',
+}
 
 const TIPO_LABELS: Record<string, string> = {
   adulto:         'Adulto',
@@ -60,6 +69,14 @@ function formatearPrecio(n: number): string {
   return `$${n.toLocaleString('es-UY')}`
 }
 
+function bolsas(n: number): string {
+  return `${n} bolsa${n !== 1 ? 's' : ''}`
+}
+
+function stockEn(p: ProductoOpcion, casa: Casa): number {
+  return casa === 'departamento' ? p.stockDepartamento : p.stockShangrila
+}
+
 export function NuevaVentaForm({ clientes, productos }: { clientes: ClienteOpcion[]; productos: ProductoOpcion[] }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -73,10 +90,12 @@ export function NuevaVentaForm({ clientes, productos }: { clientes: ClienteOpcio
   const [listaAbierta, setListaAbierta] = useState(false)
   const [resaltado, setResaltado] = useState(0)
   const [productoOtro, setProductoOtro] = useState(false)
+  const [casa, setCasa] = useState<Casa>('shangrila')
+  const [pagado, setPagado] = useState(true)
   const [form, setForm] = useState({
     clienteNombre: '', clienteTelefono: '', clienteDireccion: '',
     mascotaNombre: '', mascotaPeso: '', tipoPerro: 'adulto',
-    producto: '', tamañoBolsaKg: '', precio: '',
+    producto: '', tamañoBolsaKg: '', precio: '', cantidad: '1',
     gramosPorComida: '', vecesAlDia: '2',
     intervaloDias: '', fechaManual: '',
   })
@@ -88,6 +107,10 @@ export function NuevaVentaForm({ clientes, productos }: { clientes: ClienteOpcio
   const clienteElegido = clientes.find(c => c.id === clienteId) ?? null
   const mascotaElegida = clienteElegido?.mascotas.find(m => m.id === perroId) ?? null
   const productoElegido = productoOtro ? null : productos.find(p => p.nombre === form.producto) ?? null
+  // registrar_venta descuenta stock del producto cuyo nombre coincide (sin
+  // importar mayúsculas), así que uno escrito a mano también puede descontar.
+  const productoConStock = productos.find(p => p.nombre.toLowerCase() === form.producto.trim().toLowerCase()) ?? null
+  const cantidad = Number(form.cantidad)
 
   // Busca por nombre, teléfono, dirección o nombre de la mascota, sin importar acentos.
   const resultados = useMemo(() => {
@@ -246,6 +269,10 @@ export function NuevaVentaForm({ clientes, productos }: { clientes: ClienteOpcio
       setError('Elegí para qué mascota es la venta.')
       return
     }
+    if (!Number.isInteger(cantidad) || cantidad < 1) {
+      setError('La cantidad de bolsas tiene que ser 1 o más.')
+      return
+    }
 
     setLoading(true)
     try {
@@ -263,6 +290,9 @@ export function NuevaVentaForm({ clientes, productos }: { clientes: ClienteOpcio
         producto:         form.producto,
         tamañoBolsaKg:    parseFloat(form.tamañoBolsaKg),
         precio:           parseInt(form.precio),
+        cantidad,
+        casa,
+        pagado,
         gramosPorComida:  especie === 'perro' ? (parseInt(form.gramosPorComida) || null) : null,
         vecesAlDia:       especie === 'perro' ? parseInt(form.vecesAlDia) : null,
         intervaloDias:    especie === 'gato' ? (parseInt(form.intervaloDias) || null) : null,
@@ -502,6 +532,41 @@ export function NuevaVentaForm({ clientes, productos }: { clientes: ClienteOpcio
               </p>
             )}
           </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">Cantidad de bolsas *</label>
+            <input type="number" min="1" step="1" value={form.cantidad} onChange={e => set('cantidad', e.target.value)} required className={inputCls} />
+            {cantidad > 1 && form.precio && (
+              <p className="text-xs text-slate-500 mt-1">Total: {formatearPrecio(cantidad * parseInt(form.precio))}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs text-slate-400 mb-1">Pago</label>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setPagado(true)} className={toggleCls(pagado)}>✅ Pagado</button>
+              <button type="button" onClick={() => setPagado(false)} className={toggleCls(!pagado)}>⏳ Pendiente</button>
+            </div>
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs text-slate-400 mb-1">Se descuenta del stock de</label>
+          <div className="flex flex-wrap gap-2">
+            {(Object.keys(CASA_LABELS) as Casa[]).map(c => (
+              <button key={c} type="button" onClick={() => setCasa(c)} className={toggleCls(casa === c)}>
+                {CASA_LABELS[c]}{productoConStock ? ` (${stockEn(productoConStock, c)})` : ''}
+              </button>
+            ))}
+          </div>
+          {/* Igual que el bot: avisa pero deja vender (registrar_venta deja el stock en 0, nunca negativo). */}
+          {productoConStock && stockEn(productoConStock, casa) < cantidad && (
+            <p className="text-xs text-amber-400 mt-1">
+              ⚠️ Solo hay {bolsas(stockEn(productoConStock, casa))} en {CASA_LABELS[casa]}. La venta se guarda igual y el stock queda en 0.
+            </p>
+          )}
+          {form.producto.trim() && !productoConStock && (
+            <p className="text-xs text-slate-500 mt-1">Este producto no está en la lista de stock: no se descuenta nada.</p>
+          )}
         </div>
 
         {especie === 'perro' && (

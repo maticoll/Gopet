@@ -17,7 +17,10 @@ interface VentaInput {
   tipoPerro:        string | null
   producto:         string
   tamañoBolsaKg:    number
-  precio:           number
+  precio:           number          // por bolsa
+  cantidad:         number
+  casa:             'shangrila' | 'departamento'   // de qué casa sale el stock
+  pagado:           boolean
   gramosPorComida:  number | null
   vecesAlDia:       number | null
   intervaloDias:    number | null
@@ -27,6 +30,13 @@ interface VentaInput {
 export async function registrarVentaAction(
   d: VentaInput
 ): Promise<{ success: boolean; error?: string }> {
+  // Se valida antes de escribir nada, para no dejar un cliente o mascota sueltos.
+  if (!Number.isInteger(d.cantidad) || d.cantidad < 1) {
+    return { success: false, error: 'La cantidad de bolsas tiene que ser 1 o más.' }
+  }
+  const casa = d.casa === 'departamento' ? 'departamento' : 'shangrila'
+  const producto = d.producto.trim()
+
   try {
     // 1. Buscar o crear cliente.
     // Si lo eligieron de la lista se usa esa ficha tal cual. Si lo escribieron a
@@ -84,11 +94,16 @@ export async function registrarVentaAction(
       perroId = nueva[0].id as string
     }
 
-    // 3. Registrar venta
-    await sql`
-      INSERT INTO ventas (cliente_id, perro_id, producto, tamaño_bolsa_kg, precio, gramos_por_comida, veces_al_dia, fecha_estimada_fin)
-      VALUES (${clienteId}, ${perroId}, ${d.producto}, ${d.tamañoBolsaKg}, ${d.precio}, ${d.gramosPorComida}, ${d.vecesAlDia}, ${d.fechaEstimadaFin}::date)
-    `
+    // 3. Registrar venta con la misma función que el bot: guarda casa, cantidad
+    // y pagado, y baja las bolsas del stock de esa casa. Si el producto no está
+    // en `productos` (uno escrito a mano) la venta se guarda y el stock no cambia.
+    await sql`SELECT registrar_venta(
+      ${clienteId}::uuid, ${perroId}::uuid, ${producto},
+      ${d.tamañoBolsaKg}, ${d.precio},
+      ${d.gramosPorComida}, ${d.vecesAlDia},
+      ${d.fechaEstimadaFin}::date, ${d.cantidad}, ${d.pagado},
+      ${casa}
+    )`
 
     // 4. Google Sheets (non-blocking)
     try {
@@ -99,7 +114,7 @@ export async function registrarVentaAction(
         mascotaNombre:    d.mascotaNombre,
         especie:          d.especie,
         mascotaPeso:      d.mascotaPeso ?? undefined,
-        producto:         d.producto,
+        producto:         producto,
         tamañoBolsaKg:    d.tamañoBolsaKg,
         precio:           d.precio,
         fechaVenta:       new Date().toISOString().split('T')[0],
@@ -110,6 +125,8 @@ export async function registrarVentaAction(
     }
 
     revalidatePath('/dashboard')
+    revalidatePath('/dashboard/caja')
+    revalidatePath('/dashboard/stock')
     return { success: true }
   } catch (err) {
     console.error('registrarVentaAction error:', err)
