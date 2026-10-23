@@ -5,37 +5,58 @@ import { appendVentaToSheet } from '@/lib/google-sheets'
 import { buscarClienteSimilar, completarDatosContacto, type ClienteEncontrado } from '@/lib/clientes'
 import { revalidatePath } from 'next/cache'
 
+export interface BolsaVenta {
+  producto:      string
+  tamañoBolsaKg: number
+  precio:        number   // por bolsa
+  cantidad:      number
+}
+
+// Las bolsas de una misma mascota, con lo que come y cuándo se le termina.
+export interface MascotaVenta {
+  perroId:          string | null   // null = la mascota nueva de `mascotaNueva`
+  gramosPorComida:  number | null
+  vecesAlDia:       number | null
+  intervaloDias:    number | null
+  fechaEstimadaFin: string | null
+  bolsas:           BolsaVenta[]
+}
+
 interface VentaInput {
   clienteId:        string | null   // elegido de la lista de clientes existentes
   clienteNombre:    string
   clienteTelefono:  string | null
   clienteDireccion: string | null
-  perroId:          string | null   // mascota existente elegida
-  mascotaNombre:    string
-  mascotaPeso:      number | null
-  especie:          'perro' | 'gato'
-  tipoPerro:        string | null
-  producto:         string
-  tamañoBolsaKg:    number
-  precio:           number          // por bolsa
-  cantidad:         number
-  casa:             'shangrila' | 'departamento'   // de qué casa sale el stock
-  pagado:           boolean
-  gramosPorComida:  number | null
-  vecesAlDia:       number | null
-  intervaloDias:    number | null
-  fechaEstimadaFin: string | null
+  mascotaNueva: {
+    nombre:  string
+    especie: 'perro' | 'gato'
+    tipo:    string | null
+    pesoKg:  number | null
+  } | null
+  mascotas: MascotaVenta[]
+  casa:     'shangrila' | 'departamento'   // de qué casa sale el stock
+  pagado:   boolean
+}
+
+function validar(d: VentaInput): string | null {
+  if (!d.mascotas.length || d.mascotas.some(m => !m.bolsas.length)) return 'Agregá al menos una bolsa.'
+  for (const b of d.mascotas.flatMap(m => m.bolsas)) {
+    if (!b.producto.trim()) return 'Falta elegir el producto de una de las bolsas.'
+    if (!Number.isInteger(b.cantidad) || b.cantidad < 1) return 'La cantidad de bolsas tiene que ser 1 o más.'
+    if (!Number.isInteger(b.precio) || b.precio < 0) return `Revisá el precio de ${b.producto}.`
+    if (!Number.isFinite(b.tamañoBolsaKg) || b.tamañoBolsaKg <= 0) return `Revisá los kilos de ${b.producto}.`
+  }
+  if (d.mascotas.some(m => !m.perroId) && !d.mascotaNueva?.nombre.trim()) return 'Falta el nombre de la mascota.'
+  return null
 }
 
 export async function registrarVentaAction(
   d: VentaInput
 ): Promise<{ success: boolean; error?: string }> {
   // Se valida antes de escribir nada, para no dejar un cliente o mascota sueltos.
-  if (!Number.isInteger(d.cantidad) || d.cantidad < 1) {
-    return { success: false, error: 'La cantidad de bolsas tiene que ser 1 o más.' }
-  }
+  const invalido = validar(d)
+  if (invalido) return { success: false, error: invalido }
   const casa = d.casa === 'departamento' ? 'departamento' : 'shangrila'
-  const producto = d.producto.trim()
 
   try {
     // 1. Buscar o crear cliente.
@@ -65,63 +86,93 @@ export async function registrarVentaAction(
       clienteId = nuevo[0].id as string
     }
 
-    // 2. Buscar o crear mascota (la elegida tiene que ser de este cliente)
-    let perroId: string | null = null
-    if (d.perroId) {
-      const rows = await sql`SELECT id FROM perros WHERE id = ${d.perroId} AND cliente_id = ${clienteId}`
-      perroId = (rows[0]?.id as string) ?? null
-    }
-    if (!perroId) {
-      const mascotaRows = await sql`
-        SELECT id FROM perros
-        WHERE cliente_id = ${clienteId} AND lower(nombre) = lower(${d.mascotaNombre})
-        ORDER BY created_at ASC
-        LIMIT 1
-      `
-      perroId = (mascotaRows[0]?.id as string) ?? null
+    // 2. Mascotas. Las elegidas de la lista tienen que ser de este cliente.
+    const mascotasCliente = await sql`SELECT id, nombre, especie, peso_kg FROM perros WHERE cliente_id = ${clienteId}`
+    const delCliente = new Map(mascotasCliente.map(m => [m.id as string, m]))
+    if (d.mascotas.some(m => m.perroId && !delCliente.has(m.perroId))) {
+      return { success: false, error: 'Una de las mascotas elegidas no es de este cliente. Recargá la página.' }
     }
 
-    if (perroId) {
-      if (d.especie === 'gato' && d.intervaloDias) {
-        await sql`UPDATE perros SET intervalo_compra_dias = ${d.intervaloDias}, peso_kg = ${d.mascotaPeso} WHERE id = ${perroId}`
+    // La mascota nueva: si el cliente ya tiene una con ese nombre se usa esa.
+    let nuevaId: string | null = null
+    const nueva = d.mascotaNueva
+    if (nueva && d.mascotas.some(m => !m.perroId)) {
+      const mismoNombre = mascotasCliente.find(m => (m.nombre as string).toLowerCase() === nueva.nombre.trim().toLowerCase())
+      if (mismoNombre) {
+        nuevaId = mismoNombre.id as string
+      } else {
+        const fila = await sql`
+          INSERT INTO perros (cliente_id, nombre, especie, tipo, peso_kg)
+          VALUES (${clienteId}, ${nueva.nombre.trim()}, ${nueva.especie}, ${nueva.especie === 'perro' ? nueva.tipo : null}, ${nueva.pesoKg})
+          RETURNING id
+        `
+        nuevaId = fila[0].id as string
+        delCliente.set(nuevaId, { id: nuevaId, nombre: nueva.nombre.trim(), especie: nueva.especie, peso_kg: nueva.pesoKg })
       }
-    } else {
-      const nueva = await sql`
-        INSERT INTO perros (cliente_id, nombre, especie, tipo, peso_kg)
-        VALUES (${clienteId}, ${d.mascotaNombre}, ${d.especie}, ${d.tipoPerro}, ${d.mascotaPeso})
-        RETURNING id
-      `
-      perroId = nueva[0].id as string
     }
 
-    // 3. Registrar venta con la misma función que el bot: guarda casa, cantidad
-    // y pagado, y baja las bolsas del stock de esa casa. Si el producto no está
-    // en `productos` (uno escrito a mano) la venta se guarda y el stock no cambia.
-    await sql`SELECT registrar_venta(
-      ${clienteId}::uuid, ${perroId}::uuid, ${producto},
-      ${d.tamañoBolsaKg}, ${d.precio},
-      ${d.gramosPorComida}, ${d.vecesAlDia},
-      ${d.fechaEstimadaFin}::date, ${d.cantidad}, ${d.pagado},
-      ${casa}
-    )`
+    const grupos = d.mascotas.map(m => {
+      const perroId = (m.perroId ?? nuevaId) as string
+      const ficha = delCliente.get(perroId)!
+      return {
+        ...m, perroId,
+        nombre:  ficha.nombre as string,
+        especie: ficha.especie as 'perro' | 'gato',
+        pesoKg:  ficha.peso_kg != null ? Number(ficha.peso_kg) : undefined,
+      }
+    })
 
-    // 4. Google Sheets (non-blocking)
-    try {
-      await appendVentaToSheet({
-        clienteNombre:    d.clienteNombre,
-        clienteTelefono:  d.clienteTelefono ?? undefined,
-        clienteDireccion: d.clienteDireccion ?? undefined,
-        mascotaNombre:    d.mascotaNombre,
-        especie:          d.especie,
-        mascotaPeso:      d.mascotaPeso ?? undefined,
-        producto:         producto,
-        tamañoBolsaKg:    d.tamañoBolsaKg,
-        precio:           d.precio,
-        fechaVenta:       new Date().toISOString().split('T')[0],
-        fechaEstimadaFin: d.fechaEstimadaFin ?? undefined,
-      })
-    } catch (e) {
-      console.error('Sheets sync error (non-fatal):', e)
+    for (const g of grupos) {
+      if (g.especie === 'gato' && g.intervaloDias) {
+        await sql`UPDATE perros SET intervalo_compra_dias = ${g.intervaloDias} WHERE id = ${g.perroId}`
+      }
+    }
+
+    // 3. Registrar las bolsas con la misma función que el bot (guarda casa,
+    // cantidad y pagado, y baja el stock de esa casa), todas en una sola
+    // transacción: o se guardan todas o ninguna. Un producto escrito a mano que
+    // no está en `productos` se guarda igual y no toca el stock.
+    const filas = grupos.flatMap(g => g.bolsas.map(b => ({ g, b })))
+    const resultados = await sql.transaction(filas.map(({ g, b }) => sql`SELECT registrar_venta(
+      ${clienteId}::uuid, ${g.perroId}::uuid, ${b.producto.trim()},
+      ${b.tamañoBolsaKg}, ${b.precio},
+      ${g.especie === 'perro' ? g.gramosPorComida : null}, ${g.especie === 'perro' ? g.vecesAlDia : null},
+      ${g.fechaEstimadaFin}::date, ${b.cantidad}, ${d.pagado},
+      ${casa}
+    ) AS venta_id`))
+
+    // Todas las bolsas de una mascota llevan la misma fecha de fin, pero la
+    // alerta tiene que llegar una sola vez: las demás se marcan como ya avisadas.
+    const yaAvisadas: string[] = []
+    const conAlerta = new Set<string>()
+    filas.forEach(({ g }, i) => {
+      if (!g.fechaEstimadaFin) return
+      if (conAlerta.has(g.perroId)) yaAvisadas.push(resultados[i][0].venta_id as string)
+      else conAlerta.add(g.perroId)
+    })
+    for (const ventaId of yaAvisadas) {
+      await sql`UPDATE ventas SET alerta_enviada = true WHERE id = ${ventaId}`
+    }
+
+    // 4. Google Sheets (non-blocking): una fila por bolsa, como el bot.
+    for (const { g, b } of filas) {
+      try {
+        await appendVentaToSheet({
+          clienteNombre:    d.clienteNombre,
+          clienteTelefono:  d.clienteTelefono ?? undefined,
+          clienteDireccion: d.clienteDireccion ?? undefined,
+          mascotaNombre:    g.nombre,
+          especie:          g.especie,
+          mascotaPeso:      g.pesoKg,
+          producto:         b.producto.trim(),
+          tamañoBolsaKg:    b.tamañoBolsaKg,
+          precio:           b.precio,
+          fechaVenta:       new Date().toISOString().split('T')[0],
+          fechaEstimadaFin: g.fechaEstimadaFin ?? undefined,
+        })
+      } catch (e) {
+        console.error('Sheets sync error (non-fatal):', e)
+      }
     }
 
     revalidatePath('/dashboard')
